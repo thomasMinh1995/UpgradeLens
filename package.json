@@ -1,0 +1,38 @@
+{
+  "name": "upgradelens",
+  "version": "0.1.0",
+  "description": "Discover the structure and technology footprint of a software project.",
+  "type": "module",
+  "bin": {
+    "upgradelens": "./bin/upgradelens.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "docs",
+    "schemas",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "npm test && npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "discovery",
+    "migration",
+    "modernization",
+    "cli"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thomasMinh1995/UpgradeLens.git"
+  }
+}
