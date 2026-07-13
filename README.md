@@ -43,6 +43,25 @@ MVP-01 recognizes Node.js, Python, Java/Kotlin, .NET, Go, Rust, Ruby, PHP, and D
 
 Malformed or unreadable individual manifests become warnings instead of discarding valid results from the rest of the repository. Use `--fail-on-warning` in CI when warnings should produce a non-zero status.
 
+Every project contains a `dependencySummary` and a deterministic `dependencies` inventory. A parsed summary distinguishes declaration count from normalized unique packages and reports duplicates explicitly:
+
+```json
+{
+  "dependencySummary": {
+    "status": "parsed",
+    "declarationCount": 28,
+    "uniqueCount": 27,
+    "duplicateCount": 1
+  }
+}
+```
+
+Node.js additionally reports counts for `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`. Duplicate package declarations across sections remain separate inventory records and emit `DUPLICATE_DEPENDENCY_DECLARATION`.
+
+For Python `requirements.txt`, UpgradeLens normalizes named packages using rules close to PEP 503. It supports standard version specifiers, extras, environment markers, inline comments, editable declarations, and direct URL/Git references. Unnamed references use their exact reference as a stable identity rather than being discarded. Requirement/constraint includes and index options are recognized but not counted; referenced files are not followed in MVP-01.
+
+`status` is `parsed`, `unsupported`, or `failed`. All three counts exist only for `parsed`; unsupported or failed parsers never produce misleading zero or partial counts. Failed parsers also emit no partial dependency inventory. A malformed requirement line keeps the project in the manifest and emits `DEPENDENCY_PARSE_FAILED`.
+
 ## JavaScript API
 
 ```js

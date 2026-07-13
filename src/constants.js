@@ -1,8 +1,8 @@
 export const PRODUCT_NAME = 'UpgradeLens';
 export const PACKAGE_NAME = 'upgradelens';
 export const CLI_NAME = 'upgradelens';
-export const VERSION = '0.1.0';
-export const MANIFEST_SCHEMA_VERSION = '1.0.0';
+export const VERSION = '0.1.1';
+export const MANIFEST_SCHEMA_VERSION = '2.0.0';
 export const DEFAULT_OUTPUT_DIRECTORY = '.upgradelens';
 export const DEFAULT_MANIFEST_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/project-manifest.json`;
 

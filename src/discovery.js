@@ -170,8 +170,11 @@ export async function discoverProject(inputPath = '.', options = {}) {
   for (const group of groupCandidateFiles(files)) {
     try {
       const entries = await directoryEntryNames(group.directory);
-      const project = await inspectProjectGroup(root, group, entries);
-      if (project) projects.push(project);
+      const result = await inspectProjectGroup(root, group, entries);
+      if (result) {
+        projects.push(result.project);
+        warnings.push(...result.warnings);
+      }
     } catch (error) {
       warnings.push(warningFor(error, root, group));
     }

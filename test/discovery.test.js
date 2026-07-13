@@ -7,6 +7,7 @@ import test from 'node:test';
 import {
   DEFAULT_MANIFEST_PATH,
   DEFAULT_OUTPUT_DIRECTORY,
+  MANIFEST_SCHEMA_VERSION,
   PACKAGE_NAME,
   PRODUCT_NAME,
   discoverProject
@@ -37,6 +38,7 @@ test('exports the required product conventions', () => {
   assert.equal(PACKAGE_NAME, 'upgradelens');
   assert.equal(DEFAULT_OUTPUT_DIRECTORY, '.upgradelens');
   assert.equal(DEFAULT_MANIFEST_PATH, '.upgradelens/project-manifest.json');
+  assert.equal(MANIFEST_SCHEMA_VERSION, '2.0.0');
 });
 
 test('discovers a polyglot repository and Node workspace members', async () => {
@@ -92,8 +94,36 @@ test('discovers a polyglot repository and Node workspace members', async () => {
     { name: 'pnpm', version: '10.0.0' }
   );
   assert.equal(manifest.projects.find((project) => project.id === 'node:packages/ignored').workspace, undefined);
-  assert.equal(manifest.projects.find((project) => project.id === 'node:packages/web').metadata.dependencyCount, 2);
-  assert.deepEqual(manifest.warnings, []);
+  assert.deepEqual(
+    manifest.projects.find((project) => project.id === 'node:packages/web').dependencySummary,
+    {
+      status: 'parsed',
+      declarationCount: 3,
+      uniqueCount: 2,
+      duplicateCount: 1,
+      byType: {
+        dependencies: 1,
+        devDependencies: 2,
+        peerDependencies: 0,
+        optionalDependencies: 0
+      }
+    }
+  );
+  assert.deepEqual(
+    manifest.projects.find((project) => project.id === 'python:services/api').dependencySummary,
+    { status: 'unsupported' }
+  );
+  assert.equal(manifest.projects.find((project) => project.id === 'python:services/api').dependencies.length, 0);
+  assert.deepEqual(
+    manifest.projects.find((project) => project.id === 'al:business-central').dependencySummary,
+    { status: 'unsupported' }
+  );
+  assert.equal(manifest.projects.find((project) => project.id === 'al:business-central').dependencies.length, 0);
+  assert.deepEqual(manifest.warnings, [{
+    code: 'DUPLICATE_DEPENDENCY_DECLARATION',
+    path: 'packages/web/package.json',
+    message: 'Dependency react is declared multiple times.'
+  }]);
 });
 
 test('records malformed JSON as a warning and continues discovery', async () => {
