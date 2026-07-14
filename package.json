@@ -35,7 +35,7 @@
     "type": "git",
     "url": "git+https://github.com/thomasMinh1995/UpgradeLens.git"
   },
-  "devDependencies": {
+  "dependencies": {
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1"
   }

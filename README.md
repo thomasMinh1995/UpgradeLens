@@ -151,7 +151,7 @@ The default location is:
 
 See the [MVP-01 design and scope](docs/MVP-01.md) and the [Project Manifest JSON Schema](schemas/project-manifest.schema.json).
 
-MVP-02 implementation begins with the versioned [Knowledge Manifest contract](docs/MVP-02-Knowledge-Manifest.md) and its [JSON Schema](schemas/knowledge-manifest.schema.json). This defines the future research artifact without adding networking or AI behavior.
+MVP-02 implementation begins with the internal [Research Planning bridge](docs/MVP-02-Research-Planning.md), then the versioned [Knowledge Manifest contract](docs/MVP-02-Knowledge-Manifest.md) and its [JSON Schema](schemas/knowledge-manifest.schema.json). These define future research artifacts without adding networking or AI behavior.
 
 ## Extension model
 
