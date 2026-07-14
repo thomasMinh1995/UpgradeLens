@@ -1,0 +1,13 @@
+{
+  "planVersion": "1",
+  "summary": {
+    "inputOccurrenceCount": 0,
+    "researchableOccurrenceCount": 0,
+    "uniqueResearchPackageCount": 0,
+    "invalidOccurrenceCount": 0,
+    "unsupportedOccurrenceCount": 0
+  },
+  "packages": [],
+  "invalidOccurrences": [],
+  "unsupported": []
+}

@@ -1,0 +1,4 @@
+{
+  "statuses": { "resolved": 1, "partial": 1, "notFound": 1, "unavailable": 1 },
+  "cacheOutcomes": ["hit", "miss", "revalidated", "corrupted-replaced"]
+}

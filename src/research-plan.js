@@ -190,6 +190,22 @@ function hasCredentials(value) {
   return typeof value === 'string' && /[a-z][a-z0-9+.-]*:\/\/[^/?#]*@/i.test(value);
 }
 
+function plainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function checkOnlyKeys(errors, value, allowed, field) {
+  if (!plainObject(value)) {
+    errors.push(`${field} must be an object.`);
+    return;
+  }
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) errors.push(`${field} contains unsupported field ${key}.`);
+  }
+}
+
 function planError(errors) {
   throw new Error(`Research Plan invariant violation: ${errors.join(' ')}`);
 }
@@ -210,8 +226,21 @@ function occurrenceKey(occurrence) {
  */
 export function validateResearchPlan(plan) {
   const errors = [];
+  if (!plainObject(plan)) {
+    throw new Error('Research Plan invariant violation: plan must be an object.');
+  }
+  checkOnlyKeys(errors, plan, new Set([
+    'planVersion', 'input', 'summary', 'packages', 'invalidOccurrences', 'unsupported', 'warnings'
+  ]), 'Research Plan');
   if (plan.planVersion !== PLAN_VERSION) errors.push(`planVersion must be ${PLAN_VERSION}.`);
   const lineage = plan.input?.projectManifest;
+  checkOnlyKeys(errors, plan.input, new Set(['projectManifest']), 'Research Plan input');
+  checkOnlyKeys(errors, lineage, new Set(['schemaVersion', 'artifact', 'artifactDigest', 'repository']), 'Project Manifest lineage');
+  checkOnlyKeys(errors, lineage?.repository, new Set(['name', 'root']), 'Project Manifest lineage repository');
+  checkOnlyKeys(errors, plan.summary, new Set([
+    'inputProjectCount', 'inputOccurrenceCount', 'researchableOccurrenceCount', 'uniqueResearchPackageCount',
+    'invalidOccurrenceCount', 'unsupportedOccurrenceCount'
+  ]), 'Research Plan summary');
   if (!lineage || lineage.schemaVersion !== '2.0.0') errors.push('input Project Manifest schemaVersion must be 2.0.0.');
   if (!lineage || !isPortableRelativePath(lineage.artifact)) errors.push('input artifact must be portable.');
   if (!lineage || !/^sha256:[a-f0-9]{64}$/.test(lineage.artifactDigest)) errors.push('input artifact digest is invalid.');
@@ -237,6 +266,9 @@ export function validateResearchPlan(plan) {
   const packageIds = new Set();
   let researchableOccurrenceCount = 0;
   for (const packageRecord of packages) {
+    checkOnlyKeys(errors, packageRecord, new Set([
+      'id', 'registry', 'ecosystem', 'normalizedName', 'observedDeclaredNames', 'occurrences'
+    ]), 'Research Plan package');
     if (packageIds.has(packageRecord.id)) errors.push(`Duplicate research package ${packageRecord.id}.`);
     packageIds.add(packageRecord.id);
     const expectedId = `${packageRecord.registry}:${packageRecord.normalizedName}`;
@@ -254,6 +286,9 @@ export function validateResearchPlan(plan) {
       errors.push(`Package ${packageRecord.id} occurrences must be canonically sorted.`);
     }
     for (const occurrence of packageRecord.occurrences) {
+      checkOnlyKeys(errors, occurrence, new Set([
+        'projectId', 'projectPath', 'manifest', 'ecosystem', 'dependencyType', 'declaredName', 'normalizedName', 'declaredVersion'
+      ]), 'Research Plan occurrence');
       researchableOccurrenceCount += 1;
       if (occurrence.ecosystem !== packageRecord.ecosystem) {
         errors.push(`Package ${packageRecord.id} has an occurrence from a different ecosystem.`);
@@ -268,6 +303,9 @@ export function validateResearchPlan(plan) {
   }
 
   for (const occurrence of invalidOccurrences) {
+    checkOnlyKeys(errors, occurrence, new Set([
+      'projectId', 'projectPath', 'manifest', 'ecosystem', 'dependencyType', 'declaredName', 'normalizedName', 'declaredVersion', 'reason'
+    ]), 'Invalid occurrence');
     if (!INVALID_REASONS.has(occurrence.reason)) errors.push(`Invalid occurrence has an unknown reason ${occurrence.reason}.`);
     if (!SUPPORTED_ECOSYSTEMS.has(occurrence.ecosystem)) {
       errors.push('Invalid occurrence must come from a supported ecosystem.');
@@ -279,6 +317,7 @@ export function validateResearchPlan(plan) {
 
   let unsupportedOccurrenceCount = 0;
   for (const record of unsupported) {
+    checkOnlyKeys(errors, record, new Set(['ecosystem', 'projectIds', 'occurrenceCount']), 'Unsupported record');
     unsupportedOccurrenceCount += record.occurrenceCount;
     if (SUPPORTED_ECOSYSTEMS.has(record.ecosystem)) {
       errors.push(`Unsupported record ${record.ecosystem} is a supported ecosystem.`);
@@ -291,6 +330,9 @@ export function validateResearchPlan(plan) {
   const invalidKeys = new Set(invalidOccurrences.map(occurrenceKey));
   const unsupportedEcosystems = new Set(unsupported.map((record) => record.ecosystem));
   for (const warning of warnings) {
+    checkOnlyKeys(errors, warning, warning.code === INVALID_WARNING
+      ? new Set(['code', 'projectId', 'manifest', 'dependencyType', 'declaredName', 'declaredVersion', 'message'])
+      : new Set(['code', 'ecosystem', 'message']), 'Research Plan warning');
     if (warning.code === INVALID_WARNING) {
       const key = occurrenceKey(warning);
       if (!invalidKeys.has(key)) errors.push('Invalid package warning does not reference an invalid occurrence.');
