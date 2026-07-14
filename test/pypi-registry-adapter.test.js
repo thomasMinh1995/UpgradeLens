@@ -116,6 +116,11 @@ test('fetches and caches project JSON while normalizing latest, releases, metada
     assert.equal(result.package.metadata.projectStatus, 'Development Status :: 5 - Production/Stable');
     assert.equal(result.source.id, 'pypi:fastapi:registry');
     assert.match(result.source.snapshot.contentDigest, /^sha256:[a-f0-9]{64}$/);
+    assert.deepEqual(result.sourceCandidates, [{
+      role: 'changelog',
+      url: 'https://fastapi.tiangolo.com/release-notes/',
+      discoveredFromField: 'info.project_urls.Changelog'
+    }]);
   });
 });
 

@@ -71,7 +71,7 @@ Publisher-controlled `info.project_urls` labels are classified case-insensitivel
 - `Issues` / `Tracker` / `Bug Tracker` → `issueUrl`
 - `Homepage` / `Home` → `homepageUrl`
 
-`Changelog`, `Changes`, `Release Notes`, and `Releases` are recognized as publisher metadata but intentionally not emitted: the current Knowledge Manifest contract has no changelog field. Unknown labels are likewise ignored rather than guessed from domains or URL paths. `home_page` is used only as a safe homepage fallback when no classified homepage exists.
+`Changelog`, `Changes`, `Release Notes`, and `Releases` are retained only as sanitized internal source candidates for Source Provenance Resolution; they are not public metadata fields and are not emitted in a Knowledge Manifest until later assembly. Unknown labels are ignored rather than guessed from domains or URL paths. `home_page` is used only as a safe homepage fallback when no classified homepage exists.
 
 Only HTTPS public URLs are retained. Credentialed URLs, query strings, and fragments are rejected or removed. `git+https:` repository URLs are normalized to HTTPS and GitHub `.git` suffixes are removed for display. Documentation and repository links remain publisher-trust candidates; MVP-02-05 does not corroborate them as official sources.
 

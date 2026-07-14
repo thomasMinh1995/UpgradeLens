@@ -8,6 +8,11 @@ const PROJECT_URL_ROLES = {
   issueUrl: ['issues', 'tracker', 'bug tracker'],
   homepageUrl: ['homepage', 'home']
 };
+const SOURCE_CANDIDATE_ROLES = {
+  changelog: ['changelog', 'changes'],
+  releaseNotes: ['release notes'],
+  releases: ['releases']
+};
 
 export class PypiProjectError extends Error {
   constructor(message) {
@@ -82,6 +87,27 @@ function classifiedProjectUrls(projectUrls) {
     }
   }
   return result;
+}
+
+function sourceCandidates(projectUrls) {
+  const entries = plainObject(projectUrls)
+    ? Object.entries(projectUrls)
+      .map(([label, url]) => ({ label: normalizedLabel(label), originalLabel: String(label), url }))
+      .sort((left, right) => compareText(left.label, right.label) || compareText(left.originalLabel, right.originalLabel))
+    : [];
+  return Object.entries(SOURCE_CANDIDATE_ROLES).flatMap(([role, labels]) => entries
+    .filter((entry) => labels.includes(entry.label))
+    .flatMap((entry) => {
+      const url = normalizedHttpsUrl(entry.url);
+      return url ? [{
+        role,
+        url,
+        discoveredFromField: `info.project_urls.${entry.originalLabel}`
+      }] : [];
+    }))
+    .sort((left, right) => compareText(left.role, right.role)
+      || compareText(left.url, right.url)
+      || compareText(left.discoveredFromField, right.discoveredFromField));
 }
 
 function normalizedDate(value) {
@@ -265,6 +291,9 @@ export function normalizePypiProject(researchPackage, project, { snapshot, regis
       discoveredFrom: null,
       trustEvidenceSourceIds: [],
       snapshot
-    }
+    },
+    // Internal only: the public metadata contract intentionally has no
+    // changelog/release-note fields. MVP-02-06 resolves these candidates.
+    sourceCandidates: sourceCandidates(project.info.project_urls)
   };
 }

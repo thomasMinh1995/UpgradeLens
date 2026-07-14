@@ -1,0 +1,11 @@
+{
+  "package": { "id": "npm:example", "metadata": { "documentationUrl": "https://docs-a.example.test/" } },
+  "source": {
+    "id": "npm:example:registry", "kind": "registry", "authority": "registryAuthoritative", "trust": "publisher",
+    "url": "https://registry.example.test/example", "status": "available", "supports": ["identity"],
+    "discoveredFrom": null, "trustEvidenceSourceIds": [], "snapshot": null
+  },
+  "sourceCandidates": [
+    { "role": "documentation", "url": "https://docs-b.example.test/", "discoveredFromField": "info.project_urls.Documentation" }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "package": {
+    "id": "npm:unsafe",
+    "metadata": {
+      "documentationUrl": "http://docs.example.test/",
+      "repositoryUrl": "https://user:secret@example.test/repo",
+      "issueUrl": "https://127.0.0.1/issues"
+    }
+  },
+  "source": {
+    "id": "npm:unsafe:registry", "kind": "registry", "authority": "registryAuthoritative", "trust": "publisher",
+    "url": "https://registry.example.test/unsafe", "status": "available", "supports": ["identity"],
+    "discoveredFrom": null, "trustEvidenceSourceIds": [], "snapshot": null
+  },
+  "sourceCandidates": [
+    { "role": "changelog", "url": "https://docs.example.test/changelog?token=secret" },
+    { "role": "releaseNotes", "url": "file:///tmp/release-notes" }
+  ]
+}
