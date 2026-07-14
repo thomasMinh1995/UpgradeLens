@@ -3,6 +3,7 @@ import {
   BoundedFetchError,
   validateRegistryResponseLimit
 } from '../http/bounded-fetch.js';
+import { USER_AGENT } from '../constants.js';
 import { createCacheIdentity, createKnowledgeCache } from '../knowledge-cache.js';
 import {
   normalizeNpmPackument,
@@ -132,7 +133,7 @@ export function createNpmRegistryAdapter({
   maxResponseBytes = DEFAULT_NPM_MAX_RESPONSE_BYTES,
   ttlMs = DEFAULT_NPM_METADATA_TTL_MS,
   offline = false,
-  userAgent = 'UpgradeLens/0.1.1'
+  userAgent = USER_AGENT
 } = {}) {
   const normalizedRegistryBaseUrl = normalizeNpmRegistryBaseUrl(registryBaseUrl);
   validateRegistryResponseLimit(maxResponseBytes, { errorPrefix: 'NPM' });

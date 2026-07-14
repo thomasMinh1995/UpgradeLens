@@ -1,3 +1,5 @@
+import { USER_AGENT } from '../constants.js';
+
 const JSON_MEDIA_TYPE = /^(?:application\/(?:json|[a-z0-9.+-]+\+json))(?:\s*;|$)/i;
 
 /**
@@ -127,7 +129,7 @@ export async function fetchRegistryJson(url, {
   fetchImplementation = globalThis.fetch,
   timeoutMs = 10_000,
   maxResponseBytes,
-  userAgent = 'UpgradeLens/0.1.1',
+  userAgent = USER_AGENT,
   errorPrefix = 'NPM',
   serviceName = 'npm Registry',
   setTimeoutImplementation = setTimeout,

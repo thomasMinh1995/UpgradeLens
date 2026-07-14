@@ -209,7 +209,7 @@ This empty but complete manifest is valid:
 {
   "schemaVersion": "1.0.0",
   "generatedAt": "2026-07-14T00:00:00.000Z",
-  "generator": { "name": "UpgradeLens", "version": "0.1.1" },
+  "generator": { "name": "UpgradeLens", "version": "<package version>" },
   "input": {
     "projectManifest": {
       "schemaVersion": "2.0.0",

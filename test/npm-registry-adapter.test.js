@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { createKnowledgeCache } from '../src/knowledge-cache.js';
+import { USER_AGENT } from '../src/constants.js';
 import { createNpmRegistryAdapter } from '../src/registry/npm-registry-adapter.js';
 
 const fixtureDirectory = new URL('./fixtures/npm/', import.meta.url);
@@ -85,7 +86,7 @@ test('constructs deterministic normal and scoped npm Registry requests without p
       url: 'https://registry.example.test/%40vitejs%2Fplugin-react',
       options: {
         method: 'GET',
-        headers: { Accept: 'application/json', 'User-Agent': 'UpgradeLens/0.1.1' },
+        headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
         signal: requests[0].options.signal,
         credentials: 'omit',
         redirect: 'error'

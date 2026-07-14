@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { createKnowledgeCache } from '../src/knowledge-cache.js';
+import { USER_AGENT } from '../src/constants.js';
 import { createPypiRegistryAdapter } from '../src/registry/pypi-registry-adapter.js';
 
 const fixtureDirectory = new URL('./fixtures/pypi/', import.meta.url);
@@ -90,14 +91,20 @@ test('fetches and caches project JSON while normalizing latest, releases, metada
   await withRoot(async (root) => {
     const time = fakeClock();
     let calls = 0;
+    let userAgent;
     const registry = adapter({
       root,
       clock: time.clock,
-      fetch: async () => { calls += 1; return responseJson(await fixture()); }
+      fetch: async (_url, options) => {
+        calls += 1;
+        userAgent = options.headers['User-Agent'];
+        return responseJson(await fixture());
+      }
     });
     const result = await registry.researchPackage(researchPackage());
 
     assert.equal(calls, 1);
+    assert.equal(userAgent, USER_AGENT);
     assert.equal(result.cache.outcome, 'miss');
     assert.equal(result.package.status, 'resolved');
     assert.equal(result.package.latest.version, '0.115.0');

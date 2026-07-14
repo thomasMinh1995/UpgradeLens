@@ -1,7 +1,13 @@
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const packageMetadata = require('../package.json');
+
 export const PRODUCT_NAME = 'UpgradeLens';
 export const PACKAGE_NAME = 'upgradelens';
 export const CLI_NAME = 'upgradelens';
-export const VERSION = '0.1.1';
+export const VERSION = packageMetadata.version;
+export const USER_AGENT = `${PRODUCT_NAME}/${VERSION}`;
 export const MANIFEST_SCHEMA_VERSION = '2.0.0';
 export const DEFAULT_OUTPUT_DIRECTORY = '.upgradelens';
 export const DEFAULT_MANIFEST_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/project-manifest.json`;

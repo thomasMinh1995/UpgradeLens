@@ -3,6 +3,7 @@ import {
   BoundedFetchError,
   validateRegistryResponseLimit
 } from '../http/bounded-fetch.js';
+import { USER_AGENT } from '../constants.js';
 import { createCacheIdentity, createKnowledgeCache } from '../knowledge-cache.js';
 import {
   normalizePypiProject,
@@ -110,7 +111,7 @@ export function createPypiRegistryAdapter({
   maxResponseBytes = DEFAULT_PYPI_MAX_RESPONSE_BYTES,
   ttlMs = DEFAULT_PYPI_METADATA_TTL_MS,
   offline = false,
-  userAgent = 'UpgradeLens/0.1.1'
+  userAgent = USER_AGENT
 } = {}) {
   const normalizedRegistryBaseUrl = normalizePypiRegistryBaseUrl(registryBaseUrl);
   validateRegistryResponseLimit(maxResponseBytes, { errorPrefix: 'PYPI' });

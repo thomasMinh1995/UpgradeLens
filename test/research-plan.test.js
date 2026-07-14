@@ -10,6 +10,7 @@ import {
   loadProjectManifestInput,
   validateResearchPlan
 } from '../src/index.js';
+import { VERSION } from '../src/constants.js';
 
 const fixtureDirectory = new URL('./fixtures/research-plan/', import.meta.url);
 
@@ -64,7 +65,7 @@ function manifest(projects, repositoryName = 'research-plan-fixture') {
   return {
     schemaVersion: '2.0.0',
     generatedAt: '2026-07-14T00:00:00.000Z',
-    generator: { name: 'UpgradeLens', version: '0.1.1' },
+    generator: { name: 'UpgradeLens', version: VERSION },
     repository: { name: repositoryName, root: '.' },
     summary: { projectCount: projects.length, ecosystems, workspaceCount: 0 },
     projects,
