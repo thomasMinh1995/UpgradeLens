@@ -151,6 +151,8 @@ The default location is:
 
 See the [MVP-01 design and scope](docs/MVP-01.md) and the [Project Manifest JSON Schema](schemas/project-manifest.schema.json).
 
+MVP-02 implementation begins with the versioned [Knowledge Manifest contract](docs/MVP-02-Knowledge-Manifest.md) and its [JSON Schema](schemas/knowledge-manifest.schema.json). This defines the future research artifact without adding networking or AI behavior.
+
 ## Extension model
 
 Discovery is organized around ecosystem-specific detectors. Node.js and Python `requirements.txt` are the officially supported MVP-01 paths, while other detectors can evolve independently. Contributors can implement or improve ecosystems independently while the discovery core and manifest contract remain stable. This is an implementation extension model rather than a runtime plugin system.

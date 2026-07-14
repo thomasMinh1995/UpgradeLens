@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-14T00:00:01.000Z",
+  "generator": { "name": "UpgradeLens", "version": "0.1.1" },
+  "input": {
+    "projectManifest": {
+      "schemaVersion": "2.0.0",
+      "artifact": ".upgradelens/project-manifest.json",
+      "artifactDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "repository": { "name": "workspace-project", "root": "." }
+    }
+  },
+  "policy": {
+    "mode": "online",
+    "policyVersion": "1",
+    "registryBases": { "npm": "https://registry.npmjs.org", "pypi": "https://pypi.org" },
+    "ttlPolicyVersion": "1",
+    "sourceAllowlistVersion": "1",
+    "includePrereleases": false
+  },
+  "research": {
+    "researchId": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "startedAt": "2026-07-14T00:00:00.000Z",
+    "completedAt": "2026-07-14T00:00:01.000Z",
+    "durationMs": 1000,
+    "inputOccurrenceCount": 2,
+    "inputPackageCount": 1,
+    "researchedPackageCount": 1,
+    "sourceCount": 1,
+    "cacheHitCount": 1,
+    "cacheMissCount": 0,
+    "cacheRevalidationCount": 0,
+    "retryCount": 0,
+    "partialFailureCount": 0
+  },
+  "summary": {
+    "inputOccurrenceCount": 2,
+    "packageCount": 1,
+    "resolvedPackageCount": 1,
+    "partialPackageCount": 0,
+    "notFoundPackageCount": 0,
+    "invalidPackageCount": 0,
+    "unavailablePackageCount": 0,
+    "sourceCount": 1,
+    "warningCount": 0,
+    "cacheHitCount": 1,
+    "cacheMissCount": 0,
+    "staleSourceCount": 0
+  },
+  "packages": [
+    {
+      "id": "npm:react",
+      "ecosystem": "node",
+      "status": "resolved",
+      "identity": {
+        "observedDeclaredNames": ["react"],
+        "normalizedName": "react",
+        "registry": "npm",
+        "registryBaseUrl": "https://registry.npmjs.org",
+        "packageUrl": "https://www.npmjs.com/package/react",
+        "apiUrl": "https://registry.npmjs.org/react"
+      },
+      "occurrences": [
+        {
+          "projectId": "node:apps/admin",
+          "projectPath": "apps/admin",
+          "manifest": "apps/admin/package.json",
+          "dependencyType": "dependency",
+          "declaredName": "react",
+          "declaredVersion": "^19.1.0"
+        },
+        {
+          "projectId": "node:apps/web",
+          "projectPath": "apps/web",
+          "manifest": "apps/web/package.json",
+          "dependencyType": "dependency",
+          "declaredName": "react",
+          "declaredVersion": "^19.2.0"
+        }
+      ],
+      "metadata": {},
+      "latest": {
+        "version": "19.2.0",
+        "selection": "dist-tag:latest",
+        "publishedAt": null,
+        "releaseUrl": "https://www.npmjs.com/package/react/v/19.2.0",
+        "prerelease": false,
+        "yanked": null,
+        "deprecated": false,
+        "sourceId": "npm:react:registry"
+      },
+      "releaseIndex": [],
+      "sourceIds": ["npm:react:registry"],
+      "warningCodes": []
+    }
+  ],
+  "sources": [
+    {
+      "id": "npm:react:registry",
+      "kind": "registry",
+      "authority": "registryAuthoritative",
+      "trust": "publisher",
+      "url": "https://www.npmjs.com/package/react",
+      "apiUrl": "https://registry.npmjs.org/react",
+      "status": "available",
+      "supports": ["identity", "latest"],
+      "discoveredFrom": null,
+      "trustEvidenceSourceIds": [],
+      "snapshot": {
+        "contentDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "mediaType": "application/json",
+        "retrievedAt": "2026-07-13T23:00:00.000Z",
+        "freshness": "fresh"
+      }
+    }
+  ],
+  "cache": {
+    "mode": "online",
+    "policyVersion": "1",
+    "hitCount": 1,
+    "missCount": 0,
+    "revalidationCount": 0,
+    "staleEntryCount": 0
+  },
+  "warnings": []
+}
