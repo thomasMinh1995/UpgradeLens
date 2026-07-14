@@ -1,4 +1,8 @@
-import { fetchNpmJson, BoundedFetchError } from '../http/bounded-fetch.js';
+import {
+  fetchNpmJson,
+  BoundedFetchError,
+  validateRegistryResponseLimit
+} from '../http/bounded-fetch.js';
 import { createCacheIdentity, createKnowledgeCache } from '../knowledge-cache.js';
 import {
   normalizeNpmPackument,
@@ -11,6 +15,7 @@ import {
 
 export const DEFAULT_NPM_REGISTRY_BASE_URL = 'https://registry.npmjs.org';
 export const DEFAULT_NPM_METADATA_TTL_MS = 24 * 60 * 60 * 1_000;
+export const DEFAULT_NPM_MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 
 function currentDate(clock) {
   const value = clock();
@@ -124,11 +129,13 @@ export function createNpmRegistryAdapter({
   cache,
   clock = () => new Date(),
   timeoutMs = 10_000,
-  maxResponseBytes = 1_000_000,
+  maxResponseBytes = DEFAULT_NPM_MAX_RESPONSE_BYTES,
   ttlMs = DEFAULT_NPM_METADATA_TTL_MS,
+  offline = false,
   userAgent = 'UpgradeLens/0.1.1'
 } = {}) {
   const normalizedRegistryBaseUrl = normalizeNpmRegistryBaseUrl(registryBaseUrl);
+  validateRegistryResponseLimit(maxResponseBytes, { errorPrefix: 'NPM' });
   const knowledgeCache = cache ?? createKnowledgeCache({ clock });
   if (!knowledgeCache || typeof knowledgeCache.read !== 'function' || typeof knowledgeCache.write !== 'function') {
     throw new Error('npm Registry adapter requires a Knowledge Store cache.');
@@ -163,6 +170,14 @@ export function createNpmRegistryAdapter({
       }
 
       const previousCacheOutcome = cacheOutcome(cached);
+      if (offline) {
+        return unavailableResult(input, normalizedRegistryBaseUrl, previousCacheOutcome, {
+          warningCode: 'OFFLINE_CACHE_MISS',
+          message: 'Offline mode has no fresh npm Registry package metadata in cache.',
+          retryable: false,
+          errorCode: 'NPM_OFFLINE_CACHE_MISS'
+        });
+      }
       let response;
       try {
         response = await fetchNpmJson(requestFor(input), {

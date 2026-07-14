@@ -28,6 +28,8 @@ The default metadata base is `https://pypi.org`; the future JSON Index base is `
 
 MVP-02-05 makes only the project JSON request. It does not scrape HTML, search PyPI, or issue a second Index API request. The existing bounded JSON fetcher provides GET-only requests, JSON `Accept`, a stable UpgradeLens user agent, omitted credentials, disabled redirects, timeout, and response-size limits.
 
+PyPI project JSON is generally smaller than a full npm packument, but established projects can still exceed 1 MB. The adapter owns an **8 MiB** default (`8 * 1024 * 1024`). Callers may explicitly override `maxResponseBytes` for tests or a future execution policy; it must be a positive safe integer and must not exceed the 64 MiB safety ceiling. This execution setting is not emitted in the Knowledge Manifest. Oversized project JSON retains the internal `PYPI_RESPONSE_TOO_LARGE` code, maps to the existing public `REGISTRY_RESPONSE_INVALID` warning, and is never cached.
+
 ## Cache behavior
 
 The private [Lightweight Knowledge Store](MVP-02-Knowledge-Store.md) uses this identity:
@@ -87,6 +89,8 @@ A successful result creates a registry source such as `pypi:fastapi:registry`, w
 | Invalid JSON/media/size/project shape/name mismatch | `unavailable` | `REGISTRY_RESPONSE_INVALID` |
 
 Errors are sanitized; raw response bodies, headers, stack traces, tokens, credentialed URLs, and cache details are never returned. Negative responses, invalid responses, rate limits, and transport failures are not cached.
+
+All response bodies are consumed or explicitly cancelled. In particular, unused non-200 responses and wrong-media responses are cancelled, and an oversized stream cancels its reader before releasing the lock. Timeout handles are cleared in `finally` after every outcome. Online CLI research injects a scoped, CLI-owned fetch and closes its Agent after completion; direct callers retain ownership of injected fetch resources.
 
 ## Intentional limitations
 

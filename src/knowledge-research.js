@@ -6,7 +6,7 @@ const RESULT_VERSION = '1';
 const DEFAULT_CONCURRENCY = 4;
 const MAX_CONCURRENCY = 32;
 const PACKAGE_STATUSES = new Set(['resolved', 'partial', 'notFound', 'invalid', 'unavailable']);
-const CACHE_OUTCOMES = new Set(['hit', 'miss', 'revalidated', 'corrupted-replaced', 'corrupted']);
+const CACHE_OUTCOMES = new Set(['hit', 'miss', 'revalidated', 'corrupted-replaced', 'corrupted', 'expired']);
 
 function compareBy(...selectors) {
   return (left, right) => {

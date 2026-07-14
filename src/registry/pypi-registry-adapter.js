@@ -1,4 +1,8 @@
-import { fetchRegistryJson, BoundedFetchError } from '../http/bounded-fetch.js';
+import {
+  fetchRegistryJson,
+  BoundedFetchError,
+  validateRegistryResponseLimit
+} from '../http/bounded-fetch.js';
 import { createCacheIdentity, createKnowledgeCache } from '../knowledge-cache.js';
 import {
   normalizePypiProject,
@@ -12,6 +16,7 @@ import { sanitizeRegistryBodyForCache } from './sanitize-registry-body.js';
 export const DEFAULT_PYPI_REGISTRY_BASE_URL = 'https://pypi.org';
 export const DEFAULT_PYPI_INDEX_BASE_URL = 'https://pypi.org/simple';
 export const DEFAULT_PYPI_METADATA_TTL_MS = 24 * 60 * 60 * 1_000;
+export const DEFAULT_PYPI_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 
 function cacheIdentityFor(input) {
   return createCacheIdentity({
@@ -102,11 +107,13 @@ export function createPypiRegistryAdapter({
   cache,
   clock = () => new Date(),
   timeoutMs = 10_000,
-  maxResponseBytes = 1_000_000,
+  maxResponseBytes = DEFAULT_PYPI_MAX_RESPONSE_BYTES,
   ttlMs = DEFAULT_PYPI_METADATA_TTL_MS,
+  offline = false,
   userAgent = 'UpgradeLens/0.1.1'
 } = {}) {
   const normalizedRegistryBaseUrl = normalizePypiRegistryBaseUrl(registryBaseUrl);
+  validateRegistryResponseLimit(maxResponseBytes, { errorPrefix: 'PYPI' });
   // Validate future JSON Index policy input even though MVP-02-05 makes no index request.
   normalizePypiRegistryBaseUrl(indexBaseUrl);
   const knowledgeCache = cache ?? createKnowledgeCache({ clock });
@@ -142,6 +149,14 @@ export function createPypiRegistryAdapter({
       }
 
       const previousCacheOutcome = cacheOutcome(cached);
+      if (offline) {
+        return unavailableResult(input, normalizedRegistryBaseUrl, previousCacheOutcome, {
+          warningCode: 'OFFLINE_CACHE_MISS',
+          message: 'Offline mode has no fresh PyPI project metadata in cache.',
+          retryable: false,
+          errorCode: 'PYPI_OFFLINE_CACHE_MISS'
+        });
+      }
       let response;
       try {
         response = await fetchRegistryJson(requestFor(input), {

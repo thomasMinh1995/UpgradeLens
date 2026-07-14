@@ -79,7 +79,11 @@ Each successful result creates one internal registry source record such as `npm:
 
 ## Response limits and error mapping
 
-Response bodies are read through a bounded streaming reader; the adapter never calls `response.json()` directly. It requires a JSON media type and rejects a body larger than the configured maximum without caching it. `AbortController` supplies a request timeout. Errors are sanitized and never include upstream response bodies, raw headers, credentialed URLs, stack traces, or local paths.
+Full npm packuments contain complete metadata for every published version and can be several megabytes. The adapter therefore owns a default bounded limit of **16 MiB** (`16 * 1024 * 1024`). Callers may set `maxResponseBytes` explicitly for tests or a future execution policy; it must be a positive safe integer and may not exceed the documented 64 MiB safety ceiling. The setting is execution configuration, not Knowledge Manifest policy.
+
+Response bodies are read through a bounded streaming reader; the adapter never calls `response.json()` directly. It requires a JSON media type and rejects a body larger than the configured maximum without caching it. An oversized body retains the internal `NPM_RESPONSE_TOO_LARGE` code and maps to the existing public `REGISTRY_RESPONSE_INVALID` warning.
+
+Every response body is fully consumed or explicitly cancelled. Unused non-200 bodies, wrong-media bodies, and oversized streams are cancelled; oversized readers are cancelled and release their lock. The request timeout covers the complete fetch/read lifecycle and is cleared in `finally` on every outcome. Online CLI research injects a scoped, CLI-owned fetch and closes its Agent after completion; direct callers retain ownership of injected fetch resources.
 
 | Condition | Package status | Warning |
 | --- | --- | --- |

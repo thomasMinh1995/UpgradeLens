@@ -41,12 +41,12 @@ The repository is discovered once. Every later stage consumes the Project Manife
 ## Current roadmap
 
 - ✓ **MVP-01 — Project Discovery Foundation**
-- ⬜ **MVP-02 — AI Knowledge Research**
+- ✓ **MVP-02 — Knowledge Research**
 - ⬜ **MVP-03 — AI Version Analysis**
 - ⬜ **MVP-04 — AI Impact Analysis**
 - ⬜ **MVP-05 — AI Migration Planning**
 
-Only MVP-01 is currently implemented.
+MVP-01 and MVP-02 are currently implemented. Future analysis milestones progressively introduce AI-powered reasoning over the versioned artifacts.
 
 ## Officially supported in MVP-01
 
@@ -151,7 +151,19 @@ The default location is:
 
 See the [MVP-01 design and scope](docs/MVP-01.md) and the [Project Manifest JSON Schema](schemas/project-manifest.schema.json).
 
-MVP-02 implementation includes the internal [Research Planning bridge](docs/MVP-02-Research-Planning.md), a private [Lightweight Knowledge Store](docs/MVP-02-Knowledge-Store.md), internal [npm-compatible](docs/MVP-02-npm-Registry-Adapter.md) and [PyPI](docs/MVP-02-PyPI-Registry-Adapter.md) Registry adapters, deterministic [Source Provenance Resolution](docs/MVP-02-Source-Provenance.md), and internal [Knowledge Research Orchestration](docs/MVP-02-Knowledge-Research-Orchestration.md). The versioned [Knowledge Manifest contract](docs/MVP-02-Knowledge-Manifest.md) and its [JSON Schema](schemas/knowledge-manifest.schema.json) remain the downstream contract; publishing the manifest, a research CLI, and AI behavior are not implemented.
+MVP-02 implementation includes the internal [Research Planning bridge](docs/MVP-02-Research-Planning.md), a private [Lightweight Knowledge Store](docs/MVP-02-Knowledge-Store.md), internal [npm-compatible](docs/MVP-02-npm-Registry-Adapter.md) and [PyPI](docs/MVP-02-PyPI-Registry-Adapter.md) Registry adapters, bounded [HTTP lifecycle](docs/MVP-02-HTTP-Lifecycle.md) and [CLI-owned runtime](docs/MVP-02-CLI-HTTP-Runtime.md) behavior, deterministic [Source Provenance Resolution](docs/MVP-02-Source-Provenance.md), [Knowledge Research Orchestration](docs/MVP-02-Knowledge-Research-Orchestration.md), and the public [Knowledge Manifest](docs/MVP-02-Knowledge-Manifest-Generation.md). The versioned [Knowledge Manifest contract](docs/MVP-02-Knowledge-Manifest.md) and its [JSON Schema](schemas/knowledge-manifest.schema.json) are the downstream MVP-03 contract; AI behavior is not implemented.
+
+MVP-02 now completes the deterministic public workflow. After discovery, run `upgradelens research .` to generate the validated [Knowledge Manifest](docs/MVP-02-Knowledge-Manifest-Generation.md):
+
+```text
+upgradelens discover .
+        ↓
+.upgradelens/project-manifest.json
+        ↓
+upgradelens research .
+        ↓
+.upgradelens/knowledge-manifest.json
+```
 
 ## Extension model
 
