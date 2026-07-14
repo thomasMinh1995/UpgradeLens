@@ -13,21 +13,21 @@ function headerValue(headers, name) {
   return headers.get(name);
 }
 
-function validLimit(value, name) {
+function validLimit(value, name, errorPrefix) {
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new BoundedFetchError('NPM_REQUEST_INVALID', `${name} must be a positive integer.`);
+    throw new BoundedFetchError(`${errorPrefix}_REQUEST_INVALID`, `${name} must be a positive integer.`);
   }
 }
 
-async function readBoundedText(response, maxResponseBytes) {
+async function readBoundedText(response, maxResponseBytes, { errorPrefix, serviceName }) {
   const declaredLength = headerValue(response.headers, 'content-length');
   if (declaredLength !== null && /^\d+$/.test(declaredLength) && Number(declaredLength) > maxResponseBytes) {
-    throw new BoundedFetchError('NPM_RESPONSE_TOO_LARGE', 'npm Registry response exceeds the configured size limit.');
+    throw new BoundedFetchError(`${errorPrefix}_RESPONSE_TOO_LARGE`, `${serviceName} response exceeds the configured size limit.`);
   }
 
   const reader = response.body?.getReader?.();
   if (!reader) {
-    throw new BoundedFetchError('NPM_RESPONSE_INVALID', 'npm Registry response body is not readable.');
+    throw new BoundedFetchError(`${errorPrefix}_RESPONSE_INVALID`, `${serviceName} response body is not readable.`);
   }
 
   const chunks = [];
@@ -40,7 +40,7 @@ async function readBoundedText(response, maxResponseBytes) {
       byteCount += chunk.length;
       if (byteCount > maxResponseBytes) {
         await reader.cancel();
-        throw new BoundedFetchError('NPM_RESPONSE_TOO_LARGE', 'npm Registry response exceeds the configured size limit.');
+        throw new BoundedFetchError(`${errorPrefix}_RESPONSE_TOO_LARGE`, `${serviceName} response exceeds the configured size limit.`);
       }
       chunks.push(chunk);
     }
@@ -51,21 +51,22 @@ async function readBoundedText(response, maxResponseBytes) {
 }
 
 /**
- * Fetch a single npm Registry representation without allowing an unbounded
- * response body into memory. Redirects are explicitly disabled in this small
- * adapter; registry policy can introduce bounded redirect handling later.
+ * Fetch one registry JSON representation without allowing an unbounded body
+ * into memory. Redirects are explicitly disabled in this small adapter.
  */
-export async function fetchNpmJson(url, {
+export async function fetchRegistryJson(url, {
   fetchImplementation = globalThis.fetch,
   timeoutMs = 10_000,
   maxResponseBytes = 1_000_000,
-  userAgent = 'UpgradeLens/0.1.1'
+  userAgent = 'UpgradeLens/0.1.1',
+  errorPrefix = 'NPM',
+  serviceName = 'npm Registry'
 } = {}) {
   if (typeof fetchImplementation !== 'function') {
-    throw new BoundedFetchError('NPM_REQUEST_INVALID', 'A WHATWG-compatible fetch implementation is required.');
+    throw new BoundedFetchError(`${errorPrefix}_REQUEST_INVALID`, 'A WHATWG-compatible fetch implementation is required.');
   }
-  validLimit(timeoutMs, 'timeoutMs');
-  validLimit(maxResponseBytes, 'maxResponseBytes');
+  validLimit(timeoutMs, 'timeoutMs', errorPrefix);
+  validLimit(maxResponseBytes, 'maxResponseBytes', errorPrefix);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -83,27 +84,31 @@ export async function fetchNpmJson(url, {
     });
   } catch (error) {
     if (controller.signal.aborted || error?.name === 'AbortError') {
-      throw new BoundedFetchError('NPM_REQUEST_TIMEOUT', 'npm Registry request timed out.');
+      throw new BoundedFetchError(`${errorPrefix}_REQUEST_TIMEOUT`, `${serviceName} request timed out.`);
     }
-    throw new BoundedFetchError('NPM_TRANSPORT_FAILED', 'npm Registry request failed.');
+    throw new BoundedFetchError(`${errorPrefix}_TRANSPORT_FAILED`, `${serviceName} request failed.`);
   } finally {
     clearTimeout(timer);
   }
 
   if (!response || !Number.isInteger(response.status)) {
-    throw new BoundedFetchError('NPM_RESPONSE_INVALID', 'npm Registry returned an invalid HTTP response.');
+    throw new BoundedFetchError(`${errorPrefix}_RESPONSE_INVALID`, `${serviceName} returned an invalid HTTP response.`);
   }
   if (response.status !== 200) return { status: response.status, body: null };
 
   const contentType = headerValue(response.headers, 'content-type');
   if (!contentType || !JSON_MEDIA_TYPE.test(contentType)) {
-    throw new BoundedFetchError('NPM_RESPONSE_INVALID', 'npm Registry response must use a JSON media type.');
+    throw new BoundedFetchError(`${errorPrefix}_RESPONSE_INVALID`, `${serviceName} response must use a JSON media type.`);
   }
 
-  const text = await readBoundedText(response, maxResponseBytes);
+  const text = await readBoundedText(response, maxResponseBytes, { errorPrefix, serviceName });
   try {
     return { status: 200, body: JSON.parse(text) };
   } catch {
-    throw new BoundedFetchError('NPM_RESPONSE_INVALID', 'npm Registry response is not valid JSON.');
+    throw new BoundedFetchError(`${errorPrefix}_RESPONSE_INVALID`, `${serviceName} response is not valid JSON.`);
   }
+}
+
+export function fetchNpmJson(url, options = {}) {
+  return fetchRegistryJson(url, { ...options, errorPrefix: 'NPM', serviceName: 'npm Registry' });
 }
