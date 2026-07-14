@@ -1,0 +1,138 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-14T00:00:01.000Z",
+  "generator": { "name": "UpgradeLens", "version": "0.1.1" },
+  "input": {
+    "projectManifest": {
+      "schemaVersion": "2.0.0",
+      "artifact": ".upgradelens/project-manifest.json",
+      "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "repository": { "name": "partial-project", "root": "." }
+    }
+  },
+  "policy": {
+    "mode": "online",
+    "policyVersion": "1",
+    "registryBases": { "npm": "https://registry.npmjs.org", "pypi": "https://pypi.org" },
+    "ttlPolicyVersion": "1",
+    "sourceAllowlistVersion": "1",
+    "includePrereleases": false
+  },
+  "research": {
+    "researchId": "sha256:abababababababababababababababababababababababababababababababab",
+    "startedAt": "2026-07-14T00:00:00.000Z",
+    "completedAt": "2026-07-14T00:00:01.000Z",
+    "durationMs": 1000,
+    "inputOccurrenceCount": 1,
+    "inputPackageCount": 1,
+    "researchedPackageCount": 1,
+    "sourceCount": 2,
+    "cacheHitCount": 0,
+    "cacheMissCount": 2,
+    "cacheRevalidationCount": 0,
+    "retryCount": 0,
+    "partialFailureCount": 1
+  },
+  "summary": {
+    "inputOccurrenceCount": 1,
+    "packageCount": 1,
+    "resolvedPackageCount": 0,
+    "partialPackageCount": 1,
+    "notFoundPackageCount": 0,
+    "invalidPackageCount": 0,
+    "unavailablePackageCount": 0,
+    "sourceCount": 2,
+    "warningCount": 1,
+    "cacheHitCount": 0,
+    "cacheMissCount": 2,
+    "staleSourceCount": 0
+  },
+  "packages": [
+    {
+      "id": "npm:react",
+      "ecosystem": "node",
+      "status": "partial",
+      "identity": {
+        "observedDeclaredNames": ["react"],
+        "normalizedName": "react",
+        "registry": "npm",
+        "registryBaseUrl": "https://registry.npmjs.org",
+        "packageUrl": "https://www.npmjs.com/package/react",
+        "apiUrl": "https://registry.npmjs.org/react"
+      },
+      "occurrences": [
+        {
+          "projectId": "node:.",
+          "projectPath": ".",
+          "manifest": "package.json",
+          "dependencyType": "dependency",
+          "declaredName": "react",
+          "declaredVersion": "^19.2.0"
+        }
+      ],
+      "metadata": { "documentationUrl": null },
+      "latest": {
+        "version": "19.2.0",
+        "selection": "dist-tag:latest",
+        "publishedAt": null,
+        "releaseUrl": null,
+        "prerelease": false,
+        "yanked": null,
+        "deprecated": false,
+        "sourceId": "npm:react:registry"
+      },
+      "releaseIndex": [],
+      "sourceIds": ["npm:react:documentation", "npm:react:registry"],
+      "warningCodes": ["DOCUMENTATION_NOT_FOUND"]
+    }
+  ],
+  "sources": [
+    {
+      "id": "npm:react:documentation",
+      "kind": "officialDocumentation",
+      "authority": "publisherProvided",
+      "trust": "unknown",
+      "url": "https://example.invalid/react-docs",
+      "status": "notFound",
+      "supports": ["documentation"],
+      "discoveredFrom": "npm:react:registry",
+      "trustEvidenceSourceIds": ["npm:react:registry"],
+      "snapshot": null
+    },
+    {
+      "id": "npm:react:registry",
+      "kind": "registry",
+      "authority": "registryAuthoritative",
+      "trust": "publisher",
+      "url": "https://www.npmjs.com/package/react",
+      "apiUrl": "https://registry.npmjs.org/react",
+      "status": "available",
+      "supports": ["identity", "latest"],
+      "discoveredFrom": null,
+      "trustEvidenceSourceIds": [],
+      "snapshot": {
+        "contentDigest": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+        "mediaType": "application/json",
+        "retrievedAt": "2026-07-14T00:00:00.500Z",
+        "freshness": "fresh"
+      }
+    }
+  ],
+  "cache": {
+    "mode": "online",
+    "policyVersion": "1",
+    "hitCount": 0,
+    "missCount": 2,
+    "revalidationCount": 0,
+    "staleEntryCount": 0
+  },
+  "warnings": [
+    {
+      "code": "DOCUMENTATION_NOT_FOUND",
+      "packageId": "npm:react",
+      "sourceId": "npm:react:documentation",
+      "message": "Official documentation was not found.",
+      "retryable": false
+    }
+  ]
+}

@@ -1,0 +1,546 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/knowledge-manifest.schema.json",
+  "title": "UpgradeLens Knowledge Manifest",
+  "description": "Portable, versioned output produced by UpgradeLens knowledge research.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "generator",
+    "input",
+    "policy",
+    "research",
+    "summary",
+    "packages",
+    "sources",
+    "cache",
+    "warnings"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": { "$ref": "#/$defs/generator" },
+    "input": { "$ref": "#/$defs/input" },
+    "policy": { "$ref": "#/$defs/policy" },
+    "research": { "$ref": "#/$defs/research" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "packages": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/package" }
+    },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "cache": { "$ref": "#/$defs/cache" },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/warning" }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "httpsUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://(?![^/?#]*@)"
+    },
+    "registryBaseUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://(?![^/?#]*@)[^?#]+/?$"
+    },
+    "nullableHttpsUrl": {
+      "anyOf": [
+        { "$ref": "#/$defs/httpsUrl" },
+        { "type": "null" }
+      ]
+    },
+    "nullableDateTime": {
+      "anyOf": [
+        { "type": "string", "format": "date-time" },
+        { "type": "null" }
+      ]
+    },
+    "nullableBoolean": {
+      "type": ["boolean", "null"]
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "sourceId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S+$"
+    },
+    "sourceIdArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sourceId" }
+    },
+    "warningCode": {
+      "enum": [
+        "CACHE_EXPIRED",
+        "DOCUMENTATION_NOT_FOUND",
+        "INVALID_PACKAGE_REFERENCE",
+        "OFFLINE_CACHE_MISS",
+        "PACKAGE_NOT_FOUND",
+        "REGISTRY_RATE_LIMITED",
+        "REGISTRY_RESPONSE_INVALID",
+        "REGISTRY_UNAVAILABLE",
+        "RELEASE_METADATA_NOT_FOUND",
+        "REPOSITORY_NOT_FOUND",
+        "SOURCE_CONFLICT"
+      ]
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "UpgradeLens" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "repositoryLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "root"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "root": { "const": "." }
+      }
+    },
+    "projectManifestLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest", "repository"],
+      "properties": {
+        "schemaVersion": { "const": "2.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" },
+        "repository": { "$ref": "#/$defs/repositoryLineage" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projectManifest"],
+      "properties": {
+        "projectManifest": { "$ref": "#/$defs/projectManifestLineage" }
+      }
+    },
+    "registryBases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["npm", "pypi"],
+      "properties": {
+        "npm": { "$ref": "#/$defs/registryBaseUrl" },
+        "pypi": { "$ref": "#/$defs/registryBaseUrl" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "policyVersion",
+        "registryBases",
+        "ttlPolicyVersion",
+        "sourceAllowlistVersion",
+        "includePrereleases"
+      ],
+      "properties": {
+        "mode": { "enum": ["online", "offline"] },
+        "policyVersion": { "type": "string", "minLength": 1 },
+        "registryBases": { "$ref": "#/$defs/registryBases" },
+        "ttlPolicyVersion": { "type": "string", "minLength": 1 },
+        "sourceAllowlistVersion": { "type": "string", "minLength": 1 },
+        "includePrereleases": { "type": "boolean" }
+      }
+    },
+    "research": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "researchId",
+        "startedAt",
+        "completedAt",
+        "durationMs",
+        "inputOccurrenceCount",
+        "inputPackageCount",
+        "researchedPackageCount",
+        "sourceCount",
+        "cacheHitCount",
+        "cacheMissCount",
+        "cacheRevalidationCount",
+        "retryCount",
+        "partialFailureCount"
+      ],
+      "properties": {
+        "researchId": { "$ref": "#/$defs/digest" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "$ref": "#/$defs/nonNegativeInteger" },
+        "inputOccurrenceCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "inputPackageCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "researchedPackageCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "sourceCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "cacheHitCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "cacheMissCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "cacheRevalidationCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "retryCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "partialFailureCount": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputOccurrenceCount",
+        "packageCount",
+        "resolvedPackageCount",
+        "partialPackageCount",
+        "notFoundPackageCount",
+        "invalidPackageCount",
+        "unavailablePackageCount",
+        "sourceCount",
+        "warningCount",
+        "cacheHitCount",
+        "cacheMissCount",
+        "staleSourceCount"
+      ],
+      "properties": {
+        "inputOccurrenceCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "packageCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "resolvedPackageCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "partialPackageCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "notFoundPackageCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "invalidPackageCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "unavailablePackageCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "sourceCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "warningCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "cacheHitCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "cacheMissCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "staleSourceCount": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observedDeclaredNames",
+        "normalizedName",
+        "registry",
+        "registryBaseUrl",
+        "packageUrl",
+        "apiUrl"
+      ],
+      "properties": {
+        "observedDeclaredNames": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "normalizedName": { "type": "string", "minLength": 1 },
+        "registry": { "enum": ["npm", "pypi"] },
+        "registryBaseUrl": { "$ref": "#/$defs/registryBaseUrl" },
+        "packageUrl": { "$ref": "#/$defs/httpsUrl" },
+        "apiUrl": { "$ref": "#/$defs/httpsUrl" }
+      }
+    },
+    "occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "projectPath",
+        "manifest",
+        "dependencyType",
+        "declaredName",
+        "declaredVersion"
+      ],
+      "properties": {
+        "projectId": { "type": "string", "minLength": 1 },
+        "projectPath": { "$ref": "#/$defs/relativePath" },
+        "manifest": { "$ref": "#/$defs/relativePath" },
+        "dependencyType": {
+          "enum": [
+            "constraint",
+            "dependency",
+            "devDependency",
+            "directReference",
+            "editable",
+            "optionalDependency",
+            "peerDependency",
+            "runtime"
+          ]
+        },
+        "declaredName": { "type": "string", "minLength": 1 },
+        "declaredVersion": { "type": ["string", "null"] }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": ["string", "null"] },
+        "license": { "type": ["string", "null"] },
+        "homepageUrl": { "$ref": "#/$defs/nullableHttpsUrl" },
+        "documentationUrl": { "$ref": "#/$defs/nullableHttpsUrl" },
+        "repositoryUrl": { "$ref": "#/$defs/nullableHttpsUrl" },
+        "issueUrl": { "$ref": "#/$defs/nullableHttpsUrl" },
+        "deprecationMessage": { "type": ["string", "null"] },
+        "projectStatus": { "type": ["string", "null"] }
+      }
+    },
+    "latest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "selection",
+        "publishedAt",
+        "releaseUrl",
+        "prerelease",
+        "yanked",
+        "deprecated",
+        "sourceId"
+      ],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "selection": { "enum": ["dist-tag:latest", "project-info-version"] },
+        "publishedAt": { "$ref": "#/$defs/nullableDateTime" },
+        "releaseUrl": { "$ref": "#/$defs/nullableHttpsUrl" },
+        "prerelease": { "$ref": "#/$defs/nullableBoolean" },
+        "yanked": { "$ref": "#/$defs/nullableBoolean" },
+        "deprecated": { "$ref": "#/$defs/nullableBoolean" },
+        "sourceId": { "$ref": "#/$defs/sourceId" }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publishedAt",
+        "url",
+        "prerelease",
+        "yanked",
+        "deprecated",
+        "sourceIds"
+      ],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 },
+        "publishedAt": { "$ref": "#/$defs/nullableDateTime" },
+        "url": { "$ref": "#/$defs/nullableHttpsUrl" },
+        "prerelease": { "$ref": "#/$defs/nullableBoolean" },
+        "yanked": { "$ref": "#/$defs/nullableBoolean" },
+        "deprecated": { "$ref": "#/$defs/nullableBoolean" },
+        "sourceIds": { "$ref": "#/$defs/sourceIdArray" }
+      },
+      "oneOf": [
+        {
+          "required": ["version"],
+          "not": { "required": ["tag"] }
+        },
+        {
+          "required": ["tag"],
+          "not": { "required": ["version"] }
+        }
+      ]
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "ecosystem",
+        "status",
+        "identity",
+        "occurrences",
+        "metadata",
+        "latest",
+        "releaseIndex",
+        "sourceIds",
+        "warningCodes"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 5,
+          "anyOf": [
+            { "pattern": "^npm:.+" },
+            { "pattern": "^pypi:.+" }
+          ]
+        },
+        "ecosystem": { "enum": ["node", "python"] },
+        "status": { "enum": ["resolved", "partial", "notFound", "invalid", "unavailable"] },
+        "identity": { "$ref": "#/$defs/identity" },
+        "occurrences": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/occurrence" }
+        },
+        "metadata": { "$ref": "#/$defs/metadata" },
+        "latest": {
+          "anyOf": [
+            { "$ref": "#/$defs/latest" },
+            { "type": "null" }
+          ]
+        },
+        "releaseIndex": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/release" }
+        },
+        "sourceIds": { "$ref": "#/$defs/sourceIdArray" },
+        "warningCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/warningCode" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "ecosystem": { "const": "node" } },
+            "required": ["ecosystem"]
+          },
+          "then": {
+            "properties": {
+              "id": { "type": "string", "pattern": "^npm:.+" },
+              "identity": {
+                "type": "object",
+                "properties": { "registry": { "const": "npm" } }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "id": { "type": "string", "pattern": "^pypi:.+" },
+              "identity": {
+                "type": "object",
+                "properties": { "registry": { "const": "pypi" } }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "resolved" } },
+            "required": ["status"]
+          },
+          "then": { "properties": { "latest": { "$ref": "#/$defs/latest" } } }
+        },
+        {
+          "if": {
+            "properties": { "status": { "enum": ["notFound", "invalid", "unavailable"] } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "latest": { "type": "null" },
+              "releaseIndex": { "type": "array", "maxItems": 0 }
+            }
+          }
+        }
+      ]
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contentDigest", "mediaType", "retrievedAt", "freshness"],
+      "properties": {
+        "contentDigest": { "$ref": "#/$defs/digest" },
+        "mediaType": { "type": "string", "minLength": 1 },
+        "retrievedAt": { "type": "string", "format": "date-time" },
+        "freshness": { "enum": ["fresh", "stale"] }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "authority",
+        "trust",
+        "url",
+        "status",
+        "supports",
+        "discoveredFrom",
+        "trustEvidenceSourceIds",
+        "snapshot"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/sourceId" },
+        "kind": {
+          "enum": ["registry", "officialDocumentation", "sourceRepository", "releaseFeed", "community"]
+        },
+        "authority": {
+          "enum": ["registryAuthoritative", "officialProject", "publisherProvided", "community"]
+        },
+        "trust": { "enum": ["official", "publisher", "verified", "community", "unknown"] },
+        "url": { "$ref": "#/$defs/httpsUrl" },
+        "apiUrl": { "$ref": "#/$defs/httpsUrl" },
+        "status": { "enum": ["available", "notFound", "unavailable", "unverified", "stale"] },
+        "supports": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "discoveredFrom": {
+          "anyOf": [
+            { "$ref": "#/$defs/sourceId" },
+            { "type": "null" }
+          ]
+        },
+        "trustEvidenceSourceIds": { "$ref": "#/$defs/sourceIdArray" },
+        "snapshot": {
+          "anyOf": [
+            { "$ref": "#/$defs/snapshot" },
+            { "type": "null" }
+          ]
+        },
+        "conflictsWith": { "$ref": "#/$defs/sourceIdArray" }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "policyVersion", "hitCount", "missCount", "revalidationCount", "staleEntryCount"],
+      "properties": {
+        "mode": { "enum": ["online", "offline"] },
+        "policyVersion": { "type": "string", "minLength": 1 },
+        "hitCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "missCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "revalidationCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "staleEntryCount": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": { "$ref": "#/$defs/warningCode" },
+        "packageId": { "type": "string", "minLength": 5 },
+        "sourceId": { "$ref": "#/$defs/sourceId" },
+        "message": { "type": "string", "minLength": 1 },
+        "retryable": { "type": "boolean" }
+      }
+    }
+  }
+}

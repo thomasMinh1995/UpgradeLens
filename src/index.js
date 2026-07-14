@@ -8,3 +8,5 @@ export {
   VERSION
 } from './constants.js';
 export { discoverProject } from './discovery.js';
+export { loadProjectManifestInput } from './project-manifest-input.js';
+export { createResearchPlan, validateResearchPlan } from './research-plan.js';

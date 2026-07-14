@@ -1,0 +1,5 @@
+{
+  "invalidReason": "unsupported-reference",
+  "unsupportedEcosystem": "java",
+  "expectedAdapterInvocations": 0
+}

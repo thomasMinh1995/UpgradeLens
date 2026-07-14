@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-14T00:00:00.000Z",
+  "generator": { "name": "UpgradeLens", "version": "0.1.1" },
+  "input": {
+    "projectManifest": {
+      "schemaVersion": "2.0.0",
+      "artifact": ".upgradelens/project-manifest.json",
+      "artifactDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "repository": { "name": "empty-project", "root": "." }
+    }
+  },
+  "policy": {
+    "mode": "online",
+    "policyVersion": "1",
+    "registryBases": {
+      "npm": "https://registry.npmjs.org",
+      "pypi": "https://pypi.org"
+    },
+    "ttlPolicyVersion": "1",
+    "sourceAllowlistVersion": "1",
+    "includePrereleases": false
+  },
+  "research": {
+    "researchId": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "startedAt": "2026-07-14T00:00:00.000Z",
+    "completedAt": "2026-07-14T00:00:00.000Z",
+    "durationMs": 0,
+    "inputOccurrenceCount": 0,
+    "inputPackageCount": 0,
+    "researchedPackageCount": 0,
+    "sourceCount": 0,
+    "cacheHitCount": 0,
+    "cacheMissCount": 0,
+    "cacheRevalidationCount": 0,
+    "retryCount": 0,
+    "partialFailureCount": 0
+  },
+  "summary": {
+    "inputOccurrenceCount": 0,
+    "packageCount": 0,
+    "resolvedPackageCount": 0,
+    "partialPackageCount": 0,
+    "notFoundPackageCount": 0,
+    "invalidPackageCount": 0,
+    "unavailablePackageCount": 0,
+    "sourceCount": 0,
+    "warningCount": 0,
+    "cacheHitCount": 0,
+    "cacheMissCount": 0,
+    "staleSourceCount": 0
+  },
+  "packages": [],
+  "sources": [],
+  "cache": {
+    "mode": "online",
+    "policyVersion": "1",
+    "hitCount": 0,
+    "missCount": 0,
+    "revalidationCount": 0,
+    "staleEntryCount": 0
+  },
+  "warnings": []
+}

@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-14T00:00:01.000Z",
+  "generator": { "name": "UpgradeLens", "version": "0.1.1" },
+  "input": {
+    "projectManifest": {
+      "schemaVersion": "2.0.0",
+      "artifact": ".upgradelens/project-manifest.json",
+      "artifactDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "repository": { "name": "scoped-package-project", "root": "." }
+    }
+  },
+  "policy": {
+    "mode": "online",
+    "policyVersion": "1",
+    "registryBases": { "npm": "https://registry.npmjs.org", "pypi": "https://pypi.org" },
+    "ttlPolicyVersion": "1",
+    "sourceAllowlistVersion": "1",
+    "includePrereleases": false
+  },
+  "research": {
+    "researchId": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "startedAt": "2026-07-14T00:00:00.000Z",
+    "completedAt": "2026-07-14T00:00:01.000Z",
+    "durationMs": 1000,
+    "inputOccurrenceCount": 1,
+    "inputPackageCount": 1,
+    "researchedPackageCount": 1,
+    "sourceCount": 1,
+    "cacheHitCount": 0,
+    "cacheMissCount": 1,
+    "cacheRevalidationCount": 0,
+    "retryCount": 0,
+    "partialFailureCount": 0
+  },
+  "summary": {
+    "inputOccurrenceCount": 1,
+    "packageCount": 1,
+    "resolvedPackageCount": 1,
+    "partialPackageCount": 0,
+    "notFoundPackageCount": 0,
+    "invalidPackageCount": 0,
+    "unavailablePackageCount": 0,
+    "sourceCount": 1,
+    "warningCount": 0,
+    "cacheHitCount": 0,
+    "cacheMissCount": 1,
+    "staleSourceCount": 0
+  },
+  "packages": [
+    {
+      "id": "npm:@scope/package",
+      "ecosystem": "node",
+      "status": "resolved",
+      "identity": {
+        "observedDeclaredNames": ["@scope/package"],
+        "normalizedName": "@scope/package",
+        "registry": "npm",
+        "registryBaseUrl": "https://registry.npmjs.org",
+        "packageUrl": "https://www.npmjs.com/package/@scope/package",
+        "apiUrl": "https://registry.npmjs.org/%40scope%2Fpackage"
+      },
+      "occurrences": [
+        {
+          "projectId": "node:.",
+          "projectPath": ".",
+          "manifest": "package.json",
+          "dependencyType": "devDependency",
+          "declaredName": "@scope/package",
+          "declaredVersion": "^1.0.0"
+        }
+      ],
+      "metadata": {},
+      "latest": {
+        "version": "1.0.0",
+        "selection": "dist-tag:latest",
+        "publishedAt": null,
+        "releaseUrl": "https://www.npmjs.com/package/@scope/package/v/1.0.0",
+        "prerelease": false,
+        "yanked": null,
+        "deprecated": false,
+        "sourceId": "npm:@scope/package:registry"
+      },
+      "releaseIndex": [],
+      "sourceIds": ["npm:@scope/package:registry"],
+      "warningCodes": []
+    }
+  ],
+  "sources": [
+    {
+      "id": "npm:@scope/package:registry",
+      "kind": "registry",
+      "authority": "registryAuthoritative",
+      "trust": "publisher",
+      "url": "https://www.npmjs.com/package/@scope/package",
+      "apiUrl": "https://registry.npmjs.org/%40scope%2Fpackage",
+      "status": "available",
+      "supports": ["identity", "latest"],
+      "discoveredFrom": null,
+      "trustEvidenceSourceIds": [],
+      "snapshot": {
+        "contentDigest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "mediaType": "application/json",
+        "retrievedAt": "2026-07-14T00:00:00.500Z",
+        "freshness": "fresh"
+      }
+    }
+  ],
+  "cache": {
+    "mode": "online",
+    "policyVersion": "1",
+    "hitCount": 0,
+    "missCount": 1,
+    "revalidationCount": 0,
+    "staleEntryCount": 0
+  },
+  "warnings": []
+}
