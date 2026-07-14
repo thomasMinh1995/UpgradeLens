@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-14T00:00:01.000Z",
+  "generator": { "name": "UpgradeLens", "version": "0.1.1" },
+  "input": {
+    "projectManifest": {
+      "schemaVersion": "2.0.0",
+      "artifact": ".upgradelens/project-manifest.json",
+      "artifactDigest": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "repository": { "name": "offline-project", "root": "." }
+    }
+  },
+  "policy": {
+    "mode": "offline",
+    "policyVersion": "1",
+    "registryBases": { "npm": "https://registry.npmjs.org", "pypi": "https://pypi.org" },
+    "ttlPolicyVersion": "1",
+    "sourceAllowlistVersion": "1",
+    "includePrereleases": false
+  },
+  "research": {
+    "researchId": "sha256:dededededededededededededededededededededededededededededededede",
+    "startedAt": "2026-07-14T00:00:00.000Z",
+    "completedAt": "2026-07-14T00:00:01.000Z",
+    "durationMs": 1000,
+    "inputOccurrenceCount": 1,
+    "inputPackageCount": 1,
+    "researchedPackageCount": 1,
+    "sourceCount": 1,
+    "cacheHitCount": 1,
+    "cacheMissCount": 0,
+    "cacheRevalidationCount": 0,
+    "retryCount": 0,
+    "partialFailureCount": 1
+  },
+  "summary": {
+    "inputOccurrenceCount": 1,
+    "packageCount": 1,
+    "resolvedPackageCount": 0,
+    "partialPackageCount": 1,
+    "notFoundPackageCount": 0,
+    "invalidPackageCount": 0,
+    "unavailablePackageCount": 0,
+    "sourceCount": 1,
+    "warningCount": 1,
+    "cacheHitCount": 1,
+    "cacheMissCount": 0,
+    "staleSourceCount": 1
+  },
+  "packages": [
+    {
+      "id": "pypi:fastapi",
+      "ecosystem": "python",
+      "status": "partial",
+      "identity": {
+        "observedDeclaredNames": ["fastapi"],
+        "normalizedName": "fastapi",
+        "registry": "pypi",
+        "registryBaseUrl": "https://pypi.org",
+        "packageUrl": "https://pypi.org/project/fastapi",
+        "apiUrl": "https://pypi.org/pypi/fastapi/json"
+      },
+      "occurrences": [
+        {
+          "projectId": "python:.",
+          "projectPath": ".",
+          "manifest": "requirements.txt",
+          "dependencyType": "runtime",
+          "declaredName": "fastapi",
+          "declaredVersion": "==0.116.0"
+        }
+      ],
+      "metadata": {},
+      "latest": {
+        "version": "0.116.0",
+        "selection": "project-info-version",
+        "publishedAt": null,
+        "releaseUrl": null,
+        "prerelease": false,
+        "yanked": false,
+        "deprecated": null,
+        "sourceId": "pypi:fastapi:registry"
+      },
+      "releaseIndex": [],
+      "sourceIds": ["pypi:fastapi:registry"],
+      "warningCodes": ["CACHE_EXPIRED"]
+    }
+  ],
+  "sources": [
+    {
+      "id": "pypi:fastapi:registry",
+      "kind": "registry",
+      "authority": "registryAuthoritative",
+      "trust": "publisher",
+      "url": "https://pypi.org/project/fastapi",
+      "apiUrl": "https://pypi.org/pypi/fastapi/json",
+      "status": "stale",
+      "supports": ["identity", "latest"],
+      "discoveredFrom": null,
+      "trustEvidenceSourceIds": [],
+      "snapshot": {
+        "contentDigest": "sha256:efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+        "mediaType": "application/json",
+        "retrievedAt": "2026-07-01T00:00:00.000Z",
+        "freshness": "stale"
+      }
+    }
+  ],
+  "cache": {
+    "mode": "offline",
+    "policyVersion": "1",
+    "hitCount": 1,
+    "missCount": 0,
+    "revalidationCount": 0,
+    "staleEntryCount": 1
+  },
+  "warnings": [
+    {
+      "code": "CACHE_EXPIRED",
+      "packageId": "pypi:fastapi",
+      "sourceId": "pypi:fastapi:registry",
+      "message": "Expired cached knowledge was used in offline mode.",
+      "retryable": true
+    }
+  ]
+}

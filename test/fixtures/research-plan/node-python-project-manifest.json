@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "2.0.0",
+  "generatedAt": "2026-07-14T00:00:00.000Z",
+  "generator": { "name": "UpgradeLens", "version": "0.1.1" },
+  "repository": { "name": "node-python-project", "root": "." },
+  "summary": { "projectCount": 2, "ecosystems": { "node": 1, "python": 1 }, "workspaceCount": 0 },
+  "projects": [
+    {
+      "id": "node:FE",
+      "name": "frontend",
+      "path": "FE",
+      "ecosystem": "node",
+      "languages": ["JavaScript"],
+      "manifests": ["FE/package.json"],
+      "dependencySummary": {
+        "status": "parsed",
+        "declarationCount": 2,
+        "uniqueCount": 2,
+        "duplicateCount": 0,
+        "byType": {
+          "dependencies": 1,
+          "devDependencies": 1,
+          "peerDependencies": 0,
+          "optionalDependencies": 0
+        }
+      },
+      "dependencies": [
+        {
+          "name": "react",
+          "normalizedName": "react",
+          "declaredVersion": "^19.2.6",
+          "type": "dependency",
+          "manifest": "FE/package.json"
+        },
+        {
+          "name": "vite",
+          "normalizedName": "vite",
+          "declaredVersion": "^7.0.0",
+          "type": "devDependency",
+          "manifest": "FE/package.json"
+        }
+      ]
+    },
+    {
+      "id": "python:API",
+      "name": "api",
+      "path": "API",
+      "ecosystem": "python",
+      "languages": ["Python"],
+      "manifests": ["API/requirements.txt"],
+      "dependencySummary": {
+        "status": "parsed",
+        "declarationCount": 1,
+        "uniqueCount": 1,
+        "duplicateCount": 0
+      },
+      "dependencies": [
+        {
+          "name": "fastapi",
+          "normalizedName": "fastapi",
+          "declaredVersion": "==0.116.0",
+          "type": "runtime",
+          "manifest": "API/requirements.txt"
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

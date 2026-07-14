@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-07-14T00:00:01.000Z",
+  "generator": { "name": "UpgradeLens", "version": "0.1.1" },
+  "input": {
+    "projectManifest": {
+      "schemaVersion": "2.0.0",
+      "artifact": ".upgradelens/project-manifest.json",
+      "artifactDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "repository": { "name": "missing-package-project", "root": "." }
+    }
+  },
+  "policy": {
+    "mode": "online",
+    "policyVersion": "1",
+    "registryBases": { "npm": "https://registry.npmjs.org", "pypi": "https://pypi.org" },
+    "ttlPolicyVersion": "1",
+    "sourceAllowlistVersion": "1",
+    "includePrereleases": false
+  },
+  "research": {
+    "researchId": "sha256:acacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacac",
+    "startedAt": "2026-07-14T00:00:00.000Z",
+    "completedAt": "2026-07-14T00:00:01.000Z",
+    "durationMs": 1000,
+    "inputOccurrenceCount": 1,
+    "inputPackageCount": 1,
+    "researchedPackageCount": 1,
+    "sourceCount": 1,
+    "cacheHitCount": 0,
+    "cacheMissCount": 1,
+    "cacheRevalidationCount": 0,
+    "retryCount": 0,
+    "partialFailureCount": 1
+  },
+  "summary": {
+    "inputOccurrenceCount": 1,
+    "packageCount": 1,
+    "resolvedPackageCount": 0,
+    "partialPackageCount": 0,
+    "notFoundPackageCount": 1,
+    "invalidPackageCount": 0,
+    "unavailablePackageCount": 0,
+    "sourceCount": 1,
+    "warningCount": 1,
+    "cacheHitCount": 0,
+    "cacheMissCount": 1,
+    "staleSourceCount": 0
+  },
+  "packages": [
+    {
+      "id": "npm:missing-package",
+      "ecosystem": "node",
+      "status": "notFound",
+      "identity": {
+        "observedDeclaredNames": ["missing-package"],
+        "normalizedName": "missing-package",
+        "registry": "npm",
+        "registryBaseUrl": "https://registry.npmjs.org",
+        "packageUrl": "https://www.npmjs.com/package/missing-package",
+        "apiUrl": "https://registry.npmjs.org/missing-package"
+      },
+      "occurrences": [
+        {
+          "projectId": "node:.",
+          "projectPath": ".",
+          "manifest": "package.json",
+          "dependencyType": "dependency",
+          "declaredName": "missing-package",
+          "declaredVersion": null
+        }
+      ],
+      "metadata": {},
+      "latest": null,
+      "releaseIndex": [],
+      "sourceIds": ["npm:missing-package:registry"],
+      "warningCodes": ["PACKAGE_NOT_FOUND"]
+    }
+  ],
+  "sources": [
+    {
+      "id": "npm:missing-package:registry",
+      "kind": "registry",
+      "authority": "registryAuthoritative",
+      "trust": "publisher",
+      "url": "https://www.npmjs.com/package/missing-package",
+      "apiUrl": "https://registry.npmjs.org/missing-package",
+      "status": "notFound",
+      "supports": ["identity"],
+      "discoveredFrom": null,
+      "trustEvidenceSourceIds": [],
+      "snapshot": null
+    }
+  ],
+  "cache": {
+    "mode": "online",
+    "policyVersion": "1",
+    "hitCount": 0,
+    "missCount": 1,
+    "revalidationCount": 0,
+    "staleEntryCount": 0
+  },
+  "warnings": [
+    {
+      "code": "PACKAGE_NOT_FOUND",
+      "packageId": "npm:missing-package",
+      "sourceId": "npm:missing-package:registry",
+      "message": "Package was not found in the npm Registry.",
+      "retryable": false
+    }
+  ]
+}

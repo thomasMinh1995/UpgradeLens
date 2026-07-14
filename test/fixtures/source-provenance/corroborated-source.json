@@ -1,0 +1,18 @@
+[
+  {
+    "package": { "id": "npm:shared", "metadata": { "documentationUrl": "https://docs.example.test/" } },
+    "source": {
+      "id": "npm:shared:registry", "kind": "registry", "authority": "registryAuthoritative", "trust": "publisher",
+      "url": "https://registry.example.test/shared", "status": "available", "supports": ["identity"],
+      "discoveredFrom": null, "trustEvidenceSourceIds": [], "snapshot": null
+    }
+  },
+  {
+    "package": { "id": "npm:shared", "metadata": { "documentationUrl": "https://docs.example.test/" } },
+    "source": {
+      "id": "npm:shared:registry-secondary", "kind": "registry", "authority": "registryAuthoritative", "trust": "publisher",
+      "url": "https://mirror.example.test/shared", "status": "available", "supports": ["identity"],
+      "discoveredFrom": null, "trustEvidenceSourceIds": [], "snapshot": null
+    }
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "2.0.0",
+  "generatedAt": "2026-07-14T00:00:00.000Z",
+  "generator": { "name": "UpgradeLens", "version": "0.1.1" },
+  "repository": { "name": "empty-project", "root": "." },
+  "summary": { "projectCount": 0, "ecosystems": {}, "workspaceCount": 0 },
+  "projects": [],
+  "warnings": []
+}

@@ -1,0 +1,24 @@
+{
+  "package": {
+    "id": "npm:react",
+    "metadata": {
+      "homepageUrl": "https://react.dev/",
+      "documentationUrl": "https://react.dev/",
+      "repositoryUrl": "git+https://github.com/facebook/react.git",
+      "issueUrl": "https://github.com/facebook/react/issues"
+    }
+  },
+  "source": {
+    "id": "npm:react:registry",
+    "kind": "registry",
+    "authority": "registryAuthoritative",
+    "trust": "publisher",
+    "url": "https://www.npmjs.com/package/react",
+    "apiUrl": "https://registry.npmjs.org/react",
+    "status": "available",
+    "supports": ["identity", "metadata"],
+    "discoveredFrom": null,
+    "trustEvidenceSourceIds": [],
+    "snapshot": null
+  }
+}

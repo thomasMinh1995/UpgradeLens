@@ -1,0 +1,4 @@
+{
+  "packages": ["npm:react", "npm:vite", "pypi:fastapi"],
+  "expected": { "packageCount": 3, "npmInvocations": 2, "pypiInvocations": 1 }
+}

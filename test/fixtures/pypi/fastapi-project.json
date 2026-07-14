@@ -1,0 +1,42 @@
+{
+  "info": {
+    "name": "FastAPI",
+    "version": "0.115.0",
+    "summary": "FastAPI framework.",
+    "license_expression": "MIT",
+    "license": "BSD-3-Clause",
+    "home_page": "https://fallback.example.invalid/",
+    "project_urls": {
+      "Documentation": "https://fastapi.tiangolo.com/?tracking=ignored",
+      "Source": "git+https://github.com/fastapi/fastapi.git",
+      "Issues": "https://github.com/fastapi/fastapi/issues",
+      "Changelog": "https://fastapi.tiangolo.com/release-notes/",
+      "Unknown Label": "https://example.invalid/unknown"
+    },
+    "classifiers": [
+      "Programming Language :: Python :: 3",
+      "Development Status :: 5 - Production/Stable"
+    ]
+  },
+  "urls": [
+    {
+      "upload_time_iso_8601": "2026-02-01T00:00:00.000Z",
+      "yanked": false
+    }
+  ],
+  "releases": {
+    "0.100.0": [
+      { "upload_time": "2025-01-02T00:00:00Z", "yanked": true }
+    ],
+    "0.115.0": [
+      { "upload_time_iso_8601": "2026-02-02T00:00:00.000Z", "yanked": true },
+      { "upload_time_iso_8601": "2026-02-01T00:00:00.000Z", "yanked": false }
+    ],
+    "0.120.0": [
+      { "upload_time": "not-a-date", "yanked": "unknown" }
+    ],
+    "0.99.0": [
+      { "upload_time": "2024-01-01T00:00:00Z", "yanked": true }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "react",
+  "description": "A user interface library.",
+  "license": "MIT",
+  "homepage": "https://react.dev/?tracking=ignored",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/facebook/react.git"
+  },
+  "bugs": { "url": "https://github.com/facebook/react/issues" },
+  "deprecated": false,
+  "dist-tags": { "latest": "19.2.0" },
+  "versions": {
+    "20.0.0": {},
+    "19.2.0": { "deprecated": false },
+    "18.3.0": { "deprecated": "Use a newer release." }
+  },
+  "time": {
+    "18.3.0": "2025-01-01T00:00:00Z",
+    "19.2.0": "2026-01-01T00:00:00.000Z",
+    "20.0.0": "not-a-date"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "package": {
+    "id": "pypi:fastapi",
+    "metadata": {
+      "documentationUrl": "https://fastapi.tiangolo.com/",
+      "repositoryUrl": "https://github.com/fastapi/fastapi",
+      "issueUrl": "https://github.com/fastapi/fastapi/issues"
+    }
+  },
+  "source": {
+    "id": "pypi:fastapi:registry",
+    "kind": "registry",
+    "authority": "registryAuthoritative",
+    "trust": "publisher",
+    "url": "https://pypi.org/project/fastapi/",
+    "apiUrl": "https://pypi.org/pypi/fastapi/json",
+    "status": "available",
+    "supports": ["identity", "metadata"],
+    "discoveredFrom": null,
+    "trustEvidenceSourceIds": [],
+    "snapshot": null
+  },
+  "sourceCandidates": [
+    {
+      "role": "changelog",
+      "url": "https://fastapi.tiangolo.com/release-notes/",
+      "discoveredFromField": "info.project_urls.Changelog"
+    }
+  ]
+}
