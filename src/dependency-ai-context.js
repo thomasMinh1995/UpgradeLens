@@ -9,6 +9,8 @@ import { compareText } from './portable.js';
 import { VersionAnalysisInputError } from './version-analysis-loader.js';
 
 export const DEPENDENCY_AI_CONTEXT_VERSION = '1';
+export const BASELINE_UNSUPPORTED_WARNING_CODE = 'BASELINE_UNSUPPORTED';
+export const MISSING_TARGET_WARNING_CODE = 'TARGET_MISSING';
 
 const KIND_PRIORITY = new Map([
   ['breakingChanges', 0],
@@ -147,7 +149,7 @@ export function resolveVersionBaseline(adapter, dependency, options = {}) {
       declaredConstraint: baseline.constraint
     };
   }
-  throw inputError(`Dependency ${dependency.name} has unsupported baseline: ${baseline.reason}.`, 'BASELINE_UNSUPPORTED');
+  throw inputError(`Dependency ${dependency.name} has unsupported baseline: ${baseline.reason}.`, BASELINE_UNSUPPORTED_WARNING_CODE);
 }
 
 export function resolveTargetVersion(adapter, packageRecord, request = {}) {
@@ -159,13 +161,21 @@ export function resolveTargetVersion(adapter, packageRecord, request = {}) {
   }
   if (policy === 'registryLatest') {
     if (!packageRecord.latest?.version) {
-      throw inputError(`Package ${packageRecord.id} has no registry latest target.`, 'TARGET_INVALID');
+      throw inputError(`Package ${packageRecord.id} has no registry latest target.`, MISSING_TARGET_WARNING_CODE);
     }
     const normalized = adapter.normalizeVersion(packageRecord.latest.version);
     if (!normalized.ok) throw inputError(`Registry latest version is invalid: ${normalized.reason}.`, 'TARGET_INVALID');
     return { targetVersion: normalized.value, targetPolicy: 'registryLatest' };
   }
   throw inputError(`Unsupported target policy ${policy}.`, 'TARGET_INVALID');
+}
+
+function isMissingTargetError(error) {
+  return error instanceof VersionAnalysisInputError && error.code === MISSING_TARGET_WARNING_CODE;
+}
+
+function isUnsupportedBaselineError(error) {
+  return error instanceof VersionAnalysisInputError && error.code === BASELINE_UNSUPPORTED_WARNING_CODE;
 }
 
 function sourceRank(source) {
@@ -364,29 +374,147 @@ function buildContextWithoutId(artifacts, input, versions, knowledge, metadata) 
       knowledgeResearchId: artifacts.input.knowledgeManifest.researchId,
       evidenceArtifactDigest: artifacts.input.evidenceArtifact.artifactDigest
     },
-    dependency: {
-      projectId: input.project.id,
-      packageId: input.packageRecord.id,
-      declaredName: input.dependency.name,
-      normalizedName: input.packageRecord.identity.normalizedName,
-      ecosystem: input.project.ecosystem,
-      registry: input.packageRecord.identity.registry,
-      packageManager: input.project.packageManager?.name ?? null,
-      dependencyType: input.dependency.type,
-      manifest: input.dependency.manifest
-    },
+    dependency: dependencyFacts(input),
     versions,
     knowledge,
     metadata
   };
 }
 
+function dependencyFacts(input) {
+  return {
+    projectId: input.project.id,
+    packageId: input.packageRecord.id,
+    declaredName: input.dependency.name,
+    normalizedName: input.packageRecord.identity.normalizedName,
+    ecosystem: input.project.ecosystem,
+    registry: input.packageRecord.identity.registry,
+    packageManager: input.project.packageManager?.name ?? null,
+    dependencyType: input.dependency.type,
+    manifest: input.dependency.manifest
+  };
+}
+
+function contextWithDigest(artifacts, input, versions, knowledge, metadata) {
+  const contextWithoutSize = buildContextWithoutId(artifacts, input, versions, knowledge, metadata);
+  const characters = canonicalJson(contextWithoutSize).length;
+  const contextMaterial = buildContextWithoutId(artifacts, input, versions, knowledge, {
+    ...metadata,
+    size: { ...metadata.size, characters }
+  });
+  const contextId = digestBytes(canonicalJsonBytes(contextMaterial));
+  return { contextId, ...contextMaterial };
+}
+
+function buildMissingTargetContext(artifacts, input, baseline, targetPolicy, message) {
+  const versions = {
+    analysisMode: baseline.analysisMode,
+    declaredVersion: input.dependency.declaredVersion,
+    currentVersion: baseline.currentVersion,
+    currentVersionSource: baseline.currentVersionSource,
+    targetVersion: null,
+    targetPolicy,
+    delta: { direction: 'unknown', classification: 'unknown' }
+  };
+  const knowledge = {
+    relevantReleases: [],
+    evidence: []
+  };
+  const metadata = {
+    selectedEvidenceIds: [],
+    missingInformation: ['targetVersion'],
+    warnings: [
+      {
+        code: MISSING_TARGET_WARNING_CODE,
+        packageId: input.packageRecord.id,
+        message
+      }
+    ],
+    size: {
+      characters: 0,
+      evidenceItems: 0
+    }
+  };
+  return contextWithDigest(artifacts, input, versions, knowledge, metadata);
+}
+
+function buildUnsupportedBaselineContext(artifacts, input, target, targetPolicy, baselineMessage, targetMessage) {
+  const warnings = [
+    {
+      code: BASELINE_UNSUPPORTED_WARNING_CODE,
+      packageId: input.packageRecord.id,
+      message: baselineMessage
+    }
+  ];
+  const missingInformation = ['baseline'];
+  if (!target) {
+    missingInformation.push('targetVersion');
+    warnings.push({
+      code: MISSING_TARGET_WARNING_CODE,
+      packageId: input.packageRecord.id,
+      message: targetMessage
+    });
+  }
+  const versions = {
+    analysisMode: 'unsupportedBaseline',
+    declaredVersion: input.dependency.declaredVersion,
+    currentVersion: null,
+    currentVersionSource: null,
+    targetVersion: target?.targetVersion ?? null,
+    targetPolicy: target?.targetPolicy ?? targetPolicy,
+    delta: { direction: 'unknown', classification: 'unknown' }
+  };
+  const knowledge = {
+    relevantReleases: [],
+    evidence: []
+  };
+  const metadata = {
+    selectedEvidenceIds: [],
+    missingInformation,
+    warnings,
+    size: {
+      characters: 0,
+      evidenceItems: 0
+    }
+  };
+  return contextWithDigest(artifacts, input, versions, knowledge, metadata);
+}
+
 export function buildDependencyAiContext(artifacts, request = {}) {
   const registry = request.adapterRegistry ?? createDefaultEcosystemVersionAdapterRegistry();
   const input = request.input ?? resolveDependencyAnalysisInput(artifacts, request.dependency ?? {});
   const adapter = getEcosystemVersionAdapter(input.project.ecosystem, registry);
-  const baseline = resolveVersionBaseline(adapter, input.dependency, { currentVersion: request.currentVersion });
-  const target = resolveTargetVersion(adapter, input.packageRecord, request.target ?? { policy: 'explicit', version: request.targetVersion });
+  const targetRequest = request.target ?? { policy: 'explicit', version: request.targetVersion };
+  const requestedTargetPolicy = targetRequest.policy ?? (targetRequest.version ? 'explicit' : 'registryLatest');
+  let baseline;
+  try {
+    baseline = resolveVersionBaseline(adapter, input.dependency, { currentVersion: request.currentVersion });
+  } catch (error) {
+    if (!isUnsupportedBaselineError(error)) throw error;
+    let target = null;
+    let targetMessage = null;
+    try {
+      target = resolveTargetVersion(adapter, input.packageRecord, targetRequest);
+    } catch (targetError) {
+      if (!isMissingTargetError(targetError)) throw targetError;
+      targetMessage = targetError.message;
+    }
+    return buildUnsupportedBaselineContext(
+      artifacts,
+      input,
+      target,
+      requestedTargetPolicy,
+      error.message,
+      targetMessage
+    );
+  }
+  let target;
+  try {
+    target = resolveTargetVersion(adapter, input.packageRecord, targetRequest);
+  } catch (error) {
+    if (!isMissingTargetError(error)) throw error;
+    return buildMissingTargetContext(artifacts, input, baseline, requestedTargetPolicy, error.message);
+  }
   const delta = baseline.analysisMode === 'exactBaseline'
     ? adapter.compareVersions(baseline.currentVersion, target.targetVersion)
     : { direction: 'unknown', classification: 'unknown' };
@@ -423,14 +551,7 @@ export function buildDependencyAiContext(artifacts, request = {}) {
       evidenceItems: selected.evidence.length
     }
   };
-  const contextWithoutSize = buildContextWithoutId(artifacts, input, versions, knowledge, metadata);
-  const characters = canonicalJson(contextWithoutSize).length;
-  const contextMaterial = buildContextWithoutId(artifacts, input, versions, knowledge, {
-    ...metadata,
-    size: { ...metadata.size, characters }
-  });
-  const contextId = digestBytes(canonicalJsonBytes(contextMaterial));
-  return { contextId, ...contextMaterial };
+  return contextWithDigest(artifacts, input, versions, knowledge, metadata);
 }
 
 export function dependencyAiContextDigest(context) {

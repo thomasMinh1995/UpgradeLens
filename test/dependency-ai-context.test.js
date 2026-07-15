@@ -424,6 +424,71 @@ test('builds declaredConstraint context with null current version and unknown de
   assert.deepEqual(context.knowledge.relevantReleases, ['2.0.0']);
 });
 
+test('missing registry latest target builds a package-local skipped context without selecting evidence', async () => {
+  const artifacts = await loadedArtifacts({ declaredVersion: '^1.0.0' });
+  artifacts.knowledgeManifest.packages[0].latest = null;
+  artifacts.knowledgeManifest.packages[0].releaseIndex = [];
+
+  const context = buildDependencyAiContext(artifacts, { target: { policy: 'registryLatest' } });
+
+  assert.equal(context.versions.analysisMode, 'declaredConstraint');
+  assert.equal(context.versions.currentVersion, null);
+  assert.equal(context.versions.targetVersion, null);
+  assert.equal(context.versions.targetPolicy, 'registryLatest');
+  assert.deepEqual(context.versions.delta, { direction: 'unknown', classification: 'unknown' });
+  assert.deepEqual(context.knowledge.evidence, []);
+  assert.deepEqual(context.metadata.selectedEvidenceIds, []);
+  assert.deepEqual(context.metadata.missingInformation, ['targetVersion']);
+  assert.ok(context.metadata.warnings.some((warning) => warning.code === 'TARGET_MISSING'));
+});
+
+test('missing declared version builds an unsupportedBaseline context without guessing current version', async () => {
+  const artifacts = await loadedArtifacts({ declaredVersion: null });
+
+  const context = buildDependencyAiContext(artifacts, { target: { policy: 'registryLatest' } });
+
+  assert.equal(context.versions.analysisMode, 'unsupportedBaseline');
+  assert.equal(context.versions.declaredVersion, null);
+  assert.equal(context.versions.currentVersion, null);
+  assert.equal(context.versions.currentVersionSource, null);
+  assert.equal(context.versions.targetVersion, '2.0.0');
+  assert.equal(context.versions.targetPolicy, 'registryLatest');
+  assert.deepEqual(context.versions.delta, { direction: 'unknown', classification: 'unknown' });
+  assert.deepEqual(context.knowledge.evidence, []);
+  assert.deepEqual(context.metadata.selectedEvidenceIds, []);
+  assert.deepEqual(context.metadata.missingInformation, ['baseline']);
+  assert.deepEqual(context.metadata.warnings.map((warning) => warning.code), ['BASELINE_UNSUPPORTED']);
+  assert.match(context.metadata.warnings[0].message, /missing-declared-version/);
+});
+
+test('unsupported direct reference baseline builds an unsupportedBaseline context', async () => {
+  const artifacts = await loadedArtifacts({
+    declaredVersion: 'git+https://github.com/example/react.git',
+    dependencyType: 'directReference'
+  });
+
+  const context = buildDependencyAiContext(artifacts, { targetVersion: '2.0.0' });
+
+  assert.equal(context.versions.analysisMode, 'unsupportedBaseline');
+  assert.equal(context.versions.declaredVersion, 'git+https://github.com/example/react.git');
+  assert.equal(context.versions.targetVersion, '2.0.0');
+  assert.equal(context.versions.targetPolicy, 'explicit');
+  assert.deepEqual(context.metadata.warnings.map((warning) => warning.code), ['BASELINE_UNSUPPORTED']);
+  assert.match(context.metadata.warnings[0].message, /unsupported-semver-declaration/);
+});
+
+test('explicit target override works when registry latest is missing', async () => {
+  const artifacts = await loadedArtifacts({ declaredVersion: '^1.0.0' });
+  artifacts.knowledgeManifest.packages[0].latest = null;
+
+  const context = buildDependencyAiContext(artifacts, { targetVersion: '2.0.0' });
+
+  assert.equal(context.versions.targetVersion, '2.0.0');
+  assert.equal(context.versions.targetPolicy, 'explicit');
+  assert.deepEqual(context.metadata.missingInformation, []);
+  assert.equal(context.knowledge.evidence.length, 1);
+});
+
 test('supports explicit current version as exactBaseline while preserving declared range', async () => {
   const artifacts = await loadedArtifacts({ declaredVersion: '^1.0.0' });
   const context = buildDependencyAiContext(artifacts, {

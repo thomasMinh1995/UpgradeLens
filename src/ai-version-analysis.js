@@ -1,6 +1,10 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 
 import { validateAiRuntime } from './ai-runtime.js';
+import {
+  BASELINE_UNSUPPORTED_WARNING_CODE,
+  MISSING_TARGET_WARNING_CODE
+} from './dependency-ai-context.js';
 import { compareText } from './portable.js';
 
 export const AI_VERSION_ANALYSIS_RESULT_VERSION = '1';
@@ -159,7 +163,13 @@ function emptyClaims(context, status, validationStatus, warningCodes, limitation
     },
     requiresHumanReview: humanReview.requiresHumanReview,
     humanReviewReasons: humanReview.humanReviewReasons,
-    nextAction: status === 'skipped' ? 'collectEvidence' : 'retryAnalysis',
+    nextAction: status === 'skipped' && validationWarningCodes.includes(BASELINE_UNSUPPORTED_WARNING_CODE)
+      ? 'resolveCurrentVersion'
+      : status === 'skipped' && validationWarningCodes.includes(MISSING_TARGET_WARNING_CODE)
+        ? 'provideExplicitTarget'
+      : status === 'skipped'
+        ? 'collectEvidence'
+        : 'retryAnalysis',
     limitations: [{ code: limitationCode, message }]
   };
 }
@@ -334,11 +344,14 @@ export function humanReviewPolicy({
   if (riskLevel === 'unknown') reasons.push('UNKNOWN_RISK');
   if (evidenceCoverage === 'none') reasons.push('EVIDENCE_NONE');
   if (evidenceCoverage === 'partial') reasons.push('EVIDENCE_PARTIAL');
-  if (context.versions.analysisMode === 'declaredConstraint') reasons.push('VERSION_UNCERTAIN');
+  if (['declaredConstraint', 'unsupportedBaseline'].includes(context.versions.analysisMode)) {
+    reasons.push('VERSION_UNCERTAIN');
+  }
   for (const warning of context.metadata.warnings ?? []) {
     if (warning.code === 'SOURCE_STALE') reasons.push('SOURCE_STALE');
     if (warning.code === 'SOURCE_CONFLICT') reasons.push('SOURCE_CONFLICT');
     if (warning.code === 'EVIDENCE_MISSING') reasons.push('EVIDENCE_NONE');
+    if (warning.code === BASELINE_UNSUPPORTED_WARNING_CODE) reasons.push('VERSION_UNCERTAIN');
   }
   if (validationWarningCodes.some((code) =>
     ['CLAIMS_DROPPED', 'EVIDENCE_REFERENCE_INVALID', 'INVENTED_URL'].includes(code)
@@ -357,6 +370,28 @@ export async function analyzeDependencyAiContext(context, {
   promptVersion = VERSION_ANALYSIS_PROMPT_VERSION,
   outputSchema = AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA
 } = {}) {
+  if ((context.metadata?.missingInformation ?? []).includes('baseline')
+    || contextHasWarning(context, BASELINE_UNSUPPORTED_WARNING_CODE)) {
+    return emptyClaims(
+      context,
+      'skipped',
+      'validWithWarnings',
+      [BASELINE_UNSUPPORTED_WARNING_CODE],
+      BASELINE_UNSUPPORTED_WARNING_CODE,
+      'AI analysis was skipped because no supported current-version baseline was available.'
+    );
+  }
+  if ((context.metadata?.missingInformation ?? []).includes('targetVersion')
+    || contextHasWarning(context, MISSING_TARGET_WARNING_CODE)) {
+    return emptyClaims(
+      context,
+      'skipped',
+      'validWithWarnings',
+      [MISSING_TARGET_WARNING_CODE],
+      MISSING_TARGET_WARNING_CODE,
+      'AI analysis was skipped because no target version was available. Provide an explicit target or collect target evidence.'
+    );
+  }
   if (context.knowledge.evidence.length === 0) {
     return emptyClaims(
       context,

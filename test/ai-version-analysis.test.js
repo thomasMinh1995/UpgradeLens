@@ -260,6 +260,67 @@ test('missing evidence skips runtime and requires human review', async () => {
   assert.equal(result.nextAction, 'collectEvidence');
 });
 
+test('missing target skips runtime and asks for an explicit target', async () => {
+  const ctx = context({
+    evidenceItems: [],
+    warnings: [
+      {
+        code: 'TARGET_MISSING',
+        packageId: 'npm:react',
+        message: 'Package npm:react has no registry latest target.'
+      }
+    ]
+  });
+  ctx.versions.targetVersion = null;
+  ctx.versions.targetPolicy = 'registryLatest';
+  ctx.metadata.missingInformation = ['targetVersion'];
+  const runtime = fakeRuntime(candidate(context()));
+
+  const result = await analyzeDependencyAiContext(ctx, { runtime });
+
+  assert.equal(runtime.calls.length, 0);
+  assert.equal(result.status, 'skipped');
+  assert.equal(result.riskLevel, 'unknown');
+  assert.equal(result.requiresHumanReview, true);
+  assert.equal(result.nextAction, 'provideExplicitTarget');
+  assert.deepEqual(result.validation.warningCodes, ['TARGET_MISSING']);
+  assert.deepEqual(result.limitations.map((item) => item.code), ['TARGET_MISSING']);
+});
+
+test('unsupported baseline skips runtime and asks to resolve current version', async () => {
+  const ctx = context({
+    warnings: [
+      {
+        code: 'BASELINE_UNSUPPORTED',
+        packageId: 'npm:react',
+        message: 'Dependency react has unsupported baseline: missing-declared-version.'
+      }
+    ]
+  });
+  ctx.versions.analysisMode = 'unsupportedBaseline';
+  ctx.versions.declaredVersion = null;
+  ctx.versions.currentVersion = null;
+  ctx.versions.currentVersionSource = null;
+  ctx.versions.delta = { direction: 'unknown', classification: 'unknown' };
+  ctx.knowledge.relevantReleases = [];
+  ctx.knowledge.evidence = [];
+  ctx.metadata.selectedEvidenceIds = [];
+  ctx.metadata.missingInformation = ['baseline'];
+  ctx.metadata.size.evidenceItems = 0;
+  const runtime = fakeRuntime(candidate(context()));
+
+  const result = await analyzeDependencyAiContext(ctx, { runtime });
+
+  assert.equal(runtime.calls.length, 0);
+  assert.equal(result.status, 'skipped');
+  assert.equal(result.riskLevel, 'unknown');
+  assert.equal(result.requiresHumanReview, true);
+  assert.equal(result.nextAction, 'resolveCurrentVersion');
+  assert.deepEqual(result.validation.warningCodes, ['BASELINE_UNSUPPORTED']);
+  assert.deepEqual(result.humanReviewReasons, ['UNKNOWN_RISK', 'EVIDENCE_NONE', 'VERSION_UNCERTAIN', 'ANALYSIS_FAILED']);
+  assert.deepEqual(result.limitations.map((item) => item.code), ['BASELINE_UNSUPPORTED']);
+});
+
 test('declaredConstraint mode is always marked for human review and never gains exact delta facts', async () => {
   const ctx = context({ mode: 'declaredConstraint' });
   const result = await analyzeDependencyAiContext(ctx, {

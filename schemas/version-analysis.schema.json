@@ -182,7 +182,7 @@
         "delta"
       ],
       "properties": {
-        "analysisMode": { "enum": ["exactBaseline", "declaredConstraint"] },
+        "analysisMode": { "enum": ["exactBaseline", "declaredConstraint", "unsupportedBaseline"] },
         "declaredVersion": { "$ref": "#/$defs/nullableString" },
         "currentVersion": { "$ref": "#/$defs/nullableString" },
         "currentVersionSource": {
@@ -191,7 +191,7 @@
             { "type": "null" }
           ]
         },
-        "targetVersion": { "type": "string", "minLength": 1 },
+        "targetVersion": { "$ref": "#/$defs/nullableString" },
         "targetPolicy": { "enum": ["explicit", "registryLatest"] },
         "delta": {
           "type": "object",
@@ -349,6 +349,7 @@
         "nextAction": {
           "enum": [
             "collectEvidence",
+            "provideExplicitTarget",
             "resolveCurrentVersion",
             "reviewBeforeImpactAnalysis",
             "proceedToImpactAnalysis",

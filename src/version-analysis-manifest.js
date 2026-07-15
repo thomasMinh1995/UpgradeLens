@@ -41,7 +41,7 @@ const compareResults = compareBy(
   (item) => item.dependency.dependencyType,
   (item) => item.dependency.packageId,
   (item) => item.versions.declaredVersion ?? '',
-  (item) => item.versions.targetVersion,
+  (item) => item.versions.targetVersion ?? '',
   (item) => item.contextId
 );
 const compareEvidence = compareBy((item) => item.id);
@@ -76,7 +76,7 @@ function resultIdentity(result) {
     result.dependency.dependencyType,
     result.dependency.packageId,
     result.versions.declaredVersion ?? '',
-    result.versions.targetVersion
+    result.versions.targetVersion ?? ''
   ].join('\0');
 }
 

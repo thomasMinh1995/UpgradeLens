@@ -212,6 +212,52 @@ test('manifest builder preserves source conflict validation state and review rea
   assert.deepEqual(built.limitations.map((item) => item.code), ['SOURCE_CONFLICT']);
 });
 
+test('manifest builder preserves package-local skipped result for missing target', () => {
+  const ctx = context();
+  ctx.versions.targetVersion = null;
+  ctx.versions.targetPolicy = 'registryLatest';
+  ctx.versions.delta = { direction: 'unknown', classification: 'unknown' };
+  ctx.knowledge.relevantReleases = [];
+  ctx.knowledge.evidence = [];
+  ctx.metadata.selectedEvidenceIds = [];
+  ctx.metadata.missingInformation = ['targetVersion'];
+  ctx.metadata.warnings = [
+    {
+      code: 'TARGET_MISSING',
+      packageId: 'npm:react',
+      message: 'Package npm:react has no registry latest target.'
+    }
+  ];
+  const analysis = result(ctx, {
+    status: 'skipped',
+    summary: 'AI analysis was skipped because no target version was available.',
+    summaryEvidenceRefs: [],
+    riskLevel: 'unknown',
+    riskEvidenceRefs: [],
+    findings: [],
+    evidenceCoverage: 'none',
+    validation: { status: 'validWithWarnings', warningCodes: ['TARGET_MISSING'] },
+    requiresHumanReview: true,
+    humanReviewReasons: ['UNKNOWN_RISK', 'EVIDENCE_NONE', 'ANALYSIS_FAILED'],
+    nextAction: 'provideExplicitTarget',
+    limitations: [
+      {
+        code: 'TARGET_MISSING',
+        message: 'Provide an explicit target or collect target evidence.'
+      }
+    ]
+  });
+  const manifest = manifestFrom([{ context: ctx, result: analysis }]);
+  const built = manifest.results[0];
+
+  assert.equal(validateSchema(manifest), true, JSON.stringify(validateSchema.errors, null, 2));
+  assert.equal(built.status, 'skipped');
+  assert.equal(built.versions.targetVersion, null);
+  assert.equal(built.nextAction, 'provideExplicitTarget');
+  assert.equal(manifest.summary.skippedCount, 1);
+  assert.equal(manifest.summary.riskCounts.unknown, 1);
+});
+
 test('manifest builder produces deterministic result ordering and stable digest', () => {
   const first = context({ projectId: 'node:apps/web', manifest: 'apps/web/package.json', contextSeed: 'web' });
   const second = context({ projectId: 'node:apps/admin', manifest: 'apps/admin/package.json', contextSeed: 'admin' });
@@ -492,6 +538,227 @@ async function writeCliArtifacts(root) {
   await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
 }
 
+async function writeCliArtifactsWithMissingTarget(root) {
+  const project = projectManifest();
+  project.projects[0].dependencySummary.declarationCount = 2;
+  project.projects[0].dependencySummary.uniqueCount = 2;
+  project.projects[0].dependencySummary.byType.dependencies = 2;
+  project.projects[0].dependencies.push({
+    name: 'vite',
+    normalizedName: 'vite',
+    declaredVersion: '^5.0.0',
+    type: 'dependency',
+    manifest: 'package.json'
+  });
+  const projectBytes = bytes(project);
+  const knowledge = knowledgeManifest(projectBytes);
+  knowledge.research.inputOccurrenceCount = 2;
+  knowledge.research.inputPackageCount = 2;
+  knowledge.research.researchedPackageCount = 2;
+  knowledge.research.sourceCount = 2;
+  knowledge.research.cacheMissCount = 2;
+  knowledge.research.partialFailureCount = 1;
+  knowledge.summary.inputOccurrenceCount = 2;
+  knowledge.summary.packageCount = 2;
+  knowledge.summary.resolvedPackageCount = 1;
+  knowledge.summary.unavailablePackageCount = 1;
+  knowledge.summary.sourceCount = 2;
+  knowledge.summary.warningCount = 1;
+  knowledge.summary.cacheMissCount = 2;
+  knowledge.packages.push({
+    id: 'npm:vite',
+    ecosystem: 'node',
+    status: 'unavailable',
+    identity: {
+      observedDeclaredNames: ['vite'],
+      normalizedName: 'vite',
+      registry: 'npm',
+      registryBaseUrl: 'https://registry.npmjs.org',
+      packageUrl: 'https://www.npmjs.com/package/vite',
+      apiUrl: 'https://registry.npmjs.org/vite'
+    },
+    occurrences: [
+      {
+        projectId: 'node:.',
+        projectPath: '.',
+        manifest: 'package.json',
+        dependencyType: 'dependency',
+        declaredName: 'vite',
+        declaredVersion: '^5.0.0'
+      }
+    ],
+    metadata: {
+      description: null,
+      license: null,
+      homepageUrl: null,
+      documentationUrl: null,
+      repositoryUrl: null,
+      issueUrl: null,
+      deprecationMessage: null,
+      projectStatus: null
+    },
+    latest: null,
+    releaseIndex: [],
+    sourceIds: ['npm:vite:registry'],
+    warningCodes: ['REGISTRY_UNAVAILABLE']
+  });
+  knowledge.sources.push({
+    id: 'npm:vite:registry',
+    kind: 'registry',
+    authority: 'registryAuthoritative',
+    trust: 'publisher',
+    url: 'https://registry.npmjs.org/vite',
+    status: 'unavailable',
+    supports: ['latest'],
+    discoveredFrom: null,
+    trustEvidenceSourceIds: [],
+    snapshot: null
+  });
+  knowledge.sources.sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+  knowledge.cache.missCount = 2;
+  knowledge.warnings.push({
+    code: 'REGISTRY_UNAVAILABLE',
+    packageId: 'npm:vite',
+    sourceId: 'npm:vite:registry',
+    message: 'npm Registry package metadata is unavailable.',
+    retryable: true
+  });
+  const knowledgeBytes = bytes(knowledge);
+  const bundle = evidenceBundle(knowledge, knowledgeBytes);
+  bundle.warnings.push({
+    code: 'REGISTRY_UNAVAILABLE',
+    packageId: 'npm:vite',
+    sourceId: 'npm:vite:registry',
+    message: 'npm Registry package metadata is unavailable.'
+  });
+  bundle.warnings.push({
+    code: 'EVIDENCE_MISSING',
+    packageId: 'npm:vite',
+    message: 'No portable evidence could be produced for npm:vite.'
+  });
+  bundle.warnings.sort((left, right) =>
+    (left.packageId ?? '').localeCompare(right.packageId ?? '')
+    || (left.sourceId ?? '').localeCompare(right.sourceId ?? '')
+    || left.code.localeCompare(right.code)
+    || left.message.localeCompare(right.message)
+  );
+  bundle.summary.warningCount = bundle.warnings.length;
+  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
+  await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'cli-fixture' }));
+  await writeFile(path.join(root, '.upgradelens', 'project-manifest.json'), projectBytes);
+  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), knowledgeBytes);
+  await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
+}
+
+async function writeCliArtifactsWithMissingBaseline(root) {
+  const project = projectManifest();
+  project.projects[0].dependencySummary.declarationCount = 2;
+  project.projects[0].dependencySummary.uniqueCount = 2;
+  project.projects[0].dependencySummary.byType.dependencies = 2;
+  project.projects[0].dependencies.unshift({
+    name: 'langchain-core',
+    normalizedName: 'langchain-core',
+    declaredVersion: null,
+    type: 'dependency',
+    manifest: 'package.json'
+  });
+  const projectBytes = bytes(project);
+  const knowledge = knowledgeManifest(projectBytes);
+  knowledge.research.inputOccurrenceCount = 2;
+  knowledge.research.inputPackageCount = 2;
+  knowledge.research.researchedPackageCount = 2;
+  knowledge.research.sourceCount = 2;
+  knowledge.research.cacheMissCount = 2;
+  knowledge.summary.inputOccurrenceCount = 2;
+  knowledge.summary.packageCount = 2;
+  knowledge.summary.resolvedPackageCount = 2;
+  knowledge.summary.sourceCount = 2;
+  knowledge.summary.cacheMissCount = 2;
+  knowledge.cache.missCount = 2;
+  knowledge.packages.unshift({
+    id: 'npm:langchain-core',
+    ecosystem: 'node',
+    status: 'resolved',
+    identity: {
+      observedDeclaredNames: ['langchain-core'],
+      normalizedName: 'langchain-core',
+      registry: 'npm',
+      registryBaseUrl: 'https://registry.npmjs.org',
+      packageUrl: 'https://www.npmjs.com/package/langchain-core',
+      apiUrl: 'https://registry.npmjs.org/langchain-core'
+    },
+    occurrences: [
+      {
+        projectId: 'node:.',
+        projectPath: '.',
+        manifest: 'package.json',
+        dependencyType: 'dependency',
+        declaredName: 'langchain-core',
+        declaredVersion: null
+      }
+    ],
+    metadata: {
+      description: 'LangChain core fixture.',
+      license: 'MIT',
+      homepageUrl: null,
+      documentationUrl: 'https://example.com/langchain-core/releases',
+      repositoryUrl: null,
+      issueUrl: null,
+      deprecationMessage: null,
+      projectStatus: null
+    },
+    latest: {
+      version: '1.0.0',
+      selection: 'dist-tag:latest',
+      publishedAt: '2026-01-02T00:00:00.000Z',
+      releaseUrl: 'https://example.com/langchain-core/1.0.0',
+      prerelease: false,
+      yanked: false,
+      deprecated: false,
+      sourceId: 'npm:langchain-core:docs'
+    },
+    releaseIndex: [
+      {
+        version: '1.0.0',
+        publishedAt: '2026-01-02T00:00:00.000Z',
+        url: 'https://example.com/langchain-core/1.0.0',
+        prerelease: false,
+        yanked: false,
+        deprecated: false,
+        sourceIds: ['npm:langchain-core:docs']
+      }
+    ],
+    sourceIds: ['npm:langchain-core:docs'],
+    warningCodes: []
+  });
+  knowledge.sources.unshift({
+    id: 'npm:langchain-core:docs',
+    kind: 'officialDocumentation',
+    authority: 'officialProject',
+    trust: 'official',
+    url: 'https://example.com/langchain-core/releases',
+    status: 'available',
+    supports: ['releaseNotes'],
+    discoveredFrom: null,
+    trustEvidenceSourceIds: [],
+    snapshot: {
+      contentDigest: digest('snapshot-langchain-core'),
+      mediaType: 'text/plain',
+      retrievedAt: '2026-07-14T00:00:01.000Z',
+      freshness: 'fresh'
+    }
+  });
+  knowledge.packages.sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+  knowledge.sources.sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+  const knowledgeBytes = bytes(knowledge);
+  const bundle = evidenceBundle(knowledge, knowledgeBytes);
+  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
+  await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'cli-fixture' }));
+  await writeFile(path.join(root, '.upgradelens', 'project-manifest.json'), projectBytes);
+  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), knowledgeBytes);
+  await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
+}
+
 function cliRuntime() {
   return {
     async generateStructured(request) {
@@ -539,6 +806,91 @@ test('CLI analyze-version writes the default artifact with a fake runtime', asyn
   assert.equal(artifact.summary.resultCount, 1);
   assert.equal(artifact.results[0].riskLevel, 'high');
   assert.match(stderr.value(), /AI Version Analysis complete/);
+});
+
+test('CLI analyze-version skips a package with missing registry latest while analyzing the rest', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-missing-target-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifactsWithMissingTarget(root);
+  let calls = 0;
+  const runtime = {
+    async generateStructured(request) {
+      calls += 1;
+      return cliRuntime().generateStructured(request);
+    }
+  };
+  const stderr = capture();
+
+  const code = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: stderr.stream,
+    aiRuntime: runtime,
+    clock: () => new Date('2026-07-15T00:00:00.000Z')
+  });
+  assert.equal(code, 0, stderr.value());
+  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8'));
+  const react = artifact.results.find((item) => item.dependency.packageId === 'npm:react');
+  const vite = artifact.results.find((item) => item.dependency.packageId === 'npm:vite');
+
+  assert.equal(calls, 1);
+  assert.equal(artifact.summary.resultCount, 2);
+  assert.equal(artifact.summary.analyzedCount, 1);
+  assert.equal(artifact.summary.skippedCount, 1);
+  assert.equal(artifact.summary.requiresHumanReviewCount, 2);
+  assert.equal(artifact.summary.riskCounts.high, 1);
+  assert.equal(artifact.summary.riskCounts.unknown, 1);
+  assert.equal(react.status, 'analyzed');
+  assert.equal(vite.status, 'skipped');
+  assert.equal(vite.riskLevel, 'unknown');
+  assert.equal(vite.requiresHumanReview, true);
+  assert.equal(vite.nextAction, 'provideExplicitTarget');
+  assert.equal(vite.versions.targetVersion, null);
+  assert.deepEqual(vite.validation.warningCodes, ['TARGET_MISSING']);
+});
+
+test('CLI analyze-version skips a package with missing baseline while analyzing the rest', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-missing-baseline-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifactsWithMissingBaseline(root);
+  let calls = 0;
+  const runtime = {
+    async generateStructured(request) {
+      calls += 1;
+      return cliRuntime().generateStructured(request);
+    }
+  };
+  const stderr = capture();
+
+  const code = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: stderr.stream,
+    aiRuntime: runtime,
+    clock: () => new Date('2026-07-15T00:00:00.000Z')
+  });
+  assert.equal(code, 0, stderr.value());
+  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8'));
+  const analyzed = artifact.results.find((item) => item.dependency.packageId === 'npm:react');
+  const skipped = artifact.results.find((item) => item.dependency.packageId === 'npm:langchain-core');
+
+  assert.equal(calls, 1);
+  assert.equal(artifact.summary.resultCount, 2);
+  assert.equal(artifact.summary.analyzedCount, 1);
+  assert.equal(artifact.summary.skippedCount, 1);
+  assert.equal(artifact.summary.requiresHumanReviewCount, 2);
+  assert.equal(artifact.summary.riskCounts.high, 1);
+  assert.equal(artifact.summary.riskCounts.unknown, 1);
+  assert.equal(analyzed.status, 'analyzed');
+  assert.equal(skipped.status, 'skipped');
+  assert.equal(skipped.versions.analysisMode, 'unsupportedBaseline');
+  assert.equal(skipped.versions.declaredVersion, null);
+  assert.equal(skipped.versions.currentVersion, null);
+  assert.equal(skipped.versions.targetVersion, '1.0.0');
+  assert.equal(skipped.riskLevel, 'unknown');
+  assert.equal(skipped.requiresHumanReview, true);
+  assert.equal(skipped.nextAction, 'resolveCurrentVersion');
+  assert.deepEqual(skipped.validation.warningCodes, ['BASELINE_UNSUPPORTED']);
+  assert.deepEqual(skipped.humanReviewReasons, ['ANALYSIS_FAILED', 'EVIDENCE_NONE', 'UNKNOWN_RISK', 'VERSION_UNCERTAIN']);
+  assert.deepEqual(skipped.limitations.map((item) => item.code), ['BASELINE_UNSUPPORTED']);
 });
 
 test('CLI analyze-version supports stdout without writing the default artifact', async (t) => {
