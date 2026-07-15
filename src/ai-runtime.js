@@ -4,18 +4,20 @@ export const AI_RUNTIME_CONTRACT_VERSION = '1';
  * @typedef {object} AiRuntimeRequest
  * @property {string} runId
  * @property {string} contextId
+ * @property {string} task
  * @property {string} promptVersion
- * @property {object} context
- * @property {object} outputSchema
+ * @property {string} systemPrompt
+ * @property {string} userPrompt
+ * @property {{ mode: string, name: string, schema: object }} structuredOutput
  */
 
 /**
  * @typedef {object} AiRuntimeResult
- * @property {unknown} output
+ * @property {string|object} output
  * @property {string} provider
  * @property {string} model
  * @property {number} latencyMs
- * @property {{ inputTokens?: number, outputTokens?: number }=} usage
+ * @property {{ inputTokens?: number|null, outputTokens?: number|null, totalTokens?: number|null }=} usage
  */
 
 /**
@@ -44,7 +46,7 @@ function nowMs(clock) {
 /**
  * Create a vendor-neutral runtime around a provider implementation. The
  * provider owns SDK/HTTP details; the runtime owns the stable UpgradeLens
- * request shape and prompt construction.
+ * request shape and compatibility mapping for legacy providers.
  */
 export function createProviderAiRuntime({
   provider,
@@ -54,32 +56,55 @@ export function createProviderAiRuntime({
   if (!provider || typeof provider.generateStructured !== 'function') {
     throw runtimeError('provider must implement generateStructured(request).');
   }
-  if (typeof promptBuilder !== 'function') {
-    throw runtimeError('promptBuilder must be a function.');
+  if (promptBuilder !== undefined && typeof promptBuilder !== 'function') {
+    throw runtimeError('promptBuilder must be a function when provided.');
   }
 
   return validateAiRuntime({
     async generateStructured(request) {
       const startedAt = nowMs(clock);
-      const prompt = promptBuilder({
-        context: request.context,
-        outputSchema: request.outputSchema,
-        promptVersion: request.promptVersion
-      });
+      let prompt;
+      let outputSchema;
+      if (typeof request?.systemPrompt === 'string' && typeof request?.userPrompt === 'string') {
+        prompt = {
+          promptVersion: request.promptVersion,
+          system: request.systemPrompt,
+          user: request.userPrompt
+        };
+        outputSchema = request.structuredOutput?.schema;
+      } else {
+        if (typeof promptBuilder !== 'function') {
+          throw runtimeError('rendered prompts are required by Runtime Contract v1.');
+        }
+        outputSchema = request.outputSchema;
+        prompt = promptBuilder({
+          context: request.context,
+          outputSchema,
+          promptVersion: request.promptVersion
+        });
+      }
       const response = await provider.generateStructured({
         ...request,
+        contractVersion: request.contractVersion ?? AI_RUNTIME_CONTRACT_VERSION,
+        systemPrompt: request.systemPrompt ?? prompt.system,
+        userPrompt: request.userPrompt ?? prompt.user,
+        structuredOutput: request.structuredOutput ?? {
+          mode: 'jsonSchema',
+          name: 'upgradelens_structured_output',
+          schema: outputSchema
+        },
         prompt,
-        outputSchema: request.outputSchema
+        outputSchema
       });
       const latencyMs = Number.isFinite(response?.latencyMs)
         ? response.latencyMs
         : Math.max(0, nowMs(clock) - startedAt);
       return {
+        ...response,
         output: response?.output,
         provider: response?.provider ?? provider.name ?? 'unknown',
         model: response?.model ?? provider.model ?? 'unknown',
-        latencyMs,
-        ...(response?.usage ? { usage: response.usage } : {})
+        latencyMs
       };
     }
   });

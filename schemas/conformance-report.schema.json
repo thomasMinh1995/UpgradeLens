@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://upgradelens.dev/schemas/conformance-report.schema.json",
+  "title": "UpgradeLens Offline Conformance Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "generator",
+    "suite",
+    "runtime",
+    "deploymentProfileDigest",
+    "capabilityProfileDigest",
+    "conformanceScope",
+    "summary",
+    "capabilities",
+    "cases",
+    "failures",
+    "recommendation"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "suite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "protocol", "scope", "caseCount"],
+      "properties": {
+        "mode": { "const": "offlineFixture" },
+        "protocol": { "const": "openai-compatible-chat-completions" },
+        "scope": { "const": "offline-runtime-protocol" },
+        "caseCount": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 }
+      }
+    },
+    "deploymentProfileDigest": { "$ref": "#/$defs/digest" },
+    "capabilityProfileDigest": { "$ref": "#/$defs/digest" },
+    "conformanceScope": { "const": "offline-runtime-protocol" },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "passed", "failed", "skipped"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connectivity",
+        "authentication",
+        "timeout",
+        "cancellation",
+        "structuredOutput",
+        "jsonSchema",
+        "jsonMode",
+        "responseValidation",
+        "usage",
+        "identity",
+        "contentType",
+        "httpErrors",
+        "oversizedResponse",
+        "redirectProtection",
+        "providerErrors"
+      ],
+      "properties": {
+        "connectivity": { "$ref": "#/$defs/capabilityStatus" },
+        "authentication": { "$ref": "#/$defs/capabilityStatus" },
+        "timeout": { "$ref": "#/$defs/capabilityStatus" },
+        "cancellation": { "$ref": "#/$defs/capabilityStatus" },
+        "structuredOutput": { "$ref": "#/$defs/capabilityStatus" },
+        "jsonSchema": { "$ref": "#/$defs/capabilityStatus" },
+        "jsonMode": { "$ref": "#/$defs/capabilityStatus" },
+        "responseValidation": { "$ref": "#/$defs/capabilityStatus" },
+        "usage": { "$ref": "#/$defs/capabilityStatus" },
+        "identity": { "$ref": "#/$defs/capabilityStatus" },
+        "contentType": { "$ref": "#/$defs/capabilityStatus" },
+        "httpErrors": { "$ref": "#/$defs/capabilityStatus" },
+        "oversizedResponse": { "$ref": "#/$defs/capabilityStatus" },
+        "redirectProtection": { "$ref": "#/$defs/capabilityStatus" },
+        "providerErrors": { "$ref": "#/$defs/capabilityStatus" }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/caseResult" }
+    },
+    "failures": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/failure" }
+    },
+    "recommendation": {
+      "enum": ["CONFORMANT", "PARTIALLY_CONFORMANT", "NON_CONFORMANT"]
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "capabilityStatus": {
+      "enum": ["PASS", "FAIL", "NOT_SUPPORTED"]
+    },
+    "caseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "capability", "required", "status", "expected", "observed"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "capability": { "type": "string", "minLength": 1 },
+        "required": { "type": "boolean" },
+        "status": { "enum": ["PASS", "FAIL", "SKIP"] },
+        "expected": { "type": "string", "minLength": 1 },
+        "observed": { "type": "string", "minLength": 1 }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["caseId", "code", "message"],
+      "properties": {
+        "caseId": { "type": "string", "minLength": 1 },
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

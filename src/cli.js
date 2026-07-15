@@ -3,13 +3,18 @@ import path from 'node:path';
 
 import {
   CLI_NAME,
+  CAPABILITY_PROFILE_FILENAME,
   DEFAULT_AI_SCORECARD_PATH,
   DEFAULT_BENCHMARK_CONFIG_PATH,
   DEFAULT_BENCHMARK_REPORT_PATH,
+  DEFAULT_CONFORMANCE_REPORT_PATH,
+  DEPLOYMENT_PROFILE_FILENAME,
+  DEFAULT_GOVERNANCE_DIRECTORY,
   DEFAULT_KNOWLEDGE_MANIFEST_PATH,
   DEFAULT_MANIFEST_PATH,
   DEFAULT_EVALUATION_REPORT_PATH,
   DEFAULT_METRICS_PATH,
+  QUALIFICATION_RECORD_FILENAME,
   DEFAULT_VERSION_ANALYSIS_PATH,
   PRODUCT_NAME,
   VERSION
@@ -28,6 +33,10 @@ import {
   createProviderAiRuntime
 } from './ai-runtime.js';
 import {
+  DEFAULT_AI_TIMEOUT_MS,
+  createOpenAiCompatibleProvider
+} from './openai-compatible-provider.js';
+import {
   buildDependencyAiContext,
   resolveDependencyAnalysisInputs
 } from './dependency-ai-context.js';
@@ -44,6 +53,16 @@ import {
   serializeBenchmarkReport,
   writeBenchmarkReport
 } from './benchmark-runner.js';
+import { runConformance } from './conformance-runner.js';
+import {
+  serializeConformanceReport,
+  writeConformanceReport
+} from './conformance-report.js';
+import {
+  createDefaultGovernanceArtifacts,
+  serializeGovernanceArtifacts,
+  writeGovernanceArtifacts
+} from './governance-metadata.js';
 import {
   buildMetrics,
   loadEvaluationReportForMetrics,
@@ -81,6 +100,8 @@ Usage:
   ${CLI_NAME} eval [options]
   ${CLI_NAME} scorecard [options]
   ${CLI_NAME} benchmark [options]
+  ${CLI_NAME} conformance [options]
+  ${CLI_NAME} governance [options]
   ${CLI_NAME} [path] [options]
 
 Discover options:
@@ -125,6 +146,16 @@ Benchmark options:
   -o, --output <path>   Benchmark Report path
                         (default: ${DEFAULT_BENCHMARK_REPORT_PATH})
       --stdout          Print only the Benchmark Report JSON
+
+Conformance options:
+  -o, --output <path>   Offline Conformance Report path
+                        (default: ${DEFAULT_CONFORMANCE_REPORT_PATH})
+      --stdout          Print only the Offline Conformance Report JSON
+
+Governance options:
+  -o, --output <path>   Directory for portable governance artifacts
+                        (default: ${DEFAULT_GOVERNANCE_DIRECTORY})
+      --stdout          Print a bundle containing the three governance artifacts
   -h, --help            Show help
   -v, --version         Show version
 `;
@@ -142,7 +173,7 @@ function outputPath(root, output) {
 
 export function parseArguments(argv) {
   const args = [...argv];
-  const command = ['discover', 'research', 'analyze-version', 'eval', 'scorecard', 'benchmark'].includes(args[0])
+  const command = ['discover', 'research', 'analyze-version', 'eval', 'scorecard', 'benchmark', 'conformance', 'governance'].includes(args[0])
     ? args.shift()
     : 'discover';
   const options = {
@@ -158,6 +189,10 @@ export function parseArguments(argv) {
           ? DEFAULT_AI_SCORECARD_PATH
         : command === 'benchmark'
           ? DEFAULT_BENCHMARK_REPORT_PATH
+        : command === 'conformance'
+          ? DEFAULT_CONFORMANCE_REPORT_PATH
+        : command === 'governance'
+          ? DEFAULT_GOVERNANCE_DIRECTORY
         : DEFAULT_MANIFEST_PATH,
     dataset: DEFAULT_EVALUATION_DATASET_PATH,
     report: DEFAULT_EVALUATION_REPORT_PATH,
@@ -199,7 +234,8 @@ export function parseArguments(argv) {
       options.maxDepth = depth;
       index += 1;
     } else if (argument.startsWith('-')) throw new Error(`Unknown option: ${argument}`);
-    else if (!rootSet && command !== 'eval' && command !== 'scorecard' && command !== 'benchmark') {
+    else if (!rootSet && command !== 'eval' && command !== 'scorecard' && command !== 'benchmark'
+      && command !== 'conformance' && command !== 'governance') {
       options.root = argument;
       rootSet = true;
     } else if (!rootSet && command === 'eval') {
@@ -211,6 +247,10 @@ export function parseArguments(argv) {
     } else if (!rootSet && command === 'benchmark') {
       options.config = argument;
       rootSet = true;
+    } else if (!rootSet && command === 'conformance') {
+      throw new Error(`Unexpected argument: ${argument}`);
+    } else if (!rootSet && command === 'governance') {
+      throw new Error(`Unexpected argument: ${argument}`);
     } else throw new Error(`Unexpected argument: ${argument}`);
   }
   if (command === 'discover' && options.offline) throw new Error('--offline is only supported by research');
@@ -322,8 +362,19 @@ async function executeResearch(options, io) {
 
 function createDefaultAiRuntime(io) {
   const env = io.env ?? process.env;
+  const providerName = env.UPGRADELENS_AI_PROVIDER ?? 'http-json';
   if (!env.UPGRADELENS_AI_ENDPOINT) {
     throw new Error('AI runtime is not configured. Set UPGRADELENS_AI_ENDPOINT or provide an AiRuntime.');
+  }
+  if (providerName === 'openai-compatible') {
+    const provider = createOpenAiCompatibleProvider({
+      endpoint: env.UPGRADELENS_AI_ENDPOINT,
+      model: env.UPGRADELENS_AI_MODEL,
+      authorization: env.UPGRADELENS_AI_AUTHORIZATION,
+      fetchImplementation: io.fetch,
+      timeoutMs: configuredAiTimeoutMs(env)
+    });
+    return createProviderAiRuntime({ provider });
   }
   const headers = {};
   if (env.UPGRADELENS_AI_AUTHORIZATION) headers.authorization = env.UPGRADELENS_AI_AUTHORIZATION;
@@ -331,13 +382,23 @@ function createDefaultAiRuntime(io) {
     endpoint: env.UPGRADELENS_AI_ENDPOINT,
     fetchImplementation: io.fetch,
     headers,
-    provider: env.UPGRADELENS_AI_PROVIDER ?? 'http-json',
+    provider: providerName,
     model: env.UPGRADELENS_AI_MODEL ?? 'unknown'
   });
   return createProviderAiRuntime({
     provider,
     promptBuilder: buildVersionAnalysisPrompt
   });
+}
+
+function configuredAiTimeoutMs(env) {
+  const raw = env.UPGRADELENS_AI_TIMEOUT_MS;
+  if (raw === undefined) return DEFAULT_AI_TIMEOUT_MS;
+  const timeoutMs = Number(raw);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('UPGRADELENS_AI_TIMEOUT_MS must be a positive integer.');
+  }
+  return timeoutMs;
 }
 
 async function executeAnalyzeVersion(options, io) {
@@ -352,7 +413,9 @@ async function executeAnalyzeVersion(options, io) {
     input,
     target: { policy: 'registryLatest' }
   }));
-  const needsRuntime = contexts.some((context) => context.knowledge.evidence.length > 0);
+  const needsRuntime = contexts.some((context) => context.knowledge.evidence.length > 0
+    && context.versions.analysisMode !== 'unsupportedBaseline'
+    && context.versions.targetVersion !== null);
   const runtime = io.aiRuntime ?? (needsRuntime ? createDefaultAiRuntime(io) : null);
   const results = [];
   for (const context of contexts) {
@@ -472,6 +535,72 @@ async function executeBenchmark(options, io) {
   return 0;
 }
 
+async function executeConformance(options, io) {
+  const env = io.env ?? process.env;
+  const report = await (io.runConformance ?? runConformance)({
+    runtime: {
+      provider: env.UPGRADELENS_AI_PROVIDER ?? 'openai-compatible',
+      model: env.UPGRADELENS_AI_MODEL ?? 'offline-fixture'
+    },
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const contents = serializeConformanceReport(report);
+  if (options.stdout) {
+    io.stdout.write(contents);
+    return report.summary.failed > 0 ? 2 : 0;
+  }
+  const target = await (io.writeConformanceReport ?? writeConformanceReport)(
+    outputPath('.', options.output),
+    report
+  );
+  io.stderr.write(`✓ Offline conformance complete (${report.summary.total} cases)\n`);
+  io.stderr.write(`✓ Passed: ${report.summary.passed}; Failed: ${report.summary.failed}\n`);
+  io.stderr.write(`✓ Recommendation: ${report.recommendation}\n`);
+  io.stderr.write(`✓ Wrote:\n${target}\n`);
+  return report.summary.failed > 0 ? 2 : 0;
+}
+
+function governancePositiveInteger(value, fallback, name) {
+  if (value === undefined) return fallback;
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number <= 0) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return number;
+}
+
+async function executeGovernance(options, io) {
+  const env = io.env ?? process.env;
+  const artifacts = (io.createDefaultGovernanceArtifacts ?? createDefaultGovernanceArtifacts)({
+    provider: env.UPGRADELENS_AI_PROVIDER ?? 'openai-compatible',
+    endpoint: env.UPGRADELENS_AI_ENDPOINT,
+    model: env.UPGRADELENS_AI_MODEL ?? 'offline-fixture',
+    timeoutSeconds: governancePositiveInteger(
+      env.UPGRADELENS_AI_TIMEOUT_SECONDS,
+      180,
+      'UPGRADELENS_AI_TIMEOUT_SECONDS'
+    ),
+    maxResponseBytes: governancePositiveInteger(
+      env.UPGRADELENS_AI_MAX_RESPONSE_BYTES,
+      1_048_576,
+      'UPGRADELENS_AI_MAX_RESPONSE_BYTES'
+    )
+  });
+  if (options.stdout) {
+    io.stdout.write(serializeGovernanceArtifacts(artifacts));
+    return 0;
+  }
+  const targets = await (io.writeGovernanceArtifacts ?? writeGovernanceArtifacts)(
+    outputPath('.', options.output),
+    artifacts
+  );
+  io.stderr.write('✓ Governance metadata validated\n');
+  io.stderr.write(`✓ Wrote ${CAPABILITY_PROFILE_FILENAME}:\n${targets.capabilityProfile}\n`);
+  io.stderr.write(`✓ Wrote ${DEPLOYMENT_PROFILE_FILENAME}:\n${targets.deploymentProfile}\n`);
+  io.stderr.write(`✓ Wrote ${QUALIFICATION_RECORD_FILENAME}:\n${targets.qualificationRecord}\n`);
+  return 0;
+}
+
 export async function runCli(argv, io = {}) {
   const stdout = io.stdout ?? process.stdout;
   const stderr = io.stderr ?? process.stderr;
@@ -490,6 +619,8 @@ export async function runCli(argv, io = {}) {
     if (options.command === 'eval') return await executeEval(options, { ...io, stdout, stderr });
     if (options.command === 'scorecard') return await executeScorecard(options, { ...io, stdout, stderr });
     if (options.command === 'benchmark') return await executeBenchmark(options, { ...io, stdout, stderr });
+    if (options.command === 'conformance') return await executeConformance(options, { ...io, stdout, stderr });
+    if (options.command === 'governance') return await executeGovernance(options, { ...io, stdout, stderr });
 
     const manifest = await discoverProject(options.root, { maxDepth: options.maxDepth });
     const contents = `${JSON.stringify(manifest, null, options.pretty ? 2 : 0)}\n`;

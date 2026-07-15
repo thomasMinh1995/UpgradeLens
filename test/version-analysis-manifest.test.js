@@ -10,6 +10,7 @@ import addFormats from 'ajv-formats';
 
 import {
   AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA,
+  AiRuntimeError,
   buildVersionAnalysisManifest,
   serializeVersionAnalysisManifest,
   validateVersionAnalysisManifest,
@@ -538,6 +539,40 @@ async function writeCliArtifacts(root) {
   await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
 }
 
+async function writeCliArtifactsWithTwoAnalyzableOccurrences(root) {
+  const project = projectManifest();
+  const secondProject = structuredClone(project.projects[0]);
+  secondProject.id = 'node:packages/second';
+  secondProject.name = 'second';
+  secondProject.path = 'packages/second';
+  secondProject.manifests = ['packages/second/package.json'];
+  secondProject.dependencies[0].manifest = 'packages/second/package.json';
+  project.summary.projectCount = 2;
+  project.summary.ecosystems.node = 2;
+  project.projects.push(secondProject);
+
+  const projectBytes = bytes(project);
+  const knowledge = knowledgeManifest(projectBytes);
+  knowledge.research.inputOccurrenceCount = 2;
+  knowledge.summary.inputOccurrenceCount = 2;
+  knowledge.packages[0].occurrences.push({
+    projectId: 'node:packages/second',
+    projectPath: 'packages/second',
+    manifest: 'packages/second/package.json',
+    dependencyType: 'dependency',
+    declaredName: 'react',
+    declaredVersion: '1.0.0'
+  });
+  const knowledgeBytes = bytes(knowledge);
+  const bundle = evidenceBundle(knowledge, knowledgeBytes);
+
+  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
+  await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'cli-fixture' }));
+  await writeFile(path.join(root, '.upgradelens', 'project-manifest.json'), projectBytes);
+  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), knowledgeBytes);
+  await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
+}
+
 async function writeCliArtifactsWithMissingTarget(root) {
   const project = projectManifest();
   project.projects[0].dependencySummary.declarationCount = 2;
@@ -762,7 +797,8 @@ async function writeCliArtifactsWithMissingBaseline(root) {
 function cliRuntime() {
   return {
     async generateStructured(request) {
-      const evidenceId = request.context.metadata.selectedEvidenceIds[0];
+      const contextJson = request.userPrompt.split('Dependency AI Context:\n').at(-1);
+      const evidenceId = JSON.parse(contextJson).metadata.selectedEvidenceIds[0];
       return {
         output: {
           summary: 'React 2.0.0 includes a documented breaking behavior change.',
@@ -909,6 +945,252 @@ test('CLI analyze-version supports stdout without writing the default artifact',
   assert.equal(code, 0);
   assert.equal(JSON.parse(stdout.value()).results[0].dependency.packageId, 'npm:react');
   await assert.rejects(readFile(path.join(root, '.upgradelens', 'version-analysis.json')));
+});
+
+test('CLI selects the OpenAI-compatible provider and sends Chat Completions mapping from environment configuration', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-openai-compatible-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  const requests = [];
+
+  const code = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: capture().stream,
+    env: {
+      UPGRADELENS_AI_PROVIDER: 'openai-compatible',
+      UPGRADELENS_AI_ENDPOINT: 'https://provider.example.test/v1/chat/completions',
+      UPGRADELENS_AI_MODEL: 'exact-model-slug',
+      UPGRADELENS_AI_AUTHORIZATION: 'Bearer local-test-value'
+    },
+    fetch: async (url, init) => {
+      const requestBody = JSON.parse(init.body);
+      requests.push({ url: String(url), init, requestBody });
+      const contextJson = requestBody.messages[1].content.split('Dependency AI Context:\n').at(-1);
+      const evidenceId = JSON.parse(contextJson).metadata.selectedEvidenceIds[0];
+      return new Response(JSON.stringify({
+        id: 'safe-id',
+        model: 'exact-model-slug',
+        choices: [{
+          message: {
+            role: 'assistant',
+            content: JSON.stringify({
+              summary: 'React release has a documented breaking behavior change.',
+              summaryEvidenceRefs: [evidenceId],
+              riskLevel: 'high',
+              riskEvidenceRefs: [evidenceId],
+              findings: []
+            })
+          },
+          finish_reason: 'stop'
+        }],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    },
+    clock: () => new Date('2026-07-15T00:00:00.000Z')
+  });
+
+  assert.equal(code, 0);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].requestBody.model, 'exact-model-slug');
+  assert.equal(requests[0].requestBody.stream, false);
+  assert.equal(requests[0].requestBody.response_format.type, 'json_schema');
+  assert.equal(requests[0].init.headers.authorization, 'Bearer local-test-value');
+});
+
+test('CLI applies UPGRADELENS_AI_TIMEOUT_MS without retry, fallback, or schema changes', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-timeout-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  let calls = 0;
+
+  const code = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: capture().stream,
+    env: {
+      UPGRADELENS_AI_PROVIDER: 'openai-compatible',
+      UPGRADELENS_AI_ENDPOINT: 'https://provider.example.test/v1/chat/completions',
+      UPGRADELENS_AI_MODEL: 'exact-model-slug',
+      UPGRADELENS_AI_TIMEOUT_MS: '5'
+    },
+    fetch: async (_url, init) => {
+      calls += 1;
+      const body = JSON.parse(init.body);
+      assert.equal(body.model, 'exact-model-slug');
+      assert.equal(body.stream, false);
+      assert.equal(body.response_format.type, 'json_schema');
+      return new Promise((_resolve, reject) => {
+        init.signal.addEventListener(
+          'abort',
+          () => reject(new DOMException('aborted', 'AbortError')),
+          { once: true }
+        );
+      });
+    },
+    clock: () => new Date('2026-07-15T00:00:00.000Z')
+  });
+
+  assert.equal(code, 0);
+  assert.equal(calls, 1);
+  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens/version-analysis.json'), 'utf8'));
+  assert.equal(artifact.summary.failedCount, 1);
+  assert.deepEqual(artifact.results[0].limitations.map((item) => item.code), ['TIMEOUT']);
+});
+
+test('CLI rejects invalid UPGRADELENS_AI_TIMEOUT_MS before transport', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-timeout-invalid-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  const stderr = capture();
+  let calls = 0;
+
+  const code = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: stderr.stream,
+    env: {
+      UPGRADELENS_AI_PROVIDER: 'openai-compatible',
+      UPGRADELENS_AI_ENDPOINT: 'https://provider.example.test/v1/chat/completions',
+      UPGRADELENS_AI_MODEL: 'exact-model-slug',
+      UPGRADELENS_AI_TIMEOUT_MS: 'not-a-number'
+    },
+    fetch: async () => {
+      calls += 1;
+      throw new Error('transport must not run');
+    }
+  });
+
+  assert.equal(code, 1);
+  assert.equal(calls, 0);
+  assert.match(stderr.value(), /UPGRADELENS_AI_TIMEOUT_MS must be a positive integer/);
+});
+
+test('CLI retains the legacy generic HTTP provider path for other provider labels', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-legacy-provider-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  const bodies = [];
+
+  const code = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: capture().stream,
+    env: {
+      UPGRADELENS_AI_PROVIDER: 'fixture-legacy',
+      UPGRADELENS_AI_ENDPOINT: 'https://legacy.example.test/analyze',
+      UPGRADELENS_AI_MODEL: 'legacy-model'
+    },
+    fetch: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      const contextJson = body.prompt.user.split('Dependency AI Context:\n').at(-1);
+      const evidenceId = JSON.parse(contextJson).metadata.selectedEvidenceIds[0];
+      return new Response(JSON.stringify({
+        output: {
+          summary: 'Legacy provider result.',
+          summaryEvidenceRefs: [evidenceId],
+          riskLevel: 'unknown',
+          riskEvidenceRefs: [],
+          findings: []
+        }
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    },
+    clock: () => new Date('2026-07-15T00:00:00.000Z')
+  });
+
+  assert.equal(code, 0);
+  assert.equal(bodies.length, 1);
+  assert.equal(typeof bodies[0].prompt.system, 'string');
+  assert.deepEqual(bodies[0].outputSchema, AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA);
+  assert.equal('messages' in bodies[0], false);
+});
+
+test('CLI treats missing OpenAI-compatible model as global fatal configuration without exposing authorization', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-missing-model-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  const stderr = capture();
+
+  const code = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: stderr.stream,
+    env: {
+      UPGRADELENS_AI_PROVIDER: 'openai-compatible',
+      UPGRADELENS_AI_ENDPOINT: 'https://provider.example.test/v1/chat/completions',
+      UPGRADELENS_AI_AUTHORIZATION: 'Bearer must-not-appear'
+    },
+    fetch: async () => { throw new Error('must not call fetch'); }
+  });
+
+  assert.equal(code, 1);
+  assert.match(stderr.value(), /model is required/);
+  assert.doesNotMatch(stderr.value(), /must-not-appear|Authorization/);
+});
+
+test('CLI writes a package-local typed provider failure instead of failing the whole command', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-runtime-failure-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  const stderr = capture();
+
+  const code = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: stderr.stream,
+    aiRuntime: {
+      async generateStructured() {
+        throw new AiRuntimeError('PROVIDER_UNAVAILABLE', 'sanitized', { status: 503, retryable: true });
+      }
+    },
+    clock: () => new Date('2026-07-15T00:00:00.000Z')
+  });
+  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8'));
+
+  assert.equal(code, 0, stderr.value());
+  assert.equal(artifact.summary.failedCount, 1);
+  assert.equal(artifact.summary.analyzedCount, 0);
+  assert.deepEqual(artifact.results[0].validation.warningCodes, ['PROVIDER_UNAVAILABLE']);
+  assert.deepEqual(artifact.results[0].limitations.map((item) => item.code), ['PROVIDER_UNAVAILABLE']);
+});
+
+test('one package-local runtime failure does not prevent another dependency occurrence from being analyzed', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-partial-runtime-failure-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifactsWithTwoAnalyzableOccurrences(root);
+  let calls = 0;
+
+  const code = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: capture().stream,
+    aiRuntime: {
+      async generateStructured(request) {
+        calls += 1;
+        const contextJson = request.userPrompt.split('Dependency AI Context:\n').at(-1);
+        const requestContext = JSON.parse(contextJson);
+        if (requestContext.dependency.projectId === 'node:.') {
+          throw new AiRuntimeError('RATE_LIMITED', 'sanitized', { status: 429, retryable: true });
+        }
+        const evidenceId = requestContext.metadata.selectedEvidenceIds[0];
+        return {
+          output: {
+            summary: 'Second dependency occurrence was analyzed.',
+            summaryEvidenceRefs: [evidenceId],
+            riskLevel: 'low',
+            riskEvidenceRefs: [evidenceId],
+            findings: []
+          },
+          provider: 'fake',
+          model: 'fake',
+          latencyMs: 0
+        };
+      }
+    },
+    clock: () => new Date('2026-07-15T00:00:00.000Z')
+  });
+  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8'));
+
+  assert.equal(code, 0);
+  assert.equal(calls, 2);
+  assert.equal(artifact.summary.resultCount, 2);
+  assert.equal(artifact.summary.failedCount, 1);
+  assert.equal(artifact.summary.analyzedCount, 1);
+  assert.deepEqual(artifact.results.map((item) => item.status).sort(), ['analyzed', 'failed']);
 });
 
 test('CLI analyze-version fails clearly for invalid input manifests', async (t) => {

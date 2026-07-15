@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/deployment-profile.schema.json",
+  "title": "UpgradeLens AI Runtime Deployment Profile",
+  "description": "Portable, secret-free metadata for one exact runtime deployment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "deploymentId",
+    "provider",
+    "endpoint",
+    "model",
+    "capabilityProfile",
+    "capabilityProfileDigest",
+    "timeoutSeconds",
+    "maxResponseBytes"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "deploymentId": { "$ref": "#/$defs/id" },
+    "provider": { "$ref": "#/$defs/id" },
+    "endpoint": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "capabilityProfile": { "$ref": "#/$defs/id" },
+    "capabilityProfileDigest": { "$ref": "#/$defs/digest" },
+    "modelRevision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "timeoutSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 86400
+    },
+    "maxResponseBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1073741824
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    }
+  }
+}

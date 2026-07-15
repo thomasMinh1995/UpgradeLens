@@ -130,7 +130,8 @@ function config(datasetPath, runs = [
 function fakeRuntime({ riskLevel = 'high', latencyMs = null, tokenUsage = null, estimatedCost = null } = {}) {
   return {
     async generateStructured(request) {
-      const evidenceId = request.context.metadata.selectedEvidenceIds[0];
+      const contextJson = request.userPrompt.split('Dependency AI Context:\n').at(-1);
+      const evidenceId = JSON.parse(contextJson).metadata.selectedEvidenceIds[0];
       return {
         output: {
           summary: 'Version 2.0.0 removes legacy API and requires migration.',

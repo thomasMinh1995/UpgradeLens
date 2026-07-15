@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA,
+  AiRuntimeError,
   analyzeDependencyAiContext,
   buildVersionAnalysisPrompt,
   createHttpJsonAiProvider,
@@ -123,6 +124,14 @@ test('valid AI output becomes an analyzed AI Version Analysis Result', async () 
   const result = await analyzeDependencyAiContext(ctx, { runtime });
 
   assert.equal(runtime.calls.length, 1);
+  assert.equal(runtime.calls[0].task, 'version-analysis.v1');
+  assert.equal(runtime.calls[0].structuredOutput.mode, 'jsonSchema');
+  assert.equal(runtime.calls[0].structuredOutput.name, 'upgradelens_version_analysis');
+  assert.deepEqual(runtime.calls[0].structuredOutput.schema, AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA);
+  assert.match(runtime.calls[0].systemPrompt, /UpgradeLens AI Version Analysis/);
+  assert.match(runtime.calls[0].userPrompt, /Dependency AI Context/);
+  assert.equal('context' in runtime.calls[0], false);
+  assert.equal('outputSchema' in runtime.calls[0], false);
   assert.equal(result.status, 'analyzed');
   assert.equal(result.contextId, ctx.contextId);
   assert.deepEqual(result.dependency, ctx.dependency);
@@ -158,6 +167,27 @@ test('invalid schema fails without regex parsing or deterministic field mutation
   assert.deepEqual(result.dependency, ctx.dependency);
   assert.deepEqual(result.versions, ctx.versions);
   assert.deepEqual(result.validation.warningCodes, ['OUTPUT_SCHEMA_INVALID']);
+});
+
+test('typed runtime failures remain package-local runtime codes instead of output-schema failures', async () => {
+  const ctx = context();
+  const runtime = {
+    async generateStructured() {
+      throw new AiRuntimeError('RATE_LIMITED', 'sanitized runtime failure', {
+        status: 429,
+        retryable: true
+      });
+    }
+  };
+  const result = await analyzeDependencyAiContext(ctx, { runtime });
+
+  assert.equal(result.status, 'failed');
+  assert.deepEqual(result.validation.warningCodes, ['RATE_LIMITED']);
+  assert.deepEqual(result.limitations, [{
+    code: 'RATE_LIMITED',
+    message: 'AI runtime failed with RATE_LIMITED.'
+  }]);
+  assert.equal(result.validation.warningCodes.includes('OUTPUT_SCHEMA_INVALID'), false);
 });
 
 test('invented evidence refs are removed and risk is downgraded to unknown', async () => {

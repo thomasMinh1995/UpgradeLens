@@ -171,7 +171,8 @@ test('research CLI writes the default/custom artifact and --stdout prints only J
     stderr: capture().stream,
     aiRuntime: {
       async generateStructured(request) {
-        const evidenceId = request.context.metadata.selectedEvidenceIds[0];
+        const contextJson = request.userPrompt.split('Dependency AI Context:\n').at(-1);
+        const evidenceId = JSON.parse(contextJson).metadata.selectedEvidenceIds[0];
         return {
           output: {
             summary: 'Registry evidence identifies the latest React release.',

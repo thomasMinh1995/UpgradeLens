@@ -1,6 +1,7 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 
-import { validateAiRuntime } from './ai-runtime.js';
+import { AI_RUNTIME_CONTRACT_VERSION, validateAiRuntime } from './ai-runtime.js';
+import { isAiRuntimeError } from './ai-runtime-error.js';
 import {
   BASELINE_UNSUPPORTED_WARNING_CODE,
   MISSING_TARGET_WARNING_CODE
@@ -9,6 +10,8 @@ import { compareText } from './portable.js';
 
 export const AI_VERSION_ANALYSIS_RESULT_VERSION = '1';
 export const VERSION_ANALYSIS_PROMPT_VERSION = '1';
+export const VERSION_ANALYSIS_TASK = 'version-analysis.v1';
+export const VERSION_ANALYSIS_SCHEMA_NAME = 'upgradelens_version_analysis';
 
 export const AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -404,15 +407,36 @@ export async function analyzeDependencyAiContext(context, {
   }
   validateAiRuntime(runtime);
 
+  const prompt = buildVersionAnalysisPrompt({ context, outputSchema, promptVersion });
   let runtimeResult;
   try {
     runtimeResult = await runtime.generateStructured({
+      contractVersion: AI_RUNTIME_CONTRACT_VERSION,
       runId,
       contextId: context.contextId,
+      task: VERSION_ANALYSIS_TASK,
       promptVersion,
-      context,
-      outputSchema
+      systemPrompt: prompt.system,
+      userPrompt: prompt.user,
+      structuredOutput: {
+        mode: 'jsonSchema',
+        name: VERSION_ANALYSIS_SCHEMA_NAME,
+        schema: outputSchema
+      }
     });
+  } catch (error) {
+    const code = isAiRuntimeError(error) ? error.code : 'UNKNOWN';
+    return emptyClaims(
+      context,
+      'failed',
+      'invalid',
+      [code],
+      code,
+      `AI runtime failed with ${code}.`
+    );
+  }
+
+  try {
     const candidate = validateStructuredOutput(parseRuntimeOutput(runtimeResult.output));
     return trustValidateAiVersionAnalysisCandidate(candidate, context);
   } catch (error) {

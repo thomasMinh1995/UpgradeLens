@@ -170,7 +170,7 @@ export function createGoldenFakeRuntime(expectedByContextId = new Map()) {
       const evidenceRefs = expected.expectedEvidenceRefs;
       return {
         output: {
-          summary: `Expected ${expected.riskLevel} risk for ${request.context.dependency.packageId}.`,
+          summary: `Expected ${expected.riskLevel} dependency release risk.`,
           summaryEvidenceRefs: evidenceRefs.summary,
           riskLevel: expected.riskLevel,
           riskEvidenceRefs: evidenceRefs.risk,

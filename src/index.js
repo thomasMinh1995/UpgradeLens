@@ -1,12 +1,20 @@
 export {
   CLI_NAME,
+  CAPABILITY_PROFILE_FILENAME,
   DEFAULT_AI_SCORECARD_PATH,
   DEFAULT_BENCHMARK_CONFIG_PATH,
   DEFAULT_BENCHMARK_REPORT_PATH,
+  DEFAULT_CAPABILITY_PROFILE_PATH,
+  DEFAULT_CONFORMANCE_REPORT_PATH,
+  DEPLOYMENT_PROFILE_FILENAME,
+  DEFAULT_DEPLOYMENT_PROFILE_PATH,
   DEFAULT_EVALUATION_REPORT_PATH,
   DEFAULT_MANIFEST_PATH,
   DEFAULT_METRICS_PATH,
   DEFAULT_OUTPUT_DIRECTORY,
+  DEFAULT_GOVERNANCE_DIRECTORY,
+  DEFAULT_QUALIFICATION_RECORD_PATH,
+  QUALIFICATION_RECORD_FILENAME,
   DEFAULT_VERSION_ANALYSIS_PATH,
   MANIFEST_SCHEMA_VERSION,
   PACKAGE_NAME,
@@ -24,9 +32,22 @@ export {
   validateAiRuntime
 } from './ai-runtime.js';
 export {
+  AI_RUNTIME_ERROR_CODES,
+  AiRuntimeError,
+  isAiRuntimeError
+} from './ai-runtime-error.js';
+export {
+  DEFAULT_AI_MAX_RESPONSE_BYTES,
+  DEFAULT_AI_TIMEOUT_MS,
+  createOpenAiCompatibleProvider,
+  validateOpenAiCompatibleEndpoint
+} from './openai-compatible-provider.js';
+export {
   AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA,
   AI_VERSION_ANALYSIS_RESULT_VERSION,
   VERSION_ANALYSIS_PROMPT_VERSION,
+  VERSION_ANALYSIS_SCHEMA_NAME,
+  VERSION_ANALYSIS_TASK,
   analyzeDependencyAiContext,
   buildVersionAnalysisPrompt,
   humanReviewPolicy,
@@ -124,3 +145,57 @@ export {
   validateBenchmarkReport,
   writeBenchmarkReport
 } from './benchmark-report.js';
+export {
+  RUNTIME_CONFORMANCE_CAPABILITIES,
+  RUNTIME_CONFORMANCE_CASES,
+  RUNTIME_CONFORMANCE_OUTPUT_SCHEMA,
+  RuntimeConformanceValidationError,
+  normalizeConformanceError,
+  validateRuntimeConformanceOutput
+} from './runtime-conformance.js';
+export {
+  createOfflineConformanceExecutor,
+  runConformance
+} from './conformance-runner.js';
+export {
+  CONFORMANCE_REPORT_SCHEMA_VERSION,
+  buildConformanceReport,
+  conformanceReportDigest,
+  serializeConformanceReport,
+  validateConformanceReport,
+  writeConformanceReport
+} from './conformance-report.js';
+export {
+  GOVERNANCE_SCHEMA_VERSION,
+  OFFLINE_CONFORMANCE_ENDPOINT,
+  buildCapabilityProfile,
+  buildDeploymentProfile,
+  buildQualificationRecord,
+  assertNoGovernanceSecrets,
+  capabilityProfileDigest,
+  createDefaultGovernanceArtifacts,
+  deploymentProfileDigest,
+  qualificationRecordDigest,
+  serializeCapabilityProfile,
+  serializeDeploymentProfile,
+  serializeGovernanceArtifacts,
+  serializeQualificationRecord,
+  validateCapabilityProfile,
+  validateCapabilityProfileSchema,
+  validateDeploymentProfile,
+  validateDeploymentProfileSchema,
+  validateQualificationRecord,
+  validateQualificationRecordSchema,
+  writeCapabilityProfile,
+  writeDeploymentProfile,
+  writeGovernanceArtifacts,
+  writeQualificationRecord
+} from './governance-metadata.js';
+export {
+  GOVERNANCE_DIAGNOSTIC_CODES,
+  GOVERNANCE_VALIDATION_STAGES,
+  createGovernanceDiagnostic,
+  sortGovernanceDiagnostics
+} from './governance-diagnostics.js';
+export { validateGovernanceArtifacts } from './governance-validator.js';
+export { loadGovernanceBundle } from './governance-loader.js';
