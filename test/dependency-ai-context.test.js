@@ -551,6 +551,73 @@ test('selects only relevant evidence with deterministic priority and stable orde
   assert.deepEqual(context.knowledge.evidence.map((item) => item.releaseVersions), [[ '2.0.0' ], [ '2.0.0' ]]);
 });
 
+test('exact baseline selects enriched evidence only from the open-closed upgrade interval', async () => {
+  const current = evidenceItem({
+    seed: 'current', kind: 'changelog', versions: ['1.0.0'], content: 'Current release.'
+  });
+  const minor = evidenceItem({
+    seed: 'minor', kind: 'releaseNotes', versions: ['1.1.0'], content: 'Intermediate minor release.'
+  });
+  const target = evidenceItem({
+    seed: 'target', kind: 'migrationGuide', versions: ['2.0.0'], content: 'Target migration guide.'
+  });
+  const future = evidenceItem({
+    seed: 'future', kind: 'breakingChanges', versions: ['2.1.0'], content: 'Future release.'
+  });
+  const artifacts = await loadedArtifacts({
+    declaredVersion: '1.0.0',
+    versions: ['1.0.0', '1.1.0', '2.0.0', '2.1.0'],
+    targetVersion: '2.0.0',
+    evidence: [current, minor, target, future]
+  });
+  const context = buildDependencyAiContext(artifacts, { targetVersion: '2.0.0' });
+
+  assert.deepEqual(context.knowledge.relevantReleases, ['1.1.0', '2.0.0']);
+  assert.deepEqual(
+    context.knowledge.evidence.flatMap((item) => item.releaseVersions).sort(),
+    ['1.1.0', '2.0.0']
+  );
+});
+
+test('declared constraint keeps target-scoped and qualified unversioned migration evidence without assuming baseline', async () => {
+  const target = evidenceItem({
+    seed: 'target-constraint', kind: 'releaseNotes', versions: ['2.0.0'], content: 'Target release.'
+  });
+  const migration = evidenceItem({
+    seed: 'unversioned-migration', kind: 'migrationGuide', versions: [], content: 'Official migration guide.'
+  });
+  const old = evidenceItem({
+    seed: 'old-constraint', kind: 'releaseNotes', versions: ['1.1.0'], content: 'Older release.'
+  });
+  const artifacts = await loadedArtifacts({ evidence: [old, target, migration] });
+  const context = buildDependencyAiContext(artifacts, { targetVersion: '2.0.0' });
+
+  assert.equal(context.versions.analysisMode, 'declaredConstraint');
+  assert.equal(context.versions.currentVersion, null);
+  assert.deepEqual(context.knowledge.evidence.map((item) => item.kind), ['releaseNotes', 'migrationGuide']);
+  assert.ok(context.metadata.warnings.every((warning) => warning.code !== 'BASELINE_UNSUPPORTED'));
+});
+
+test('bounded interval selection always retains target and then the releases closest to it', async () => {
+  const versions = ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '2.0.0'];
+  const evidence = versions.map((version) => evidenceItem({
+    seed: `bounded-${version}`,
+    kind: 'releaseNotes',
+    versions: [version],
+    content: `Release ${version}.`
+  }));
+  const artifacts = await loadedArtifacts({ declaredVersion: '1.0.0', versions, evidence });
+  const context = buildDependencyAiContext(artifacts, {
+    targetVersion: '2.0.0',
+    evidencePolicy: { maxEvidenceItems: 2 }
+  });
+
+  assert.deepEqual(
+    context.knowledge.evidence.flatMap((item) => item.releaseVersions),
+    ['2.0.0', '1.3.0']
+  );
+});
+
 test('context digest and context equality are canonical and stable', async () => {
   const artifacts = await loadedArtifacts({ declaredVersion: '1.0.0' });
   const first = buildDependencyAiContext(artifacts, { targetVersion: '2.0.0' });

@@ -13,6 +13,29 @@ export const VERSION_ANALYSIS_PROMPT_VERSION = '1';
 export const VERSION_ANALYSIS_TASK = 'version-analysis.v1';
 export const VERSION_ANALYSIS_SCHEMA_NAME = 'upgradelens_version_analysis';
 
+const SAFE_RUNTIME_FAILURE_SUMMARIES = Object.freeze({
+  CONFIGURATION_ERROR: 'AI runtime configuration is invalid.',
+  AUTH_ERROR: 'AI provider rejected authentication.',
+  ACCESS_DENIED: 'AI provider denied access to the requested resource.',
+  INSUFFICIENT_CREDIT: 'AI provider reported insufficient credit.',
+  INVALID_REQUEST: 'AI provider rejected the request parameters.',
+  MODEL_NOT_FOUND: 'Configured AI model was not found.',
+  NETWORK_ERROR: 'AI provider network request failed.',
+  TIMEOUT: 'AI provider request timed out.',
+  CANCELLED: 'AI provider request was cancelled.',
+  RATE_LIMITED: 'AI provider rate limit was reached.',
+  PROVIDER_UNAVAILABLE: 'AI provider is temporarily unavailable.',
+  SCHEMA_REJECTED: 'AI provider rejected the required output schema.',
+  STRUCTURED_OUTPUT_UNSUPPORTED: 'AI provider does not support the required structured output mode.',
+  INVALID_RESPONSE: 'AI provider returned an invalid response.',
+  OUTPUT_TRUNCATED: 'AI provider output was truncated.',
+  CONTENT_REFUSED: 'AI provider refused the requested content.',
+  RESPONSE_TOO_LARGE: 'AI provider response exceeded the configured size limit.',
+  PROVIDER_ERROR: 'AI provider returned an unsuccessful response.',
+  IDENTITY_MISMATCH: 'AI provider returned an unexpected model identity.',
+  UNKNOWN: 'AI runtime returned an unknown failure.'
+});
+
 export const AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   type: 'object',
@@ -426,13 +449,17 @@ export async function analyzeDependencyAiContext(context, {
     });
   } catch (error) {
     const code = isAiRuntimeError(error) ? error.code : 'UNKNOWN';
+    const status = isAiRuntimeError(error) && Number.isInteger(error.status)
+      ? ` (HTTP ${error.status})`
+      : '';
+    const summary = SAFE_RUNTIME_FAILURE_SUMMARIES[code] ?? SAFE_RUNTIME_FAILURE_SUMMARIES.UNKNOWN;
     return emptyClaims(
       context,
       'failed',
       'invalid',
       [code],
       code,
-      `AI runtime failed with ${code}.`
+      `AI runtime failed with ${code}${status}: ${summary}`
     );
   }
 

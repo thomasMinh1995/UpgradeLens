@@ -947,6 +947,62 @@ test('CLI analyze-version supports stdout without writing the default artifact',
   await assert.rejects(readFile(path.join(root, '.upgradelens', 'version-analysis.json')));
 });
 
+test('CLI debug records use injected stderr and never contaminate --stdout artifact JSON', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-debug-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  const stdout = capture();
+  const stderr = capture();
+  let calls = 0;
+
+  const code = await runCli(['analyze-version', root, '--stdout', '--package', 'npm:react'], {
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    env: {
+      UPGRADELENS_AI_PROVIDER: 'openai-compatible',
+      UPGRADELENS_AI_ENDPOINT: 'https://provider.example.test/v1/chat/completions?private=query',
+      UPGRADELENS_AI_MODEL: 'exact-model-slug',
+      UPGRADELENS_AI_AUTHORIZATION: 'Bearer sk-or-v1-private-test-key',
+      UPGRADELENS_AI_DEBUG: '1'
+    },
+    fetch: async (_url, init) => {
+      calls += 1;
+      const requestBody = JSON.parse(init.body);
+      const contextJson = requestBody.messages[1].content.split('Dependency AI Context:\n').at(-1);
+      const evidenceId = JSON.parse(contextJson).metadata.selectedEvidenceIds[0];
+      return new Response(JSON.stringify({
+        id: 'safe-debug-id',
+        model: 'exact-model-slug',
+        choices: [{
+          message: {
+            role: 'assistant',
+            content: JSON.stringify({
+              summary: 'Documented release behavior changed.',
+              summaryEvidenceRefs: [evidenceId],
+              riskLevel: 'high',
+              riskEvidenceRefs: [evidenceId],
+              findings: []
+            })
+          },
+          finish_reason: 'stop'
+        }],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    },
+    clock: () => new Date('2026-07-15T00:00:00.000Z')
+  });
+
+  const artifact = JSON.parse(stdout.value());
+  const debugRecords = stderr.value().trim().split('\n').map((line) => JSON.parse(line));
+  assert.equal(code, 0);
+  assert.equal(calls, 1);
+  assert.equal(artifact.results[0].status, 'analyzed');
+  assert.equal(stdout.value().includes('ai.runtime.request'), false);
+  assert.deepEqual(debugRecords.map((record) => record.event), ['ai.runtime.request', 'ai.runtime.response']);
+  assert.doesNotMatch(stderr.value(), /private=query|sk-or-|Bearer |Dependency AI Context|Documented release behavior/);
+  await assert.rejects(readFile(path.join(root, '.upgradelens', 'version-analysis.json')));
+});
+
 test('CLI selects the OpenAI-compatible provider and sends Chat Completions mapping from environment configuration', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-openai-compatible-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -1147,6 +1203,10 @@ test('CLI writes a package-local typed provider failure instead of failing the w
   assert.equal(artifact.summary.analyzedCount, 0);
   assert.deepEqual(artifact.results[0].validation.warningCodes, ['PROVIDER_UNAVAILABLE']);
   assert.deepEqual(artifact.results[0].limitations.map((item) => item.code), ['PROVIDER_UNAVAILABLE']);
+  assert.equal(
+    artifact.results[0].limitations[0].message,
+    'AI runtime failed with PROVIDER_UNAVAILABLE (HTTP 503): AI provider is temporarily unavailable.'
+  );
 });
 
 test('one package-local runtime failure does not prevent another dependency occurrence from being analyzed', async (t) => {
@@ -1191,6 +1251,10 @@ test('one package-local runtime failure does not prevent another dependency occu
   assert.equal(artifact.summary.failedCount, 1);
   assert.equal(artifact.summary.analyzedCount, 1);
   assert.deepEqual(artifact.results.map((item) => item.status).sort(), ['analyzed', 'failed']);
+  assert.equal(
+    artifact.results.find((item) => item.status === 'failed').limitations[0].message,
+    'AI runtime failed with RATE_LIMITED (HTTP 429): AI provider rate limit was reached.'
+  );
 });
 
 test('CLI analyze-version fails clearly for invalid input manifests', async (t) => {

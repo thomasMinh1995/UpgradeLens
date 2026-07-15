@@ -1,4 +1,12 @@
 import { AiRuntimeError, isAiRuntimeError } from './ai-runtime-error.js';
+import {
+  buildErrorDebugRecord,
+  buildRequestDebugRecord,
+  buildResponseDebugRecord,
+  parseProviderErrorDescriptor,
+  writeAiRuntimeDebugRecord
+} from './ai-runtime-debug.js';
+import { projectStructuredOutputSchemaForProvider } from './structured-output-schema.js';
 
 export const DEFAULT_AI_TIMEOUT_MS = 60_000;
 export const DEFAULT_AI_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -6,6 +14,7 @@ export const DEFAULT_AI_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const JSON_MEDIA_TYPE = /^(?:application\/(?:json|[a-z0-9.+-]+\+json))(?:\s*;|$)/i;
 const COMPLETED_FINISH_REASONS = new Set(['stop']);
 const REFUSAL_FINISH_REASONS = new Set(['content_filter', 'safety']);
+const PROVIDER_ERROR_DESCRIPTOR_MAX_CHARACTERS = 1024;
 const ALLOWED_REQUEST_EXTRA_FIELDS = new Set([
   'temperature',
   'top_p',
@@ -125,30 +134,23 @@ async function readBoundedText(response, maxResponseBytes) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-function safeErrorDescriptor(text) {
-  try {
-    const body = JSON.parse(text);
-    const error = body && typeof body === 'object' ? body.error : null;
-    if (typeof error === 'string') return error.slice(0, 512).toLowerCase();
-    if (!error || typeof error !== 'object') return '';
-    return [error.code, error.type, error.message]
-      .filter((value) => typeof value === 'string')
-      .join(' ')
-      .slice(0, 512)
-      .toLowerCase();
-  } catch {
-    return '';
-  }
-}
-
-function httpError(status, responseText) {
-  const descriptor = safeErrorDescriptor(responseText);
+function httpError(status, providerError) {
+  const descriptor = Object.values(providerError)
+    .join(' ')
+    .slice(0, PROVIDER_ERROR_DESCRIPTOR_MAX_CHARACTERS)
+    .toLowerCase();
   const mentionsSchema = /json[_ -]?schema|response[_ -]?format|structured[_ -]?output|schema/.test(descriptor);
-  const unsupported = /unsupported|not supported|unknown (?:field|parameter)|unrecognized/.test(descriptor);
+  const unsupported = /unsupported|not[_ -]?supported|does[_ -]?not[_ -]?support|unknown[_ -]?(?:field|parameter)|unrecognized/.test(descriptor);
   const modelMissing = /model[_ -]?not[_ -]?found|no such model|unknown model|model does not exist/.test(descriptor);
 
-  if (status === 401 || status === 403) {
-    return new AiRuntimeError('AUTH_ERROR', 'AI provider rejected authorization.', { status });
+  if (status === 401) {
+    return new AiRuntimeError('AUTH_ERROR', 'AI provider rejected authentication.', { status });
+  }
+  if (status === 403) {
+    return new AiRuntimeError('ACCESS_DENIED', 'AI provider denied access to the requested resource.', { status });
+  }
+  if (status === 402) {
+    return new AiRuntimeError('INSUFFICIENT_CREDIT', 'AI provider reported insufficient credit.', { status });
   }
   if (status === 404 && modelMissing) {
     return new AiRuntimeError('MODEL_NOT_FOUND', 'Configured AI model was not found.', { status });
@@ -162,15 +164,18 @@ function httpError(status, responseText) {
   if (status === 502 || status === 503) {
     return new AiRuntimeError('PROVIDER_UNAVAILABLE', 'AI provider is temporarily unavailable.', { status, retryable: true });
   }
-  if (mentionsSchema && unsupported) {
-    return new AiRuntimeError(
-      'STRUCTURED_OUTPUT_UNSUPPORTED',
-      'AI provider does not support the required structured output mode.',
-      { status }
-    );
-  }
-  if (mentionsSchema) {
-    return new AiRuntimeError('SCHEMA_REJECTED', 'AI provider rejected the required output schema.', { status });
+  if (status === 400 || status === 422) {
+    if (mentionsSchema && unsupported) {
+      return new AiRuntimeError(
+        'STRUCTURED_OUTPUT_UNSUPPORTED',
+        'AI provider does not support the required structured output mode.',
+        { status }
+      );
+    }
+    if (mentionsSchema) {
+      return new AiRuntimeError('SCHEMA_REJECTED', 'AI provider rejected the required output schema.', { status });
+    }
+    return new AiRuntimeError('INVALID_REQUEST', 'AI provider rejected the request parameters.', { status });
   }
   return new AiRuntimeError('PROVIDER_ERROR', 'AI provider returned an unsuccessful response.', { status });
 }
@@ -252,7 +257,7 @@ function createRequestBody(request, model, requestExtras) {
       json_schema: {
         name: structuredOutput.name,
         strict: true,
-        schema: structuredClone(structuredOutput.schema)
+        schema: projectStructuredOutputSchemaForProvider(structuredOutput.schema)
       }
     },
     stream: false
@@ -273,6 +278,8 @@ export function createOpenAiCompatibleProvider({
   maxResponseBytes = DEFAULT_AI_MAX_RESPONSE_BYTES,
   requestExtras = {},
   requireExactModelIdentity = false,
+  debug = false,
+  debugWriter = process.stderr,
   clock = Date
 } = {}) {
   const url = validateOpenAiCompatibleEndpoint(endpoint);
@@ -288,6 +295,12 @@ export function createOpenAiCompatibleProvider({
   if (!requestExtras || typeof requestExtras !== 'object' || Array.isArray(requestExtras)) {
     throw configurationError('OpenAI-compatible request extras must be an object.');
   }
+  if (typeof debug !== 'boolean') {
+    throw configurationError('OpenAI-compatible debug must be a boolean.');
+  }
+  if (debug && typeof debugWriter !== 'function' && typeof debugWriter?.write !== 'function') {
+    throw configurationError('OpenAI-compatible debug writer must be a function or writable stream.');
+  }
   positiveInteger(timeoutMs, 'timeoutMs');
   positiveInteger(maxResponseBytes, 'maxResponseBytes');
 
@@ -296,13 +309,28 @@ export function createOpenAiCompatibleProvider({
     model,
     async generateStructured(request) {
       const startedAt = clock.now();
+      let requestBody;
       let serializedBody;
       try {
-        serializedBody = JSON.stringify(createRequestBody(request, model, requestExtras));
+        requestBody = createRequestBody(request, model, requestExtras);
+        serializedBody = JSON.stringify(requestBody);
       } catch (error) {
         if (isAiRuntimeError(error)) throw error;
         throw configurationError('OpenAI-compatible request could not be serialized.');
       }
+
+      if (debug) {
+        writeAiRuntimeDebugRecord(debugWriter, buildRequestDebugRecord({
+          provider,
+          endpoint: url,
+          model,
+          requestBody,
+          serializedBody,
+          structuredOutputMode: request.structuredOutput.mode,
+          requestExtraKeys: Object.keys(requestExtras).filter((key) => ALLOWED_REQUEST_EXTRA_FIELDS.has(key))
+        }));
+      }
+
       const controller = new AbortController();
       let timedOut = false;
       const onCallerAbort = () => controller.abort();
@@ -350,7 +378,20 @@ export function createOpenAiCompatibleProvider({
           }
           throw error;
         }
-        if (response.status < 200 || response.status >= 300) throw httpError(response.status, text);
+        if (response.status < 200 || response.status >= 300) {
+          const providerError = parseProviderErrorDescriptor(text);
+          const runtimeError = httpError(response.status, providerError);
+          if (debug) {
+            writeAiRuntimeDebugRecord(debugWriter, buildErrorDebugRecord({
+              status: response.status,
+              runtimeError,
+              providerError,
+              responseText: text,
+              latencyMs: Math.max(0, clock.now() - startedAt)
+            }));
+          }
+          throw runtimeError;
+        }
 
         const contentType = headerValue(response.headers, 'content-type');
         if (!contentType || !JSON_MEDIA_TYPE.test(contentType)) {
@@ -367,6 +408,24 @@ export function createOpenAiCompatibleProvider({
         if (requireExactModelIdentity && actualModel !== model) {
           throw new AiRuntimeError('IDENTITY_MISMATCH', 'AI provider returned an unexpected model identity.');
         }
+        const providerRequestId = typeof body.id === 'string' && /^[A-Za-z0-9._:-]{1,256}$/.test(body.id)
+          ? body.id
+          : null;
+        const usage = normalizeUsage(body.usage);
+        const latencyMs = Math.max(0, clock.now() - startedAt);
+        if (debug) {
+          writeAiRuntimeDebugRecord(debugWriter, buildResponseDebugRecord({
+            status: response.status,
+            contentType,
+            responseText: text,
+            body,
+            assistantContent: output,
+            requestedModel: model,
+            actualModel,
+            usage,
+            latencyMs
+          }));
+        }
         return {
           output,
           provider,
@@ -375,11 +434,9 @@ export function createOpenAiCompatibleProvider({
           requestedModel: model,
           actualModel,
           finishReason: 'complete',
-          usage: normalizeUsage(body.usage),
-          latencyMs: Math.max(0, clock.now() - startedAt),
-          providerRequestId: typeof body.id === 'string' && /^[A-Za-z0-9._:-]{1,256}$/.test(body.id)
-            ? body.id
-            : null,
+          usage,
+          latencyMs,
+          providerRequestId,
           attemptCount: 1,
           retryCount: 0,
           fallbackCount: 0,

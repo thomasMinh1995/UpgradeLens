@@ -37,6 +37,16 @@ export {
   isAiRuntimeError
 } from './ai-runtime-error.js';
 export {
+  buildErrorDebugRecord,
+  buildRequestDebugRecord,
+  buildResponseDebugRecord,
+  buildSchemaDiagnostics,
+  isAiRuntimeDebugEnabled,
+  parseProviderErrorDescriptor,
+  sanitizeDebugText,
+  writeAiRuntimeDebugRecord
+} from './ai-runtime-debug.js';
+export {
   DEFAULT_AI_MAX_RESPONSE_BYTES,
   DEFAULT_AI_TIMEOUT_MS,
   createOpenAiCompatibleProvider,
@@ -64,6 +74,16 @@ export {
   resolveVersionBaseline,
   selectEvidence
 } from './dependency-ai-context.js';
+export {
+  DEFAULT_EVIDENCE_CONTENT_CHARACTERS,
+  DEFAULT_EVIDENCE_DOCUMENT_BYTES,
+  DEFAULT_EVIDENCE_SOURCE_LIMIT,
+  DEFAULT_EVIDENCE_TTL_MS,
+  classifyEvidenceContent,
+  createEvidenceSourceAdapter,
+  discoverEvidenceSourceRequests,
+  normalizeEvidenceContent
+} from './evidence-source-adapter.js';
 export {
   createDefaultEcosystemVersionAdapterRegistry,
   getEcosystemVersionAdapter

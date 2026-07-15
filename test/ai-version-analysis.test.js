@@ -169,11 +169,32 @@ test('invalid schema fails without regex parsing or deterministic field mutation
   assert.deepEqual(result.validation.warningCodes, ['OUTPUT_SCHEMA_INVALID']);
 });
 
+test('provider projection cannot weaken exact local uniqueness validation or reach Trust Layer', async () => {
+  const ctx = context();
+  const evidenceId = ctx.metadata.selectedEvidenceIds[0];
+  const duplicateCandidate = candidate(ctx, {
+    summaryEvidenceRefs: [evidenceId, evidenceId]
+  });
+  const runtime = fakeRuntime(JSON.stringify(duplicateCandidate));
+  const result = await analyzeDependencyAiContext(ctx, { runtime });
+
+  assert.equal(runtime.calls.length, 1);
+  assert.deepEqual(runtime.calls[0].structuredOutput.schema, AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.validation.status, 'invalid');
+  assert.deepEqual(result.validation.warningCodes, ['OUTPUT_SCHEMA_INVALID']);
+  assert.deepEqual(result.summaryEvidenceRefs, []);
+  assert.deepEqual(result.riskEvidenceRefs, []);
+  assert.deepEqual(result.findings, []);
+  assert.equal(result.riskLevel, 'unknown');
+  assert.equal(result.humanReviewReasons.includes('ANALYSIS_FAILED'), true);
+});
+
 test('typed runtime failures remain package-local runtime codes instead of output-schema failures', async () => {
   const ctx = context();
   const runtime = {
     async generateStructured() {
-      throw new AiRuntimeError('RATE_LIMITED', 'sanitized runtime failure', {
+      throw new AiRuntimeError('RATE_LIMITED', 'raw provider body private marker', {
         status: 429,
         retryable: true
       });
@@ -185,8 +206,9 @@ test('typed runtime failures remain package-local runtime codes instead of outpu
   assert.deepEqual(result.validation.warningCodes, ['RATE_LIMITED']);
   assert.deepEqual(result.limitations, [{
     code: 'RATE_LIMITED',
-    message: 'AI runtime failed with RATE_LIMITED.'
+    message: 'AI runtime failed with RATE_LIMITED (HTTP 429): AI provider rate limit was reached.'
   }]);
+  assert.doesNotMatch(JSON.stringify(result), /raw provider body|private marker/);
   assert.equal(result.validation.warningCodes.includes('OUTPUT_SCHEMA_INVALID'), false);
 });
 

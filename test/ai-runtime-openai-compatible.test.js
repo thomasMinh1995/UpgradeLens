@@ -7,6 +7,7 @@ import {
   createOpenAiCompatibleProvider,
   validateOpenAiCompatibleEndpoint
 } from '../src/index.js';
+import { projectStructuredOutputSchemaForProvider } from '../src/structured-output-schema.js';
 
 const SECRET = 'Bearer test-secret-that-must-not-leak';
 
@@ -127,7 +128,15 @@ test('request mapping sends exact model, rendered messages, strict schema, no st
   assert.equal(body.response_format.type, 'json_schema');
   assert.equal(body.response_format.json_schema.name, 'upgradelens_version_analysis');
   assert.equal(body.response_format.json_schema.strict, true);
-  assert.deepEqual(body.response_format.json_schema.schema, schema);
+  const providerSchema = body.response_format.json_schema.schema;
+  assert.deepEqual(providerSchema, projectStructuredOutputSchemaForProvider(schema));
+  assert.notDeepEqual(providerSchema, schema);
+  assert.equal(JSON.stringify(providerSchema).includes('uniqueItems'), false);
+  assert.equal(JSON.stringify(providerSchema).includes('pattern'), true);
+  assert.equal(JSON.stringify(providerSchema).includes('minItems'), true);
+  assert.equal(JSON.stringify(providerSchema).includes('items'), true);
+  assert.equal(JSON.stringify(providerSchema).includes('required'), true);
+  assert.equal(JSON.stringify(providerSchema).includes('additionalProperties'), true);
   assert.deepEqual(schema, AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA);
   assert.equal('context' in body, false);
   assert.equal('tools' in body, false);
@@ -218,11 +227,14 @@ test('declared and streamed oversized response bodies fail with RESPONSE_TOO_LAR
 
 for (const [status, errorBody, code, retryable] of [
   [401, { error: { message: `unauthorized ${SECRET}` } }, 'AUTH_ERROR', false],
-  [403, { error: { message: `forbidden ${SECRET}` } }, 'AUTH_ERROR', false],
+  [403, { error: { message: `forbidden ${SECRET}` } }, 'ACCESS_DENIED', false],
+  [402, { error: { message: `insufficient credit ${SECRET}` } }, 'INSUFFICIENT_CREDIT', false],
   [404, { error: { code: 'model_not_found', message: 'model does not exist' } }, 'MODEL_NOT_FOUND', false],
   [429, { error: { message: 'rate limit' } }, 'RATE_LIMITED', true],
+  [500, { error: { message: 'internal provider failure' } }, 'PROVIDER_ERROR', false],
   [502, { error: { message: 'bad gateway' } }, 'PROVIDER_UNAVAILABLE', true],
-  [503, { error: { message: 'unavailable' } }, 'PROVIDER_UNAVAILABLE', true]
+  [503, { error: { message: 'unavailable' } }, 'PROVIDER_UNAVAILABLE', true],
+  [504, { error: { message: 'gateway timeout' } }, 'TIMEOUT', true]
 ]) {
   test(`HTTP ${status} maps to ${code} without leaking provider body`, async () => {
     const runtime = provider(async () => new Response(JSON.stringify(errorBody), {
@@ -257,6 +269,48 @@ test('schema rejection and unsupported structured output have distinct stable co
     structuredOutput: { mode: 'jsonMode', name: 'x', schema: {} }
   })), 'STRUCTURED_OUTPUT_UNSUPPORTED');
   assert.equal(calls, 0);
+});
+
+test('invalid request and 422 validation failures stay distinct from schema rejection', async () => {
+  const invalidRequest = provider(async () => new Response(JSON.stringify({
+    error: { type: 'invalid_request_error', message: 'temperature must be between zero and one' }
+  }), { status: 400, headers: { 'content-type': 'application/json' } }));
+  await rejectsWithCode(() => invalidRequest.generateStructured(runtimeRequest()), 'INVALID_REQUEST');
+
+  const schema = provider(async () => new Response(JSON.stringify({
+    error: { metadata: { code: 'invalid_json_schema', message: 'response_format schema validation failed' } }
+  }), { status: 422, headers: { 'content-type': 'application/json' } }));
+  await rejectsWithCode(() => schema.generateStructured(runtimeRequest()), 'SCHEMA_REJECTED');
+
+  const validation = provider(async () => new Response(JSON.stringify({
+    error: { type: 'validation_error', message: 'messages is required' }
+  }), { status: 422, headers: { 'content-type': 'application/json' } }));
+  await rejectsWithCode(() => validation.generateStructured(runtimeRequest()), 'INVALID_REQUEST');
+});
+
+test('metadata descriptor fields classify safely while ignored fields, raw body, and long messages are removed', async () => {
+  const privateMarker = 'private-account-billing-marker';
+  const longMessage = `schema ${'x'.repeat(1_000)} ${privateMarker}`;
+  const runtime = provider(async () => new Response(JSON.stringify({
+    account: privateMarker,
+    error: {
+      metadata: {
+        error_type: 'unsupported_parameter',
+        code: 'response_format_not_supported',
+        message: longMessage,
+        billing_detail: privateMarker
+      }
+    }
+  }), { status: 400, headers: { 'content-type': 'application/json' } }), { authorization: SECRET });
+
+  await assert.rejects(() => runtime.generateStructured(runtimeRequest()), (error) => {
+    assert.equal(error.code, 'STRUCTURED_OUTPUT_UNSUPPORTED');
+    assert.equal(error.status, 400);
+    const exposed = `${error.message} ${JSON.stringify(error)}`;
+    assert.doesNotMatch(exposed, /private-account|billing-marker|test-secret|x{100}/);
+    assert.ok(exposed.length < 512);
+    return true;
+  });
 });
 
 test('network failure and bounded deadline map to typed retryable errors without automatic retry', async () => {

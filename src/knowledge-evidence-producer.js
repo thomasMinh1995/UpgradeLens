@@ -149,7 +149,8 @@ function summaryFor(evidence, warnings) {
 export function buildKnowledgeEvidenceBundle(manifest, {
   knowledgeManifestArtifact,
   knowledgeManifestBytes,
-  generatedAt
+  generatedAt,
+  enrichedEvidence = []
 }) {
   validateKnowledgeManifest(manifest);
   if (!(knowledgeManifestBytes instanceof Uint8Array)) {
@@ -158,6 +159,9 @@ export function buildKnowledgeEvidenceBundle(manifest, {
   if (!knowledgeManifestArtifact) {
     throw new Error('Knowledge Evidence Bundle producer requires Knowledge Manifest artifact path.');
   }
+  if (!Array.isArray(enrichedEvidence)) {
+    throw new Error('Knowledge Evidence Bundle producer requires enrichedEvidence to be an array.');
+  }
 
   const evidence = [];
   const warnings = (manifest.warnings ?? []).map(bundleWarningFromManifest);
@@ -165,6 +169,19 @@ export function buildKnowledgeEvidenceBundle(manifest, {
     const item = buildLatestEvidence(manifest, packageRecord);
     if (item) evidence.push(item);
     else if (!['invalid', 'notFound'].includes(packageRecord.status)) warnings.push(evidenceMissingWarning(packageRecord));
+  }
+
+  const packageIds = new Set(manifest.packages.map((item) => item.id));
+  const sourceIds = new Set(manifest.sources.map((item) => item.id));
+  const seenContent = new Set(evidence.map((item) => `${item.packageId}\0${item.contentDigest}`));
+  for (const item of enrichedEvidence) {
+    if (!packageIds.has(item?.packageId) || !sourceIds.has(item?.sourceId)) {
+      throw new Error('Knowledge Evidence Bundle producer received enriched evidence with unknown provenance.');
+    }
+    const contentKey = `${item.packageId}\0${item.contentDigest}`;
+    if (seenContent.has(contentKey)) continue;
+    seenContent.add(contentKey);
+    evidence.push(structuredClone(item));
   }
 
   evidence.sort(compareEvidence);

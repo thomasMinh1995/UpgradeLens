@@ -93,7 +93,7 @@ function defineCase({
 
 const HTTP_ERROR_CASES = [
   [401, 'AUTH_ERROR'],
-  [403, 'AUTH_ERROR'],
+  [403, 'ACCESS_DENIED'],
   [404, 'MODEL_NOT_FOUND', 'model_not_found: configured model does not exist'],
   [408, 'TIMEOUT'],
   [409, 'PROVIDER_ERROR'],

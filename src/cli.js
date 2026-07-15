@@ -36,10 +36,12 @@ import {
   DEFAULT_AI_TIMEOUT_MS,
   createOpenAiCompatibleProvider
 } from './openai-compatible-provider.js';
+import { isAiRuntimeDebugEnabled } from './ai-runtime-debug.js';
 import {
   buildDependencyAiContext,
   resolveDependencyAnalysisInputs
 } from './dependency-ai-context.js';
+import { createEvidenceSourceAdapter } from './evidence-source-adapter.js';
 import { discoverProject } from './discovery.js';
 import {
   DEFAULT_EVALUATION_DATASET_PATH,
@@ -121,6 +123,7 @@ Research options:
 Analyze-version options:
   -o, --output <path>   Version Analysis artifact path relative to the project root
                         (default: ${DEFAULT_VERSION_ANALYSIS_PATH})
+      --package <id>    Analyze one exact canonical package ID (for example, pypi:langsmith)
       --stdout          Print only the Version Analysis JSON
 
 Eval options:
@@ -227,6 +230,12 @@ export function parseArguments(argv) {
     } else if (argument === '--config') {
       options.config = takeValue(args, index, argument);
       index += 1;
+    } else if (argument === '--package') {
+      if (options.packageId !== undefined) {
+        throw new Error('--package accepts exactly one canonical package ID.');
+      }
+      options.packageId = takeValue(args, index, argument);
+      index += 1;
     } else if (argument === '--max-depth') {
       const raw = takeValue(args, index, argument);
       const depth = Number(raw);
@@ -264,6 +273,17 @@ export function parseArguments(argv) {
     throw new Error('--metrics-output is only supported by scorecard');
   }
   if (command !== 'benchmark' && options.config !== DEFAULT_BENCHMARK_CONFIG_PATH) throw new Error('--config is only supported by benchmark');
+  if (command !== 'analyze-version' && options.packageId !== undefined) {
+    throw new Error('--package is only supported by analyze-version');
+  }
+  if (options.packageId !== undefined) {
+    const separator = options.packageId.indexOf(':');
+    const ecosystem = options.packageId.slice(0, separator);
+    const name = options.packageId.slice(separator + 1);
+    if (separator <= 0 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(ecosystem) || name.length === 0 || /\s/.test(name)) {
+      throw new Error('--package must be an exact canonical package ID such as npm:react or pypi:langsmith.');
+    }
+  }
   return options;
 }
 
@@ -276,8 +296,13 @@ async function writeProjectManifest(root, output, contents) {
   return target;
 }
 
-function researchAdapters(root, options, io) {
-  if (io.adapters) return io.adapters;
+function researchComponents(root, options, io) {
+  if (io.adapters) {
+    return {
+      adapters: io.adapters,
+      evidenceSourceAdapter: io.evidenceSourceAdapter ?? null
+    };
+  }
   const clock = io.clock ?? (() => new Date());
   const cache = createKnowledgeCache({
     rootDirectory: path.join(root, '.upgradelens/cache/knowledge/v1'),
@@ -285,12 +310,26 @@ function researchAdapters(root, options, io) {
   });
   const adapterOptions = { cache, clock, fetch: io.fetch, offline: options.offline };
   return {
-    npm: createNpmRegistryAdapter(adapterOptions),
-    pypi: createPypiRegistryAdapter(adapterOptions)
+    adapters: {
+      npm: createNpmRegistryAdapter(adapterOptions),
+      pypi: createPypiRegistryAdapter(adapterOptions)
+    },
+    evidenceSourceAdapter: io.evidenceSourceAdapter !== undefined
+      ? io.evidenceSourceAdapter
+      : io.defaultEvidenceEnrichment === false
+        ? null
+        : createEvidenceSourceAdapter({
+            cache,
+            clock,
+            fetch: io.fetch,
+            offline: options.offline
+          })
   };
 }
 
 async function runResearch(options, io) {
+  const defaultEvidenceEnrichment = io.evidenceSourceAdapter !== undefined
+    || (!io.adapters && !io.fetch);
   const runtime = options.offline || io.fetch
     ? null
     : (io.createHttpRuntime ?? createCliHttpRuntime)();
@@ -299,7 +338,8 @@ async function runResearch(options, io) {
   try {
     result = await executeResearch(options, {
       ...io,
-      fetch: runtime?.fetch ?? io.fetch
+      fetch: runtime?.fetch ?? io.fetch,
+      defaultEvidenceEnrichment
     });
   } catch (error) {
     primaryError = error;
@@ -322,8 +362,10 @@ async function executeResearch(options, io) {
   });
   const plan = createResearchPlan(loaded);
   const clock = io.clock ?? (() => new Date());
+  const components = researchComponents(root, options, io);
   const orchestrator = createKnowledgeResearchOrchestrator({
-    adapters: researchAdapters(root, options, io),
+    adapters: components.adapters,
+    evidenceSourceAdapter: components.evidenceSourceAdapter,
     clock,
     concurrency: io.concurrency ?? 4
   });
@@ -343,7 +385,8 @@ async function executeResearch(options, io) {
   const evidenceBundle = (io.buildKnowledgeEvidenceBundle ?? buildKnowledgeEvidenceBundle)(manifest, {
     knowledgeManifestArtifact: options.output,
     knowledgeManifestBytes: manifestBytes,
-    generatedAt: manifest.generatedAt
+    generatedAt: manifest.generatedAt,
+    enrichedEvidence: result.evidence
   });
   const target = await (io.writeKnowledgeManifest ?? writeKnowledgeManifest)(outputPath(root, options.output), manifest);
   const evidenceTarget = await (io.writeKnowledgeEvidenceBundle ?? writeKnowledgeEvidenceBundle)(
@@ -372,7 +415,9 @@ function createDefaultAiRuntime(io) {
       model: env.UPGRADELENS_AI_MODEL,
       authorization: env.UPGRADELENS_AI_AUTHORIZATION,
       fetchImplementation: io.fetch,
-      timeoutMs: configuredAiTimeoutMs(env)
+      timeoutMs: configuredAiTimeoutMs(env),
+      debug: isAiRuntimeDebugEnabled(env),
+      debugWriter: io.aiDebugWriter ?? io.stderr ?? process.stderr
     });
     return createProviderAiRuntime({ provider });
   }
@@ -408,7 +453,21 @@ async function executeAnalyzeVersion(options, io) {
     knowledgeManifest: path.join(root, DEFAULT_KNOWLEDGE_MANIFEST_PATH),
     evidenceBundle: path.join(root, DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH)
   });
-  const inputs = resolveDependencyAnalysisInputs(artifacts);
+  const allInputs = resolveDependencyAnalysisInputs(artifacts);
+  let inputs = allInputs;
+  if (options.packageId !== undefined) {
+    const packageExists = artifacts.knowledgeManifest.packages.some((item) => item.id === options.packageId);
+    if (!packageExists) {
+      throw new Error(`Selected package ${options.packageId} was not found in the Knowledge Manifest; no runtime call was made.`);
+    }
+    inputs = allInputs.filter((input) => input.packageRecord.id === options.packageId);
+    if (inputs.length === 0) {
+      throw new Error(`Selected package ${options.packageId} is not eligible for Version Analysis because it has no parsed dependency occurrence; no runtime call was made.`);
+    }
+    if (inputs.length > 1) {
+      throw new Error(`Selected package ${options.packageId} matches ${inputs.length} dependency occurrences; one-dependency selection is ambiguous and no runtime call was made.`);
+    }
+  }
   const contexts = inputs.map((input) => buildDependencyAiContext(artifacts, {
     input,
     target: { policy: 'registryLatest' }

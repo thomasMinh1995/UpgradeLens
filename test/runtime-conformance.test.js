@@ -106,7 +106,7 @@ test('required acceptance cases are represented by explicit outcomes', async () 
     ['connectivity-reachable', 'SUCCESS'],
     ['connectivity-unreachable', 'NETWORK_ERROR'],
     ['http-401', 'AUTH_ERROR'],
-    ['http-403', 'AUTH_ERROR'],
+    ['http-403', 'ACCESS_DENIED'],
     ['http-404', 'MODEL_NOT_FOUND'],
     ['http-429', 'RATE_LIMITED'],
     ['http-500', 'PROVIDER_ERROR'],

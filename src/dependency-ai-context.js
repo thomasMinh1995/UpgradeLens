@@ -186,9 +186,10 @@ function sourceRank(source) {
 }
 
 function relevantVersionSet(relevantReleases, targetVersion) {
-  const versions = new Set(relevantReleases.map((release) => release.version).filter(Boolean));
-  versions.add(targetVersion);
-  return versions;
+  return new Set([
+    targetVersion,
+    ...relevantReleases.map((release) => release.version).filter(Boolean).reverse()
+  ]);
 }
 
 function itemIsRelevant(item, versions, mode) {
