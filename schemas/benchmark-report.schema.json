@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/benchmark-report.schema.json",
+  "title": "UpgradeLens AI Benchmark Report",
+  "description": "Machine-readable report for prompt and model benchmark runs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "generator",
+    "benchmark",
+    "runs",
+    "ranking"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": { "$ref": "#/$defs/generator" },
+    "benchmark": { "$ref": "#/$defs/benchmark" },
+    "runs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/runResult" }
+    },
+    "ranking": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rankingEntry" }
+    }
+  },
+  "$defs": {
+    "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+    "nullableNumber": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "UpgradeLens" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "name"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "settings": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "configPath", "datasetPath", "runCount"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "configPath": { "type": ["string", "null"] },
+        "datasetPath": { "type": "string", "minLength": 1 },
+        "runCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overallScore",
+        "riskAccuracy",
+        "humanReviewAccuracy",
+        "evidenceQuality",
+        "unsupportedClaimRate",
+        "deterministicPassRate"
+      ],
+      "properties": {
+        "overallScore": { "$ref": "#/$defs/score" },
+        "riskAccuracy": { "$ref": "#/$defs/ratio" },
+        "humanReviewAccuracy": { "$ref": "#/$defs/ratio" },
+        "evidenceQuality": { "$ref": "#/$defs/score" },
+        "unsupportedClaimRate": { "$ref": "#/$defs/ratio" },
+        "deterministicPassRate": { "$ref": "#/$defs/ratio" }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latencyMs", "tokenUsage", "estimatedCost"],
+      "properties": {
+        "latencyMs": { "$ref": "#/$defs/nullableNumber" },
+        "tokenUsage": { "$ref": "#/$defs/nullableNumber" },
+        "estimatedCost": { "$ref": "#/$defs/nullableNumber" }
+      }
+    },
+    "scorecardSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["overallScore", "categoryScores", "recommendationCodes"],
+      "properties": {
+        "overallScore": { "$ref": "#/$defs/score" },
+        "categoryScores": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "riskAnalysis",
+            "humanReview",
+            "evidenceQuality",
+            "trustLayer",
+            "deterministicQuality"
+          ],
+          "properties": {
+            "riskAnalysis": { "$ref": "#/$defs/score" },
+            "humanReview": { "$ref": "#/$defs/score" },
+            "evidenceQuality": { "$ref": "#/$defs/score" },
+            "trustLayer": { "$ref": "#/$defs/score" },
+            "deterministicQuality": { "$ref": "#/$defs/score" }
+          }
+        },
+        "recommendationCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "runResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "promptVersion",
+        "model",
+        "runtime",
+        "datasetPath",
+        "evaluation",
+        "metrics",
+        "scorecard",
+        "performance"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "promptVersion": { "type": "string", "minLength": 1 },
+        "model": { "$ref": "#/$defs/model" },
+        "runtime": { "$ref": "#/$defs/runtime" },
+        "datasetPath": { "type": "string", "minLength": 1 },
+        "evaluation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["totalCases", "passed", "failed"],
+          "properties": {
+            "totalCases": { "type": "integer", "minimum": 0 },
+            "passed": { "type": "integer", "minimum": 0 },
+            "failed": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "metrics": { "$ref": "#/$defs/metrics" },
+        "scorecard": { "$ref": "#/$defs/scorecardSummary" },
+        "performance": { "$ref": "#/$defs/performance" }
+      }
+    },
+    "rankingEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rank", "runId", "overallScore", "riskAccuracy", "evidenceQuality", "latencyMs", "estimatedCost"],
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "overallScore": { "$ref": "#/$defs/score" },
+        "riskAccuracy": { "$ref": "#/$defs/ratio" },
+        "evidenceQuality": { "$ref": "#/$defs/score" },
+        "latencyMs": { "$ref": "#/$defs/nullableNumber" },
+        "estimatedCost": { "$ref": "#/$defs/nullableNumber" }
+      }
+    }
+  }
+}

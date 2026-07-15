@@ -1,8 +1,20 @@
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 
 import { compareText, isSorted } from './portable.js';
 
 export const KNOWLEDGE_EVIDENCE_BUNDLE_SCHEMA_VERSION = '1.0.0';
+
+const schema = JSON.parse(await readFile(
+  new URL('../schemas/knowledge-evidence-bundle.schema.json', import.meta.url),
+  'utf8'
+));
+const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false });
+addFormats(ajv);
+const validateSchema = ajv.compile(schema);
 
 const compareEvidence = (left, right) => compareText(left.id, right.id);
 const compareWarnings = (left, right) => {
@@ -70,4 +82,20 @@ export function validateKnowledgeEvidenceBundleInvariants(bundle) {
   addMismatch(errors, 'summary.warningCount', bundle.summary?.warningCount, warnings.length);
 
   return errors.sort(compareText);
+}
+
+export function validateKnowledgeEvidenceBundle(bundle) {
+  if (bundle?.schemaVersion !== KNOWLEDGE_EVIDENCE_BUNDLE_SCHEMA_VERSION) {
+    throw new Error(
+      `Knowledge Evidence Bundle schema validation failed: unsupported schema version; expected ${KNOWLEDGE_EVIDENCE_BUNDLE_SCHEMA_VERSION}.`
+    );
+  }
+  if (!validateSchema(bundle)) {
+    throw new Error(`Knowledge Evidence Bundle schema validation failed: ${ajv.errorsText(validateSchema.errors, { separator: '; ' })}`);
+  }
+  const invariantErrors = validateKnowledgeEvidenceBundleInvariants(bundle);
+  if (invariantErrors.length > 0) {
+    throw new Error(`Knowledge Evidence Bundle runtime invariants failed: ${invariantErrors.join(' ')}`);
+  }
+  return bundle;
 }

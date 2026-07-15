@@ -197,6 +197,83 @@ function compareSelectedEvidence(left, right) {
   return compareText(left.item.id, right.item.id);
 }
 
+function compareWarnings(left, right) {
+  return compareText(left.packageId ?? '', right.packageId ?? '')
+    || compareText(left.sourceId ?? '', right.sourceId ?? '')
+    || compareText(left.code, right.code)
+    || compareText((left.conflictSourceIds ?? []).join('\0'), (right.conflictSourceIds ?? []).join('\0'))
+    || compareText(left.message, right.message);
+}
+
+function warningKey(warning) {
+  return [
+    warning.code,
+    warning.packageId ?? '',
+    warning.sourceId ?? '',
+    (warning.conflictSourceIds ?? []).join('\0'),
+    warning.message
+  ].join('\0');
+}
+
+function addWarning(warnings, warning) {
+  const normalized = {
+    ...warning,
+    ...(warning.conflictSourceIds
+      ? { conflictSourceIds: [...warning.conflictSourceIds].sort(compareText) }
+      : {})
+  };
+  if (!warnings.some((item) => warningKey(item) === warningKey(normalized))) {
+    warnings.push(normalized);
+  }
+}
+
+function addSelectedSourceConflictWarnings(warnings, input, bounded) {
+  for (const { source } of bounded) {
+    if ((source.conflictsWith ?? []).length === 0) continue;
+    addWarning(warnings, {
+      code: 'SOURCE_CONFLICT',
+      packageId: input.packageRecord.id,
+      sourceId: source.id,
+      conflictSourceIds: source.conflictsWith,
+      message: `Source ${source.id} conflicts with another source for ${input.packageRecord.id}.`
+    });
+  }
+}
+
+function addArtifactSourceConflictWarnings(warnings, artifacts, input, bounded) {
+  const selectedSourceIds = new Set(bounded.map(({ source }) => source.id));
+  const packageHasConflict = input.packageRecord.warningCodes?.includes('SOURCE_CONFLICT') ?? false;
+  const conflictWarnings = [
+    ...(artifacts.knowledgeManifest.warnings ?? []),
+    ...(artifacts.evidenceBundle.warnings ?? [])
+  ].filter((warning) =>
+    warning.code === 'SOURCE_CONFLICT'
+    && warning.packageId === input.packageRecord.id
+    && (
+      packageHasConflict
+      || !warning.sourceId
+      || selectedSourceIds.has(warning.sourceId)
+    )
+  );
+
+  for (const warning of conflictWarnings) {
+    addWarning(warnings, {
+      code: 'SOURCE_CONFLICT',
+      packageId: input.packageRecord.id,
+      ...(warning.sourceId ? { sourceId: warning.sourceId } : {}),
+      message: warning.message
+    });
+  }
+
+  if (packageHasConflict && conflictWarnings.length === 0) {
+    addWarning(warnings, {
+      code: 'SOURCE_CONFLICT',
+      packageId: input.packageRecord.id,
+      message: `Package ${input.packageRecord.id} has unresolved source conflicts.`
+    });
+  }
+}
+
 export function selectEvidence(artifacts, input, selection, options = {}) {
   const maxItems = options.maxEvidenceItems ?? 8;
   const maxCharacters = options.maxEvidenceCharacters ?? 12000;
@@ -245,6 +322,9 @@ export function selectEvidence(artifacts, input, selection, options = {}) {
     bounded.push(record);
   }
 
+  addSelectedSourceConflictWarnings(warnings, input, bounded);
+  addArtifactSourceConflictWarnings(warnings, artifacts, input, bounded);
+
   if (bounded.length === 0) {
     warnings.push({
       code: 'EVIDENCE_MISSING',
@@ -267,12 +347,7 @@ export function selectEvidence(artifacts, input, selection, options = {}) {
       releaseVersions: [...item.releaseVersions],
       content: item.content
     })),
-    warnings: warnings.sort((left, right) =>
-      compareText(left.packageId ?? '', right.packageId ?? '')
-      || compareText(left.sourceId ?? '', right.sourceId ?? '')
-      || compareText(left.code, right.code)
-      || compareText(left.message, right.message)
-    )
+    warnings: warnings.sort(compareWarnings)
   };
 }
 

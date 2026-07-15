@@ -157,8 +157,41 @@ test('research CLI writes the default/custom artifact and --stdout prints only J
   const stderr = capture();
   assert.equal(await runCli(['research', root], { stdout: capture().stream, stderr: stderr.stream, fetch }), 0);
   const defaultPath = path.join(root, '.upgradelens', 'knowledge-manifest.json');
+  const evidencePath = path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json');
   assert.equal(JSON.parse(await fs.readFile(defaultPath, 'utf8')).schemaVersion, '1.0.0');
+  const evidenceBundle = JSON.parse(await fs.readFile(evidencePath, 'utf8'));
+  assert.equal(evidenceBundle.schemaVersion, '1.0.0');
+  assert.equal(evidenceBundle.summary.evidenceCount, 1);
+  assert.equal(evidenceBundle.evidence[0].kind, 'registryFact');
   assert.match(stderr.value(), /Planned research \(1 packages\)/);
+  assert.match(stderr.value(), /Knowledge Evidence Bundle validated/);
+
+  const analyzeCode = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: capture().stream,
+    aiRuntime: {
+      async generateStructured(request) {
+        const evidenceId = request.context.metadata.selectedEvidenceIds[0];
+        return {
+          output: {
+            summary: 'Registry evidence identifies the latest React release.',
+            summaryEvidenceRefs: [evidenceId],
+            riskLevel: 'unknown',
+            riskEvidenceRefs: [],
+            findings: []
+          },
+          provider: 'fake',
+          model: 'fake',
+          latencyMs: 0
+        };
+      }
+    }
+  });
+  assert.equal(analyzeCode, 0);
+  assert.equal(
+    JSON.parse(await fs.readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8')).schemaVersion,
+    '1.0.0'
+  );
 
   const stdout = capture();
   assert.equal(await runCli(['research', root, '--stdout'], { stdout: stdout.stream, stderr: capture().stream, fetch }), 0);
@@ -168,6 +201,7 @@ test('research CLI writes the default/custom artifact and --stdout prints only J
     stdout: capture().stream, stderr: capture().stream, fetch
   }), 0);
   assert.equal(JSON.parse(await fs.readFile(path.join(root, 'artifacts/knowledge.json'), 'utf8')).schemaVersion, '1.0.0');
+  assert.equal(JSON.parse(await fs.readFile(evidencePath, 'utf8')).input.knowledgeManifest.artifact, 'artifacts/knowledge.json');
 });
 
 test('offline research uses a fresh cache without fetch and emits unavailable cache-miss facts when absent', async (t) => {

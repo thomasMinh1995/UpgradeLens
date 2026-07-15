@@ -108,10 +108,19 @@ function source(sourceId, overrides = {}) {
   };
 }
 
-function knowledgeManifest({ project, projectBytes, ecosystem = 'node', packageName = 'react', versions = ['1.0.0', '1.1.0', '2.0.0'] } = {}) {
+function knowledgeManifest({
+  project,
+  projectBytes,
+  ecosystem = 'node',
+  packageName = 'react',
+  versions = ['1.0.0', '1.1.0', '2.0.0'],
+  sourceConflict = false,
+  unrelatedSourceConflict = false
+} = {}) {
   const registry = ecosystem === 'python' ? 'pypi' : 'npm';
   const packageId = `${registry}:${packageName}`;
   const sourceId = `${packageId}:docs`;
+  const conflictSourceId = `${packageId}:registry`;
   const occurrence = project.projects[0].dependencies[0];
   const releases = versions.map((version) => ({
     version,
@@ -122,6 +131,44 @@ function knowledgeManifest({ project, projectBytes, ecosystem = 'node', packageN
     deprecated: false,
     sourceIds: [sourceId]
   }));
+  const packageSources = sourceConflict ? [sourceId, conflictSourceId] : [sourceId];
+  const sourceRecords = [
+    source(sourceId, sourceConflict ? { conflictsWith: [conflictSourceId] } : {})
+  ];
+  if (sourceConflict) {
+    sourceRecords.push(source(conflictSourceId, {
+      kind: 'registry',
+      authority: 'registryAuthoritative',
+      trust: 'publisher',
+      url: `https://example.com/${packageName}/registry`,
+      supports: ['latest', 'releaseNotes'],
+      conflictsWith: [sourceId]
+    }));
+  }
+  if (unrelatedSourceConflict) {
+    sourceRecords.push(
+      source('npm:other:docs', { conflictsWith: ['npm:other:registry'], url: 'https://example.com/other/docs' }),
+      source('npm:other:registry', {
+        kind: 'registry',
+        authority: 'registryAuthoritative',
+        trust: 'publisher',
+        url: 'https://example.com/other/registry',
+        supports: ['latest'],
+        conflictsWith: ['npm:other:docs']
+      })
+    );
+  }
+  const warnings = sourceConflict
+    ? [
+        {
+          code: 'SOURCE_CONFLICT',
+          packageId,
+          sourceId,
+          message: 'Official and registry release facts conflict.',
+          retryable: false
+        }
+      ]
+    : [];
   return {
     schemaVersion: '1.0.0',
     generatedAt: '2026-07-14T00:00:02.000Z',
@@ -153,32 +200,32 @@ function knowledgeManifest({ project, projectBytes, ecosystem = 'node', packageN
       inputOccurrenceCount: 1,
       inputPackageCount: 1,
       researchedPackageCount: 1,
-      sourceCount: 1,
+      sourceCount: sourceRecords.length,
       cacheHitCount: 0,
-      cacheMissCount: 1,
+      cacheMissCount: sourceRecords.length,
       cacheRevalidationCount: 0,
       retryCount: 0,
-      partialFailureCount: 0
+      partialFailureCount: sourceConflict ? 1 : 0
     },
     summary: {
       inputOccurrenceCount: 1,
       packageCount: 1,
-      resolvedPackageCount: 1,
-      partialPackageCount: 0,
+      resolvedPackageCount: sourceConflict ? 0 : 1,
+      partialPackageCount: sourceConflict ? 1 : 0,
       notFoundPackageCount: 0,
       invalidPackageCount: 0,
       unavailablePackageCount: 0,
-      sourceCount: 1,
-      warningCount: 0,
+      sourceCount: sourceRecords.length,
+      warningCount: warnings.length,
       cacheHitCount: 0,
-      cacheMissCount: 1,
+      cacheMissCount: sourceRecords.length,
       staleSourceCount: 0
     },
     packages: [
       {
         id: packageId,
         ecosystem,
-        status: 'resolved',
+        status: sourceConflict ? 'partial' : 'resolved',
         identity: {
           observedDeclaredNames: [occurrence.name],
           normalizedName: packageName,
@@ -218,20 +265,20 @@ function knowledgeManifest({ project, projectBytes, ecosystem = 'node', packageN
           sourceId
         },
         releaseIndex: releases,
-        sourceIds: [sourceId],
-        warningCodes: []
+        sourceIds: packageSources,
+        warningCodes: sourceConflict ? ['SOURCE_CONFLICT'] : []
       }
     ],
-    sources: [source(sourceId)],
+    sources: sourceRecords.sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
     cache: {
       mode: 'online',
       policyVersion: '1',
       hitCount: 0,
-      missCount: 1,
+      missCount: sourceRecords.length,
       revalidationCount: 0,
       staleEntryCount: 0
     },
-    warnings: []
+    warnings
   };
 }
 
@@ -281,7 +328,7 @@ async function loadedArtifacts(options = {}) {
   const knowledge = knowledgeManifest({ ...options, project, projectBytes });
   const knowledgeBytes = jsonBytes(knowledge);
   const packageId = knowledge.packages[0].id;
-  const sourceId = knowledge.sources[0].id;
+  const sourceId = knowledge.packages[0].sourceIds[0];
   const evidence = options.evidence ?? [
     evidenceItem({
       seed: 'target-release',
@@ -457,6 +504,25 @@ test('missing evidence produces deterministic context warnings instead of invoki
   assert.deepEqual(context.knowledge.evidence, []);
   assert.deepEqual(context.metadata.missingInformation, ['evidence']);
   assert.equal(context.metadata.warnings[0].code, 'EVIDENCE_MISSING');
+});
+
+test('source conflicts for the selected dependency are propagated into Dependency AI Context warnings', async () => {
+  const artifacts = await loadedArtifacts({ sourceConflict: true });
+  const context = buildDependencyAiContext(artifacts, { targetVersion: '2.0.0' });
+  const conflictWarnings = context.metadata.warnings.filter((warning) => warning.code === 'SOURCE_CONFLICT');
+
+  assert.equal(conflictWarnings.length, 2);
+  assert.deepEqual(conflictWarnings.map((warning) => warning.packageId), ['npm:react', 'npm:react']);
+  assert.ok(conflictWarnings.some((warning) => warning.sourceId === 'npm:react:docs'));
+  assert.ok(conflictWarnings.some((warning) => warning.conflictSourceIds?.includes('npm:react:registry')));
+  assert.equal(context.contextId, dependencyAiContextDigest(context));
+});
+
+test('source conflicts unrelated to the selected dependency are not propagated into context', async () => {
+  const artifacts = await loadedArtifacts({ unrelatedSourceConflict: true });
+  const context = buildDependencyAiContext(artifacts, { targetVersion: '2.0.0' });
+
+  assert.deepEqual(context.metadata.warnings.filter((warning) => warning.code === 'SOURCE_CONFLICT'), []);
 });
 
 test('unsupported ecosystem fails at adapter boundary without ecosystem-specific AI core changes', async () => {

@@ -3,13 +3,22 @@ import path from 'node:path';
 
 import {
   CLI_NAME,
+  DEFAULT_AI_SCORECARD_PATH,
+  DEFAULT_BENCHMARK_CONFIG_PATH,
+  DEFAULT_BENCHMARK_REPORT_PATH,
   DEFAULT_KNOWLEDGE_MANIFEST_PATH,
   DEFAULT_MANIFEST_PATH,
   DEFAULT_EVALUATION_REPORT_PATH,
+  DEFAULT_METRICS_PATH,
   DEFAULT_VERSION_ANALYSIS_PATH,
   PRODUCT_NAME,
   VERSION
 } from './constants.js';
+import {
+  buildAiScorecard,
+  serializeAiScorecard,
+  writeAiScorecard
+} from './ai-scorecard.js';
 import {
   analyzeDependencyAiContext,
   buildVersionAnalysisPrompt
@@ -29,8 +38,23 @@ import {
   writeEvaluationReport
 } from './evaluation-runner.js';
 import { serializeEvaluationReport } from './evaluation-report.js';
+import {
+  loadBenchmarkConfig,
+  runBenchmark,
+  serializeBenchmarkReport,
+  writeBenchmarkReport
+} from './benchmark-runner.js';
+import {
+  buildMetrics,
+  loadEvaluationReportForMetrics,
+  writeMetrics
+} from './metrics-engine.js';
 import { createCliHttpRuntime } from './http/cli-http-runtime.js';
 import { createKnowledgeCache } from './knowledge-cache.js';
+import {
+  buildKnowledgeEvidenceBundle,
+  writeKnowledgeEvidenceBundle
+} from './knowledge-evidence-producer.js';
 import { buildKnowledgeManifest } from './knowledge-manifest-builder.js';
 import { serializeKnowledgeManifest, writeKnowledgeManifest } from './knowledge-manifest-writer.js';
 import { createKnowledgeResearchOrchestrator } from './knowledge-research.js';
@@ -55,6 +79,8 @@ Usage:
   ${CLI_NAME} research [path] [options]
   ${CLI_NAME} analyze-version [path] [options]
   ${CLI_NAME} eval [options]
+  ${CLI_NAME} scorecard [options]
+  ${CLI_NAME} benchmark [options]
   ${CLI_NAME} [path] [options]
 
 Discover options:
@@ -82,6 +108,23 @@ Eval options:
   -o, --output <path>   Evaluation report path
                         (default: ${DEFAULT_EVALUATION_REPORT_PATH})
       --stdout          Print only the Evaluation Report JSON
+
+Scorecard options:
+      --report <path>   Evaluation Report path
+                        (default: ${DEFAULT_EVALUATION_REPORT_PATH})
+      --metrics-output <path>
+                        Metrics artifact path
+                        (default: ${DEFAULT_METRICS_PATH})
+  -o, --output <path>   AI Scorecard path
+                        (default: ${DEFAULT_AI_SCORECARD_PATH})
+      --stdout          Print only the AI Scorecard JSON
+
+Benchmark options:
+      --config <path>   Benchmark config path
+                        (default: ${DEFAULT_BENCHMARK_CONFIG_PATH})
+  -o, --output <path>   Benchmark Report path
+                        (default: ${DEFAULT_BENCHMARK_REPORT_PATH})
+      --stdout          Print only the Benchmark Report JSON
   -h, --help            Show help
   -v, --version         Show version
 `;
@@ -99,7 +142,9 @@ function outputPath(root, output) {
 
 export function parseArguments(argv) {
   const args = [...argv];
-  const command = ['discover', 'research', 'analyze-version', 'eval'].includes(args[0]) ? args.shift() : 'discover';
+  const command = ['discover', 'research', 'analyze-version', 'eval', 'scorecard', 'benchmark'].includes(args[0])
+    ? args.shift()
+    : 'discover';
   const options = {
     command,
     root: '.',
@@ -109,8 +154,15 @@ export function parseArguments(argv) {
         ? DEFAULT_VERSION_ANALYSIS_PATH
         : command === 'eval'
           ? DEFAULT_EVALUATION_REPORT_PATH
+        : command === 'scorecard'
+          ? DEFAULT_AI_SCORECARD_PATH
+        : command === 'benchmark'
+          ? DEFAULT_BENCHMARK_REPORT_PATH
         : DEFAULT_MANIFEST_PATH,
     dataset: DEFAULT_EVALUATION_DATASET_PATH,
+    report: DEFAULT_EVALUATION_REPORT_PATH,
+    metricsOutput: DEFAULT_METRICS_PATH,
+    config: DEFAULT_BENCHMARK_CONFIG_PATH,
     pretty: true,
     stdout: false,
     failOnWarning: false,
@@ -131,6 +183,15 @@ export function parseArguments(argv) {
     } else if (argument === '--dataset') {
       options.dataset = takeValue(args, index, argument);
       index += 1;
+    } else if (argument === '--report') {
+      options.report = takeValue(args, index, argument);
+      index += 1;
+    } else if (argument === '--metrics-output') {
+      options.metricsOutput = takeValue(args, index, argument);
+      index += 1;
+    } else if (argument === '--config') {
+      options.config = takeValue(args, index, argument);
+      index += 1;
     } else if (argument === '--max-depth') {
       const raw = takeValue(args, index, argument);
       const depth = Number(raw);
@@ -138,11 +199,17 @@ export function parseArguments(argv) {
       options.maxDepth = depth;
       index += 1;
     } else if (argument.startsWith('-')) throw new Error(`Unknown option: ${argument}`);
-    else if (!rootSet && command !== 'eval') {
+    else if (!rootSet && command !== 'eval' && command !== 'scorecard' && command !== 'benchmark') {
       options.root = argument;
       rootSet = true;
     } else if (!rootSet && command === 'eval') {
       options.dataset = argument;
+      rootSet = true;
+    } else if (!rootSet && command === 'scorecard') {
+      options.report = argument;
+      rootSet = true;
+    } else if (!rootSet && command === 'benchmark') {
+      options.config = argument;
       rootSet = true;
     } else throw new Error(`Unexpected argument: ${argument}`);
   }
@@ -151,6 +218,12 @@ export function parseArguments(argv) {
   if (command !== 'discover' && options.maxDepth !== undefined) throw new Error('--max-depth is only supported by discover');
   if (command !== 'discover' && options.failOnWarning) throw new Error('--fail-on-warning is only supported by discover');
   if (command !== 'discover' && !options.pretty) throw new Error('--no-pretty is only supported by discover');
+  if (command !== 'eval' && options.dataset !== DEFAULT_EVALUATION_DATASET_PATH) throw new Error('--dataset is only supported by eval');
+  if (command !== 'scorecard' && options.report !== DEFAULT_EVALUATION_REPORT_PATH) throw new Error('--report is only supported by scorecard');
+  if (command !== 'scorecard' && options.metricsOutput !== DEFAULT_METRICS_PATH) {
+    throw new Error('--metrics-output is only supported by scorecard');
+  }
+  if (command !== 'benchmark' && options.config !== DEFAULT_BENCHMARK_CONFIG_PATH) throw new Error('--config is only supported by benchmark');
   return options;
 }
 
@@ -226,12 +299,24 @@ async function executeResearch(options, io) {
     io.stdout.write(contents);
     return 0;
   }
+  const manifestBytes = Buffer.from(contents, 'utf8');
+  const evidenceBundle = (io.buildKnowledgeEvidenceBundle ?? buildKnowledgeEvidenceBundle)(manifest, {
+    knowledgeManifestArtifact: options.output,
+    knowledgeManifestBytes: manifestBytes,
+    generatedAt: manifest.generatedAt
+  });
   const target = await (io.writeKnowledgeManifest ?? writeKnowledgeManifest)(outputPath(root, options.output), manifest);
+  const evidenceTarget = await (io.writeKnowledgeEvidenceBundle ?? writeKnowledgeEvidenceBundle)(
+    outputPath(root, DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH),
+    evidenceBundle
+  );
   io.stderr.write('✓ Loaded Project Manifest\n');
   io.stderr.write(`✓ Planned research (${plan.packages.length} packages)\n`);
   io.stderr.write('✓ Research complete\n');
   io.stderr.write('✓ Knowledge Manifest validated\n');
   io.stderr.write(`✓ Wrote:\n${target}\n`);
+  io.stderr.write(`✓ Knowledge Evidence Bundle validated\n`);
+  io.stderr.write(`✓ Wrote:\n${evidenceTarget}\n`);
   return 0;
 }
 
@@ -335,6 +420,58 @@ async function executeEval(options, io) {
   return report.summary.failed > 0 ? 2 : 0;
 }
 
+async function executeScorecard(options, io) {
+  const report = await (io.loadEvaluationReportForMetrics ?? loadEvaluationReportForMetrics)(path.resolve(options.report));
+  const metrics = (io.buildMetrics ?? buildMetrics)(report, {
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const scorecard = (io.buildAiScorecard ?? buildAiScorecard)(metrics, {
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  if (options.stdout) {
+    io.stdout.write(serializeAiScorecard(scorecard));
+    return 0;
+  }
+  const metricsTarget = await (io.writeMetrics ?? writeMetrics)(path.resolve(options.metricsOutput), metrics);
+  const scorecardTarget = await (io.writeAiScorecard ?? writeAiScorecard)(outputPath('.', options.output), scorecard);
+  io.stderr.write(`✓ Loaded Evaluation Report (${report.summary.totalCases} cases)\n`);
+  io.stderr.write('✓ Metrics complete\n');
+  io.stderr.write(`✓ Scorecard: ${scorecard.overallScore}/100\n`);
+  io.stderr.write(`✓ Wrote metrics:\n${metricsTarget}\n`);
+  io.stderr.write(`✓ Wrote scorecard:\n${scorecardTarget}\n`);
+  return 0;
+}
+
+function benchmarkRuntimeFactory(io) {
+  return async (run, config) => {
+    if (io.benchmarkRuntimeFactory) return io.benchmarkRuntimeFactory(run, config);
+    if (run.runtime.type === 'goldenFake') return null;
+    if (run.runtime.type === 'environment') return createDefaultAiRuntime(io);
+    throw new Error(`Benchmark runtime ${run.runtime.type} is not supported by the CLI.`);
+  };
+}
+
+async function executeBenchmark(options, io) {
+  const configPath = path.resolve(options.config);
+  const config = await (io.loadBenchmarkConfig ?? loadBenchmarkConfig)(configPath);
+  const report = await (io.runBenchmark ?? runBenchmark)(config, {
+    configPath,
+    runtimeFactory: benchmarkRuntimeFactory(io),
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const contents = serializeBenchmarkReport(report);
+  if (options.stdout) {
+    io.stdout.write(contents);
+    return 0;
+  }
+  const target = await (io.writeBenchmarkReport ?? writeBenchmarkReport)(outputPath('.', options.output), report);
+  io.stderr.write(`✓ Loaded Benchmark Config (${report.benchmark.runCount} runs)\n`);
+  io.stderr.write('✓ Benchmark complete\n');
+  io.stderr.write(`✓ Top run: ${report.ranking[0]?.runId ?? 'none'}\n`);
+  io.stderr.write(`✓ Wrote:\n${target}\n`);
+  return 0;
+}
+
 export async function runCli(argv, io = {}) {
   const stdout = io.stdout ?? process.stdout;
   const stderr = io.stderr ?? process.stderr;
@@ -351,6 +488,8 @@ export async function runCli(argv, io = {}) {
     if (options.command === 'research') return await runResearch(options, { ...io, stdout, stderr });
     if (options.command === 'analyze-version') return await executeAnalyzeVersion(options, { ...io, stdout, stderr });
     if (options.command === 'eval') return await executeEval(options, { ...io, stdout, stderr });
+    if (options.command === 'scorecard') return await executeScorecard(options, { ...io, stdout, stderr });
+    if (options.command === 'benchmark') return await executeBenchmark(options, { ...io, stdout, stderr });
 
     const manifest = await discoverProject(options.root, { maxDepth: options.maxDepth });
     const contents = `${JSON.stringify(manifest, null, options.pretty ? 2 : 0)}\n`;

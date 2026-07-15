@@ -201,6 +201,53 @@ test('invented URLs are treated as unsupported claims', async () => {
   assert.ok(result.humanReviewReasons.includes('CLAIMS_DROPPED'));
 });
 
+test('source conflict downgrades low risk to unknown and requires human review', async () => {
+  const ctx = context({
+    warnings: [
+      {
+        code: 'SOURCE_CONFLICT',
+        packageId: 'npm:react',
+        sourceId: 'npm:react:docs',
+        message: 'Official and registry release facts conflict.'
+      }
+    ]
+  });
+  const result = await analyzeDependencyAiContext(ctx, {
+    runtime: fakeRuntime(candidate(ctx, { riskLevel: 'low' }))
+  });
+
+  assert.equal(result.riskLevel, 'unknown');
+  assert.deepEqual(result.riskEvidenceRefs, []);
+  assert.equal(result.validation.status, 'validWithWarnings');
+  assert.deepEqual(result.validation.warningCodes, ['SOURCE_CONFLICT']);
+  assert.equal(result.requiresHumanReview, true);
+  assert.equal(result.humanReviewReasons.filter((reason) => reason === 'SOURCE_CONFLICT').length, 1);
+  assert.deepEqual(result.humanReviewReasons, ['UNKNOWN_RISK', 'EVIDENCE_PARTIAL', 'SOURCE_CONFLICT']);
+  assert.equal(result.limitations.filter((limitation) => limitation.code === 'SOURCE_CONFLICT').length, 1);
+});
+
+test('source conflict downgrades high risk to unknown without dropping supported findings', async () => {
+  const ctx = context({
+    warnings: [
+      {
+        code: 'SOURCE_CONFLICT',
+        packageId: 'npm:react',
+        sourceId: 'npm:react:docs',
+        message: 'Official and registry release facts conflict.'
+      }
+    ]
+  });
+  const result = await analyzeDependencyAiContext(ctx, {
+    runtime: fakeRuntime(candidate(ctx, { riskLevel: 'high' }))
+  });
+
+  assert.equal(result.riskLevel, 'unknown');
+  assert.equal(result.validation.status, 'validWithWarnings');
+  assert.deepEqual(result.validation.warningCodes, ['SOURCE_CONFLICT']);
+  assert.equal(result.findings.length, 1);
+  assert.deepEqual(result.findings[0].evidenceRefs, ctx.metadata.selectedEvidenceIds);
+});
+
 test('missing evidence skips runtime and requires human review', async () => {
   const ctx = context({ evidenceItems: [] });
   const runtime = fakeRuntime(candidate(context()));

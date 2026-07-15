@@ -186,6 +186,32 @@ test('manifest builder preserves deterministic facts, AI reasoning, evidence ref
   assert.equal(built.evidence[0].sourceId, ctx.knowledge.evidence[0].sourceId);
 });
 
+test('manifest builder preserves source conflict validation state and review reason', () => {
+  const ctx = context();
+  const analysis = result(ctx, {
+    riskLevel: 'unknown',
+    riskEvidenceRefs: [],
+    evidenceCoverage: 'partial',
+    validation: { status: 'validWithWarnings', warningCodes: ['SOURCE_CONFLICT'] },
+    requiresHumanReview: true,
+    humanReviewReasons: ['UNKNOWN_RISK', 'EVIDENCE_PARTIAL', 'SOURCE_CONFLICT'],
+    limitations: [
+      {
+        code: 'SOURCE_CONFLICT',
+        message: 'Risk was downgraded because selected evidence has unresolved source conflicts.'
+      }
+    ]
+  });
+  const manifest = manifestFrom([{ context: ctx, result: analysis }]);
+  const built = manifest.results[0];
+
+  assert.equal(built.riskLevel, 'unknown');
+  assert.equal(built.validation.status, 'validWithWarnings');
+  assert.deepEqual(built.validation.warningCodes, ['SOURCE_CONFLICT']);
+  assert.deepEqual(built.humanReviewReasons, ['EVIDENCE_PARTIAL', 'SOURCE_CONFLICT', 'UNKNOWN_RISK']);
+  assert.deepEqual(built.limitations.map((item) => item.code), ['SOURCE_CONFLICT']);
+});
+
 test('manifest builder produces deterministic result ordering and stable digest', () => {
   const first = context({ projectId: 'node:apps/web', manifest: 'apps/web/package.json', contextSeed: 'web' });
   const second = context({ projectId: 'node:apps/admin', manifest: 'apps/admin/package.json', contextSeed: 'admin' });

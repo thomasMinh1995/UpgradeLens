@@ -112,13 +112,33 @@ function unsupportedUrlFound(candidate, context) {
   return urls.some((url) => !allowedUrls.has(url));
 }
 
+function contextHasWarning(context, code) {
+  return (context.metadata?.warnings ?? []).some((warning) => warning.code === code);
+}
+
+function contextValidationWarningCodes(context) {
+  const codes = [];
+  if (contextHasWarning(context, 'SOURCE_CONFLICT')) codes.push('SOURCE_CONFLICT');
+  return codes;
+}
+
+function addLimitation(limitations, code, message) {
+  if (!limitations.some((item) => item.code === code)) {
+    limitations.push({ code, message });
+  }
+}
+
 function emptyClaims(context, status, validationStatus, warningCodes, limitationCode, message) {
   const riskLevel = 'unknown';
+  const validationWarningCodes = sortedUnique([
+    ...warningCodes,
+    ...contextValidationWarningCodes(context)
+  ]);
   const humanReview = humanReviewPolicy({
     context,
     riskLevel,
     evidenceCoverage: context.knowledge.evidence.length === 0 ? 'none' : 'partial',
-    validationWarningCodes: warningCodes,
+    validationWarningCodes,
     status
   });
   return {
@@ -135,7 +155,7 @@ function emptyClaims(context, status, validationStatus, warningCodes, limitation
     evidenceCoverage: context.knowledge.evidence.length === 0 ? 'none' : 'partial',
     validation: {
       status: validationStatus,
-      warningCodes: [...warningCodes].sort(compareText)
+      warningCodes: validationWarningCodes
     },
     requiresHumanReview: humanReview.requiresHumanReview,
     humanReviewReasons: humanReview.humanReviewReasons,
@@ -233,23 +253,35 @@ export function trustValidateAiVersionAnalysisCandidate(candidate, context) {
     findings = [];
     warningCodes.push('INVENTED_URL', 'CLAIMS_DROPPED');
   }
+  if (contextHasWarning(context, 'SOURCE_CONFLICT')) {
+    if (riskLevel !== 'unknown') riskLevel = 'unknown';
+    warningCodes.push('SOURCE_CONFLICT');
+    addLimitation(
+      limitations,
+      'SOURCE_CONFLICT',
+      'Risk was downgraded because selected evidence has unresolved source conflicts.'
+    );
+  }
   if (warningCodes.includes('CLAIMS_DROPPED')) {
-    limitations.push({
-      code: 'CLAIMS_DROPPED',
-      message: 'One or more AI claims were removed or downgraded because selected evidence did not support them.'
-    });
+    addLimitation(
+      limitations,
+      'CLAIMS_DROPPED',
+      'One or more AI claims were removed or downgraded because selected evidence did not support them.'
+    );
   }
   if (warningCodes.includes('EVIDENCE_REFERENCE_INVALID')) {
-    limitations.push({
-      code: 'EVIDENCE_REFERENCE_INVALID',
-      message: 'The AI candidate referenced evidence outside the selected context.'
-    });
+    addLimitation(
+      limitations,
+      'EVIDENCE_REFERENCE_INVALID',
+      'The AI candidate referenced evidence outside the selected context.'
+    );
   }
   if (warningCodes.includes('INVENTED_URL')) {
-    limitations.push({
-      code: 'INVENTED_URL',
-      message: 'The AI candidate introduced a URL that was not present in selected evidence.'
-    });
+    addLimitation(
+      limitations,
+      'INVENTED_URL',
+      'The AI candidate introduced a URL that was not present in selected evidence.'
+    );
   }
 
   const evidenceCoverage = context.knowledge.evidence.length === 0

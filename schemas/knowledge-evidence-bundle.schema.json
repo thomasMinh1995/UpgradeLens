@@ -118,11 +118,8 @@
         "id": { "$ref": "#/$defs/digest" },
         "packageId": {
           "type": "string",
-          "minLength": 5,
-          "anyOf": [
-            { "pattern": "^npm:.+" },
-            { "pattern": "^pypi:.+" }
-          ]
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9._-]*:.+$"
         },
         "sourceId": { "$ref": "#/$defs/sourceId" },
         "kind": { "$ref": "#/$defs/evidenceKind" },

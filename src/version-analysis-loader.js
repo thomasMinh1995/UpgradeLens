@@ -9,7 +9,7 @@ import {
   DEFAULT_MANIFEST_PATH,
   KNOWLEDGE_MANIFEST_SCHEMA_VERSION
 } from './constants.js';
-import { validateKnowledgeEvidenceBundleInvariants } from './knowledge-evidence-bundle.js';
+import { validateKnowledgeEvidenceBundle } from './knowledge-evidence-bundle.js';
 import { validateKnowledgeManifestInvariants } from './knowledge-manifest.js';
 import { isPortableRelativePath } from './portable.js';
 import { loadProjectManifestInput } from './project-manifest-input.js';
@@ -20,14 +20,9 @@ const knowledgeManifestSchema = JSON.parse(await readFile(
   new URL('../schemas/knowledge-manifest.schema.json', import.meta.url),
   'utf8'
 ));
-const evidenceBundleSchema = JSON.parse(await readFile(
-  new URL('../schemas/knowledge-evidence-bundle.schema.json', import.meta.url),
-  'utf8'
-));
 const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false });
 addFormats(ajv);
 const validateKnowledgeManifestSchema = ajv.compile(knowledgeManifestSchema);
-const validateEvidenceBundleSchema = ajv.compile(evidenceBundleSchema);
 
 export class VersionAnalysisInputError extends Error {
   constructor(message, code = 'VERSION_ANALYSIS_INPUT_INVALID') {
@@ -113,14 +108,10 @@ export async function loadKnowledgeEvidenceBundleInput(source, options = {}) {
   if (bundle?.schemaVersion !== '1.0.0') {
     throw inputError('unsupported Knowledge Evidence Bundle schema version; expected 1.0.0.');
   }
-  if (!validateEvidenceBundleSchema(bundle)) {
-    throw inputError(
-      `Knowledge Evidence Bundle schema validation failed: ${ajv.errorsText(validateEvidenceBundleSchema.errors, { separator: '; ' })}`
-    );
-  }
-  const invariantErrors = validateKnowledgeEvidenceBundleInvariants(bundle);
-  if (invariantErrors.length > 0) {
-    throw inputError(`Knowledge Evidence Bundle runtime invariants failed: ${invariantErrors.join(' ')}`);
+  try {
+    validateKnowledgeEvidenceBundle(bundle);
+  } catch (error) {
+    throw inputError(error.message);
   }
 
   return {

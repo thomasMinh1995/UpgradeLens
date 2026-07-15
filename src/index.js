@@ -1,7 +1,11 @@
 export {
   CLI_NAME,
+  DEFAULT_AI_SCORECARD_PATH,
+  DEFAULT_BENCHMARK_CONFIG_PATH,
+  DEFAULT_BENCHMARK_REPORT_PATH,
   DEFAULT_EVALUATION_REPORT_PATH,
   DEFAULT_MANIFEST_PATH,
+  DEFAULT_METRICS_PATH,
   DEFAULT_OUTPUT_DIRECTORY,
   DEFAULT_VERSION_ANALYSIS_PATH,
   MANIFEST_SCHEMA_VERSION,
@@ -45,8 +49,14 @@ export {
 } from './ecosystem-version-adapter.js';
 export {
   KNOWLEDGE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
+  validateKnowledgeEvidenceBundle,
   validateKnowledgeEvidenceBundleInvariants
 } from './knowledge-evidence-bundle.js';
+export {
+  buildKnowledgeEvidenceBundle,
+  serializeKnowledgeEvidenceBundle,
+  writeKnowledgeEvidenceBundle
+} from './knowledge-evidence-producer.js';
 export {
   DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH,
   loadKnowledgeEvidenceBundleInput,
@@ -81,3 +91,36 @@ export {
   runEvaluation,
   writeEvaluationReport
 } from './evaluation-runner.js';
+export {
+  DEFAULT_METRICS_PATH as DEFAULT_METRICS_ENGINE_PATH,
+  METRICS_SCHEMA_VERSION,
+  buildMetrics,
+  loadEvaluationReportForMetrics,
+  metricsDigest,
+  serializeMetrics,
+  validateMetrics,
+  writeMetrics
+} from './metrics-engine.js';
+export {
+  AI_SCORECARD_SCHEMA_VERSION,
+  DEFAULT_AI_SCORECARD_PATH as DEFAULT_AI_SCORECARD_ARTIFACT_PATH,
+  buildAiScorecard,
+  serializeAiScorecard,
+  validateAiScorecard,
+  writeAiScorecard
+} from './ai-scorecard.js';
+export {
+  BENCHMARK_SCHEMA_VERSION,
+  DEFAULT_BENCHMARK_CONFIG_PATH as DEFAULT_BENCHMARK_RUNNER_CONFIG_PATH,
+  loadBenchmarkConfig,
+  runBenchmark,
+  validateBenchmarkConfig
+} from './benchmark-runner.js';
+export {
+  BENCHMARK_REPORT_SCHEMA_VERSION,
+  DEFAULT_BENCHMARK_REPORT_PATH as DEFAULT_BENCHMARK_RUNNER_REPORT_PATH,
+  buildBenchmarkReport,
+  serializeBenchmarkReport,
+  validateBenchmarkReport,
+  writeBenchmarkReport
+} from './benchmark-report.js';
