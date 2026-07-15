@@ -5,9 +5,22 @@ import {
   CLI_NAME,
   DEFAULT_KNOWLEDGE_MANIFEST_PATH,
   DEFAULT_MANIFEST_PATH,
+  DEFAULT_VERSION_ANALYSIS_PATH,
   PRODUCT_NAME,
   VERSION
 } from './constants.js';
+import {
+  analyzeDependencyAiContext,
+  buildVersionAnalysisPrompt
+} from './ai-version-analysis.js';
+import {
+  createHttpJsonAiProvider,
+  createProviderAiRuntime
+} from './ai-runtime.js';
+import {
+  buildDependencyAiContext,
+  resolveDependencyAnalysisInputs
+} from './dependency-ai-context.js';
 import { discoverProject } from './discovery.js';
 import { createCliHttpRuntime } from './http/cli-http-runtime.js';
 import { createKnowledgeCache } from './knowledge-cache.js';
@@ -19,6 +32,12 @@ import { createResearchPlan } from './research-plan.js';
 import { createNpmRegistryAdapter } from './registry/npm-registry-adapter.js';
 import { createPypiRegistryAdapter } from './registry/pypi-registry-adapter.js';
 import { isPortableRelativePath } from './portable.js';
+import {
+  DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH,
+  loadVersionAnalysisArtifacts
+} from './version-analysis-loader.js';
+import { buildVersionAnalysisManifest } from './version-analysis-manifest.js';
+import { serializeVersionAnalysisManifest, writeVersionAnalysisManifest } from './version-analysis-writer.js';
 
 const HELP = `${PRODUCT_NAME} ${VERSION}
 
@@ -27,6 +46,7 @@ Discover repository structure or research declared public packages.
 Usage:
   ${CLI_NAME} discover [path] [options]
   ${CLI_NAME} research [path] [options]
+  ${CLI_NAME} analyze-version [path] [options]
   ${CLI_NAME} [path] [options]
 
 Discover options:
@@ -42,6 +62,11 @@ Research options:
                         (default: ${DEFAULT_KNOWLEDGE_MANIFEST_PATH})
       --stdout          Print only the Knowledge Manifest JSON
       --offline         Use fresh cache entries only; never request registries
+
+Analyze-version options:
+  -o, --output <path>   Version Analysis artifact path relative to the project root
+                        (default: ${DEFAULT_VERSION_ANALYSIS_PATH})
+      --stdout          Print only the Version Analysis JSON
   -h, --help            Show help
   -v, --version         Show version
 `;
@@ -59,11 +84,15 @@ function outputPath(root, output) {
 
 export function parseArguments(argv) {
   const args = [...argv];
-  const command = ['discover', 'research'].includes(args[0]) ? args.shift() : 'discover';
+  const command = ['discover', 'research', 'analyze-version'].includes(args[0]) ? args.shift() : 'discover';
   const options = {
     command,
     root: '.',
-    output: command === 'research' ? DEFAULT_KNOWLEDGE_MANIFEST_PATH : DEFAULT_MANIFEST_PATH,
+    output: command === 'research'
+      ? DEFAULT_KNOWLEDGE_MANIFEST_PATH
+      : command === 'analyze-version'
+        ? DEFAULT_VERSION_ANALYSIS_PATH
+        : DEFAULT_MANIFEST_PATH,
     pretty: true,
     stdout: false,
     failOnWarning: false,
@@ -94,9 +123,10 @@ export function parseArguments(argv) {
     } else throw new Error(`Unexpected argument: ${argument}`);
   }
   if (command === 'discover' && options.offline) throw new Error('--offline is only supported by research');
-  if (command === 'research' && options.maxDepth !== undefined) throw new Error('--max-depth is only supported by discover');
-  if (command === 'research' && options.failOnWarning) throw new Error('--fail-on-warning is only supported by discover');
-  if (command === 'research' && !options.pretty) throw new Error('--no-pretty is only supported by discover');
+  if (command !== 'research' && options.offline) throw new Error('--offline is only supported by research');
+  if (command !== 'discover' && options.maxDepth !== undefined) throw new Error('--max-depth is only supported by discover');
+  if (command !== 'discover' && options.failOnWarning) throw new Error('--fail-on-warning is only supported by discover');
+  if (command !== 'discover' && !options.pretty) throw new Error('--no-pretty is only supported by discover');
   return options;
 }
 
@@ -181,6 +211,64 @@ async function executeResearch(options, io) {
   return 0;
 }
 
+function createDefaultAiRuntime(io) {
+  const env = io.env ?? process.env;
+  if (!env.UPGRADELENS_AI_ENDPOINT) {
+    throw new Error('AI runtime is not configured. Set UPGRADELENS_AI_ENDPOINT or provide an AiRuntime.');
+  }
+  const headers = {};
+  if (env.UPGRADELENS_AI_AUTHORIZATION) headers.authorization = env.UPGRADELENS_AI_AUTHORIZATION;
+  const provider = createHttpJsonAiProvider({
+    endpoint: env.UPGRADELENS_AI_ENDPOINT,
+    fetchImplementation: io.fetch,
+    headers,
+    provider: env.UPGRADELENS_AI_PROVIDER ?? 'http-json',
+    model: env.UPGRADELENS_AI_MODEL ?? 'unknown'
+  });
+  return createProviderAiRuntime({
+    provider,
+    promptBuilder: buildVersionAnalysisPrompt
+  });
+}
+
+async function executeAnalyzeVersion(options, io) {
+  const root = path.resolve(options.root);
+  const artifacts = await loadVersionAnalysisArtifacts({
+    projectManifest: path.join(root, DEFAULT_MANIFEST_PATH),
+    knowledgeManifest: path.join(root, DEFAULT_KNOWLEDGE_MANIFEST_PATH),
+    evidenceBundle: path.join(root, DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH)
+  });
+  const inputs = resolveDependencyAnalysisInputs(artifacts);
+  const contexts = inputs.map((input) => buildDependencyAiContext(artifacts, {
+    input,
+    target: { policy: 'registryLatest' }
+  }));
+  const needsRuntime = contexts.some((context) => context.knowledge.evidence.length > 0);
+  const runtime = io.aiRuntime ?? (needsRuntime ? createDefaultAiRuntime(io) : null);
+  const results = [];
+  for (const context of contexts) {
+    results.push(await analyzeDependencyAiContext(context, { runtime }));
+  }
+  const manifest = (io.buildVersionAnalysisManifest ?? buildVersionAnalysisManifest)({
+    input: artifacts.input,
+    contexts,
+    results,
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const contents = serializeVersionAnalysisManifest(manifest);
+  if (options.stdout) {
+    io.stdout.write(contents);
+    return 0;
+  }
+  const target = await (io.writeVersionAnalysisManifest ?? writeVersionAnalysisManifest)(outputPath(root, options.output), manifest);
+  io.stderr.write('✓ Loaded Project, Knowledge, and Evidence artifacts\n');
+  io.stderr.write(`✓ Built AI contexts (${contexts.length} dependencies)\n`);
+  io.stderr.write('✓ AI Version Analysis complete\n');
+  io.stderr.write('✓ Version Analysis artifact validated\n');
+  io.stderr.write(`✓ Wrote:\n${target}\n`);
+  return 0;
+}
+
 export async function runCli(argv, io = {}) {
   const stdout = io.stdout ?? process.stdout;
   const stderr = io.stderr ?? process.stderr;
@@ -195,6 +283,7 @@ export async function runCli(argv, io = {}) {
       return 0;
     }
     if (options.command === 'research') return await runResearch(options, { ...io, stdout, stderr });
+    if (options.command === 'analyze-version') return await executeAnalyzeVersion(options, { ...io, stdout, stderr });
 
     const manifest = await discoverProject(options.root, { maxDepth: options.maxDepth });
     const contents = `${JSON.stringify(manifest, null, options.pretty ? 2 : 0)}\n`;

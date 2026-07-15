@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "generic/major-breaking-release",
+  "title": "Generic major release with mandatory breaking change",
+  "category": "high-risk",
+  "repository": {
+    "name": "major-breaking-fixture",
+    "fixturePath": "fixtures/generic/major-breaking-release",
+    "ecosystem": "java",
+    "packageManager": "maven",
+    "languages": ["Java"]
+  },
+  "dependency": {
+    "packageId": "maven:org.example:example-core",
+    "declaredName": "org.example:example-core",
+    "normalizedName": "org.example:example-core",
+    "ecosystem": "java",
+    "registry": "maven",
+    "dependencyType": "dependency",
+    "manifest": "pom.xml"
+  },
+  "versions": {
+    "analysisMode": "exactBaseline",
+    "declaredVersion": "1.9.0",
+    "currentVersion": "1.9.0",
+    "targetVersion": "2.0.0",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "upgrade", "classification": "major" }
+  },
+  "selectedEvidence": [
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8",
+      "kind": "migrationGuide",
+      "sourceId": "maven:org.example:example-core:migration",
+      "sourceUrl": "https://example.org/example-core/2.0/migration",
+      "authority": "officialProject",
+      "trust": "official",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb8",
+      "locator": "heading:2.0 Migration",
+      "releaseVersions": ["2.0.0"],
+      "content": "Version 2.0.0 removes deprecated configuration keys. Projects upgrading from 1.x must review the migration notes before adopting 2.0.0."
+    }
+  ],
+  "expectedResult": {
+    "riskLevel": "high",
+    "requiresHumanReview": true,
+    "humanReviewReasons": ["HIGH_RISK"],
+    "evidenceCoverage": "sufficient",
+    "validation": { "status": "valid", "warningCodes": [] },
+    "expectedEvidenceRefs": {
+      "summary": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8"],
+      "risk": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8"],
+      "findings": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8"]
+    },
+    "expectedFindings": [
+      {
+        "kind": "breakingChange",
+        "appliesToVersions": ["2.0.0"],
+        "evidenceRefs": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa8"],
+        "requiredKeywords": ["removes", "migration"]
+      }
+    ],
+    "forbiddenClaims": ["source-code impact", "automatic migration"]
+  },
+  "notes": "Cross-ecosystem high-risk case to prove the dataset is not npm-specific."
+}

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "generic/missing-evidence",
+  "title": "Missing evidence yields unknown risk",
+  "category": "missing-evidence",
+  "repository": {
+    "name": "missing-evidence-fixture",
+    "fixturePath": "fixtures/generic/missing-evidence",
+    "ecosystem": "generic",
+    "packageManager": null,
+    "languages": ["Generic"]
+  },
+  "dependency": {
+    "packageId": "generic:example",
+    "declaredName": "example",
+    "normalizedName": "example",
+    "ecosystem": "generic",
+    "registry": "generic",
+    "dependencyType": "dependency",
+    "manifest": "manifest.json"
+  },
+  "versions": {
+    "analysisMode": "exactBaseline",
+    "declaredVersion": "1.0.0",
+    "currentVersion": "1.0.0",
+    "targetVersion": "2.0.0",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "upgrade", "classification": "major" }
+  },
+  "selectedEvidence": [],
+  "expectedResult": {
+    "riskLevel": "unknown",
+    "requiresHumanReview": true,
+    "humanReviewReasons": ["UNKNOWN_RISK", "EVIDENCE_NONE", "ANALYSIS_FAILED"],
+    "evidenceCoverage": "none",
+    "validation": { "status": "validWithWarnings", "warningCodes": ["EVIDENCE_MISSING"] },
+    "expectedEvidenceRefs": {
+      "summary": [],
+      "risk": [],
+      "findings": []
+    },
+    "expectedFindings": [],
+    "forbiddenClaims": ["low risk", "breaking change", "source-code impact"]
+  },
+  "notes": "No model call should be required when selected evidence is empty."
+}

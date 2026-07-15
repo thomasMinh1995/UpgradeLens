@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "node/react-major-breaking",
+  "title": "React major release with documented breaking change",
+  "category": "high-risk",
+  "repository": {
+    "name": "react-major-fixture",
+    "fixturePath": "fixtures/node/react-major-breaking",
+    "ecosystem": "node",
+    "packageManager": "npm",
+    "languages": ["JavaScript"]
+  },
+  "dependency": {
+    "packageId": "npm:react",
+    "declaredName": "react",
+    "normalizedName": "react",
+    "ecosystem": "node",
+    "registry": "npm",
+    "dependencyType": "dependency",
+    "manifest": "package.json"
+  },
+  "versions": {
+    "analysisMode": "exactBaseline",
+    "declaredVersion": "18.2.0",
+    "currentVersion": "18.2.0",
+    "targetVersion": "19.0.0",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "upgrade", "classification": "major" }
+  },
+  "selectedEvidence": [
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kind": "breakingChanges",
+      "sourceId": "npm:react:official-release-notes",
+      "sourceUrl": "https://react.dev/blog/2024/04/25/react-19",
+      "authority": "officialProject",
+      "trust": "official",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "locator": "heading:Breaking changes",
+      "releaseVersions": ["19.0.0"],
+      "content": "React 19 includes documented breaking changes for deprecated APIs and requires applications to review compatibility before upgrading."
+    }
+  ],
+  "expectedResult": {
+    "riskLevel": "high",
+    "requiresHumanReview": true,
+    "humanReviewReasons": ["HIGH_RISK"],
+    "evidenceCoverage": "sufficient",
+    "validation": { "status": "valid", "warningCodes": [] },
+    "expectedEvidenceRefs": {
+      "summary": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+      "risk": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+      "findings": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+    },
+    "expectedFindings": [
+      {
+        "kind": "breakingChange",
+        "appliesToVersions": ["19.0.0"],
+        "evidenceRefs": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+        "requiredKeywords": ["breaking", "deprecated"]
+      }
+    ],
+    "forbiddenClaims": ["source-code impact", "migration plan"]
+  },
+  "notes": "Major release evidence explicitly documents breaking changes."
+}
