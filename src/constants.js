@@ -15,6 +15,7 @@ export const KNOWLEDGE_MANIFEST_SCHEMA_VERSION = '1.0.0';
 export const DEFAULT_KNOWLEDGE_MANIFEST_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/knowledge-manifest.json`;
 export const VERSION_ANALYSIS_SCHEMA_VERSION = '1.0.0';
 export const DEFAULT_VERSION_ANALYSIS_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/version-analysis.json`;
+export const DEFAULT_EVALUATION_REPORT_PATH = 'evaluation-report.json';
 
 export const DEFAULT_IGNORED_DIRECTORIES = new Set([
   '.git',

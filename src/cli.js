@@ -5,6 +5,7 @@ import {
   CLI_NAME,
   DEFAULT_KNOWLEDGE_MANIFEST_PATH,
   DEFAULT_MANIFEST_PATH,
+  DEFAULT_EVALUATION_REPORT_PATH,
   DEFAULT_VERSION_ANALYSIS_PATH,
   PRODUCT_NAME,
   VERSION
@@ -22,6 +23,12 @@ import {
   resolveDependencyAnalysisInputs
 } from './dependency-ai-context.js';
 import { discoverProject } from './discovery.js';
+import {
+  DEFAULT_EVALUATION_DATASET_PATH,
+  runEvaluation,
+  writeEvaluationReport
+} from './evaluation-runner.js';
+import { serializeEvaluationReport } from './evaluation-report.js';
 import { createCliHttpRuntime } from './http/cli-http-runtime.js';
 import { createKnowledgeCache } from './knowledge-cache.js';
 import { buildKnowledgeManifest } from './knowledge-manifest-builder.js';
@@ -47,6 +54,7 @@ Usage:
   ${CLI_NAME} discover [path] [options]
   ${CLI_NAME} research [path] [options]
   ${CLI_NAME} analyze-version [path] [options]
+  ${CLI_NAME} eval [options]
   ${CLI_NAME} [path] [options]
 
 Discover options:
@@ -67,6 +75,13 @@ Analyze-version options:
   -o, --output <path>   Version Analysis artifact path relative to the project root
                         (default: ${DEFAULT_VERSION_ANALYSIS_PATH})
       --stdout          Print only the Version Analysis JSON
+
+Eval options:
+      --dataset <path>  Golden Dataset file or directory
+                        (default: ${DEFAULT_EVALUATION_DATASET_PATH})
+  -o, --output <path>   Evaluation report path
+                        (default: ${DEFAULT_EVALUATION_REPORT_PATH})
+      --stdout          Print only the Evaluation Report JSON
   -h, --help            Show help
   -v, --version         Show version
 `;
@@ -84,7 +99,7 @@ function outputPath(root, output) {
 
 export function parseArguments(argv) {
   const args = [...argv];
-  const command = ['discover', 'research', 'analyze-version'].includes(args[0]) ? args.shift() : 'discover';
+  const command = ['discover', 'research', 'analyze-version', 'eval'].includes(args[0]) ? args.shift() : 'discover';
   const options = {
     command,
     root: '.',
@@ -92,7 +107,10 @@ export function parseArguments(argv) {
       ? DEFAULT_KNOWLEDGE_MANIFEST_PATH
       : command === 'analyze-version'
         ? DEFAULT_VERSION_ANALYSIS_PATH
+        : command === 'eval'
+          ? DEFAULT_EVALUATION_REPORT_PATH
         : DEFAULT_MANIFEST_PATH,
+    dataset: DEFAULT_EVALUATION_DATASET_PATH,
     pretty: true,
     stdout: false,
     failOnWarning: false,
@@ -110,6 +128,9 @@ export function parseArguments(argv) {
     else if (argument === '--output' || argument === '-o') {
       options.output = takeValue(args, index, argument);
       index += 1;
+    } else if (argument === '--dataset') {
+      options.dataset = takeValue(args, index, argument);
+      index += 1;
     } else if (argument === '--max-depth') {
       const raw = takeValue(args, index, argument);
       const depth = Number(raw);
@@ -117,8 +138,11 @@ export function parseArguments(argv) {
       options.maxDepth = depth;
       index += 1;
     } else if (argument.startsWith('-')) throw new Error(`Unknown option: ${argument}`);
-    else if (!rootSet) {
+    else if (!rootSet && command !== 'eval') {
       options.root = argument;
+      rootSet = true;
+    } else if (!rootSet && command === 'eval') {
+      options.dataset = argument;
       rootSet = true;
     } else throw new Error(`Unexpected argument: ${argument}`);
   }
@@ -269,6 +293,48 @@ async function executeAnalyzeVersion(options, io) {
   return 0;
 }
 
+function evaluationRuntime(options, io) {
+  if (io.aiRuntime) return {
+    runtime: io.aiRuntime,
+    model: io.model ?? { provider: 'injected', name: 'injected' }
+  };
+  const env = io.env ?? process.env;
+  if (env.UPGRADELENS_AI_ENDPOINT) {
+    return {
+      runtime: createDefaultAiRuntime(io),
+      model: {
+        provider: env.UPGRADELENS_AI_PROVIDER ?? 'http-json',
+        name: env.UPGRADELENS_AI_MODEL ?? 'unknown'
+      }
+    };
+  }
+  return {
+    runtime: null,
+    model: { provider: 'golden-fake', name: 'golden-fake' }
+  };
+}
+
+async function executeEval(options, io) {
+  const selected = evaluationRuntime(options, io);
+  const report = await (io.runEvaluation ?? runEvaluation)({
+    datasetPath: options.dataset,
+    runtime: selected.runtime,
+    model: selected.model,
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const contents = serializeEvaluationReport(report);
+  if (options.stdout) {
+    io.stdout.write(contents);
+    return report.summary.failed > 0 ? 2 : 0;
+  }
+  const target = await (io.writeEvaluationReport ?? writeEvaluationReport)(outputPath('.', options.output), report);
+  io.stderr.write(`✓ Loaded Golden Dataset (${report.summary.totalCases} cases)\n`);
+  io.stderr.write('✓ Evaluation complete\n');
+  io.stderr.write(`✓ Passed: ${report.summary.passed}; Failed: ${report.summary.failed}\n`);
+  io.stderr.write(`✓ Wrote:\n${target}\n`);
+  return report.summary.failed > 0 ? 2 : 0;
+}
+
 export async function runCli(argv, io = {}) {
   const stdout = io.stdout ?? process.stdout;
   const stderr = io.stderr ?? process.stderr;
@@ -284,6 +350,7 @@ export async function runCli(argv, io = {}) {
     }
     if (options.command === 'research') return await runResearch(options, { ...io, stdout, stderr });
     if (options.command === 'analyze-version') return await executeAnalyzeVersion(options, { ...io, stdout, stderr });
+    if (options.command === 'eval') return await executeEval(options, { ...io, stdout, stderr });
 
     const manifest = await discoverProject(options.root, { maxDepth: options.maxDepth });
     const contents = `${JSON.stringify(manifest, null, options.pretty ? 2 : 0)}\n`;

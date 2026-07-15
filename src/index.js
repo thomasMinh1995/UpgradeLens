@@ -1,5 +1,6 @@
 export {
   CLI_NAME,
+  DEFAULT_EVALUATION_REPORT_PATH,
   DEFAULT_MANIFEST_PATH,
   DEFAULT_OUTPUT_DIRECTORY,
   DEFAULT_VERSION_ANALYSIS_PATH,
@@ -63,3 +64,20 @@ export {
   serializeVersionAnalysisManifest,
   writeVersionAnalysisManifest
 } from './version-analysis-writer.js';
+export {
+  compareEvaluationResult
+} from './evaluation-comparator.js';
+export {
+  EVALUATION_REPORT_SCHEMA_VERSION,
+  buildEvaluationReport,
+  serializeEvaluationReport,
+  validateEvaluationReport
+} from './evaluation-report.js';
+export {
+  DEFAULT_EVALUATION_DATASET_PATH,
+  DEFAULT_EVALUATION_REPORT_PATH as DEFAULT_EVALUATION_RUNNER_REPORT_PATH,
+  createGoldenFakeRuntime,
+  loadGoldenDataset,
+  runEvaluation,
+  writeEvaluationReport
+} from './evaluation-runner.js';
