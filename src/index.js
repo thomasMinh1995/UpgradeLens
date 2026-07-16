@@ -1,6 +1,7 @@
 export {
   CLI_NAME,
   CAPABILITY_PROFILE_FILENAME,
+  DEFAULT_ANALYSIS_LOG_PATH,
   DEFAULT_AI_SCORECARD_PATH,
   DEFAULT_BENCHMARK_CONFIG_PATH,
   DEFAULT_BENCHMARK_REPORT_PATH,
@@ -16,14 +17,80 @@ export {
   DEFAULT_QUALIFICATION_RECORD_PATH,
   QUALIFICATION_RECORD_FILENAME,
   DEFAULT_VERSION_ANALYSIS_PATH,
+  DEFAULT_USAGE_INDEX_PATH,
+  DEFAULT_REPOSITORY_IMPACT_PATH,
+  DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
+  DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
   MANIFEST_SCHEMA_VERSION,
   PACKAGE_NAME,
   PRODUCT_NAME,
   VERSION_ANALYSIS_SCHEMA_VERSION,
+  USAGE_INDEX_SCHEMA_VERSION,
+  REPOSITORY_IMPACT_SCHEMA_VERSION,
+  REPOSITORY_IMPACT_EVIDENCE_SCHEMA_VERSION,
   VERSION
 } from './constants.js';
 export { discoverProject } from './discovery.js';
 export { loadProjectManifestInput } from './project-manifest-input.js';
+export { createUsageAnalyzerRegistry } from './usage/analyzer-registry.js';
+export { UsageDiscoveryInputError, loadUsageDiscoveryInputs } from './usage/input-loader.js';
+export {
+  JAVASCRIPT_SOURCE_EXTENSIONS,
+  JAVASCRIPT_USAGE_ANALYZER_ID,
+  JAVASCRIPT_USAGE_ANALYZER_VERSION,
+  analyzeJavaScriptUsage,
+  createJavaScriptUsageAnalyzer,
+  npmPackageName
+} from './usage/js/analyzer.js';
+export { parseJavaScriptModule, parseJavaScriptSource } from './usage/js/parser.js';
+export { createDefaultUsageAnalyzerRegistry, discoverRepositoryUsage, runUsageDiscovery } from './usage/runtime.js';
+export { collectRepositorySourceFiles, collectUsageSourceFiles } from './usage/source-files.js';
+export { buildUsageIndex, validateUsageIndex, validateUsageIndexInvariants } from './usage/usage-index.js';
+export { serializeUsageIndex, writeUsageIndex } from './usage/writer.js';
+export { ImpactAnalysisInputError, loadImpactAnalysisInputs } from './impact/input-loader.js';
+export {
+  EXACT_SYMBOL_MATCHER_ID,
+  EXACT_SYMBOL_MATCHER_VERSION,
+  createExactSymbolImpactMatcher,
+  isMatchableUsageSymbol,
+  matchFindingToUsage,
+  summaryContainsExactSymbol
+} from './impact/matcher.js';
+export {
+  buildRepositoryImpact,
+  validateRepositoryImpact,
+  validateRepositoryImpactInvariants
+} from './impact/repository-impact.js';
+export { analyzeRepositoryImpact, runImpactAnalysis } from './impact/runtime.js';
+export { serializeRepositoryImpact, writeRepositoryImpact } from './impact/writer.js';
+export { ImpactEvidenceInputError, loadImpactEvidenceInputs } from './impact-evidence/input-loader.js';
+export {
+  IMPACT_EVIDENCE_GENERATOR_ID,
+  IMPACT_EVIDENCE_GENERATOR_VERSION,
+  IMPACT_EVIDENCE_REASON_CODES,
+  buildRepositoryImpactEvidence,
+  validateRepositoryImpactEvidence,
+  validateRepositoryImpactEvidenceInvariants
+} from './impact-evidence/repository-impact-evidence.js';
+export {
+  generateRepositoryImpactEvidence,
+  runImpactEvidenceGeneration
+} from './impact-evidence/runtime.js';
+export {
+  serializeRepositoryImpactEvidence,
+  writeRepositoryImpactEvidence
+} from './impact-evidence/writer.js';
+export { ANALYSIS_STAGES, PipelineStageError, runAnalysisPipeline } from './orchestration/pipeline.js';
+export { createProgressReporter } from './orchestration/progress-reporter.js';
+export { renderAnalysisFailureLog, writeAnalysisFailureLog } from './orchestration/failure-log.js';
+export { writeTextArtifact } from './orchestration/text-writer.js';
+export { renderConsoleSummary } from './renderers/console.js';
+export {
+  ANALYSIS_PRESENTATION_STATUSES,
+  DEPENDENCY_IMPACT_STATUSES,
+  buildImpactPresentationViewModel
+} from './renderers/impact-presentation.js';
+export { renderMarkdownReport } from './renderers/markdown.js';
 export { createResearchPlan, validateResearchPlan } from './research-plan.js';
 export {
   AI_RUNTIME_CONTRACT_VERSION,

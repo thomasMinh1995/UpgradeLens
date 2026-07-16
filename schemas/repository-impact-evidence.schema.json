@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/repository-impact-evidence.schema.json",
+  "title": "UpgradeLens Repository Impact Evidence",
+  "description": "Deterministic evidence explaining Repository Impact conclusions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "generator", "input", "analysis", "summary", "dependencies"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": { "$ref": "#/$defs/generator" },
+    "input": { "$ref": "#/$defs/input" },
+    "analysis": { "$ref": "#/$defs/analysis" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "dependencies": { "type": "array", "items": { "$ref": "#/$defs/dependencyEvidence" } }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "UpgradeLens" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "projectManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest", "repository"],
+      "properties": {
+        "schemaVersion": { "const": "2.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "root"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "root": { "const": "." }
+          }
+        }
+      }
+    },
+    "artifactLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest"],
+      "properties": {
+        "schemaVersion": { "const": "1.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projectManifest", "versionAnalysis", "usageIndex", "repositoryImpact"],
+      "properties": {
+        "projectManifest": { "$ref": "#/$defs/projectManifest" },
+        "versionAnalysis": { "$ref": "#/$defs/artifactLineage" },
+        "usageIndex": { "$ref": "#/$defs/artifactLineage" },
+        "repositoryImpact": { "$ref": "#/$defs/artifactLineage" }
+      }
+    },
+    "evidenceGenerator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "const": "repository-impact-evidence" },
+        "version": { "const": "1.0.0" }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceGenerator", "resultCount"],
+      "properties": {
+        "evidenceGenerator": { "$ref": "#/$defs/evidenceGenerator" },
+        "resultCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "reasonCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["DEPENDENCY_NOT_USED", "EXACT_SYMBOL_USAGE_FOUND", "NO_EXACT_SYMBOL_USAGE_FOUND", "NO_MATCHABLE_SYMBOL_FOUND"],
+      "properties": {
+        "DEPENDENCY_NOT_USED": { "type": "integer", "minimum": 0 },
+        "EXACT_SYMBOL_USAGE_FOUND": { "type": "integer", "minimum": 0 },
+        "NO_EXACT_SYMBOL_USAGE_FOUND": { "type": "integer", "minimum": 0 },
+        "NO_MATCHABLE_SYMBOL_FOUND": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["impacted", "dependencyCount", "findingCount", "impactedFindingCount", "matchedSymbolCount", "usageRecordCount", "affectedFileCount", "reasonCounts"],
+      "properties": {
+        "impacted": { "type": "boolean" },
+        "dependencyCount": { "type": "integer", "minimum": 0 },
+        "findingCount": { "type": "integer", "minimum": 0 },
+        "impactedFindingCount": { "type": "integer", "minimum": 0 },
+        "matchedSymbolCount": { "type": "integer", "minimum": 0 },
+        "usageRecordCount": { "type": "integer", "minimum": 0 },
+        "affectedFileCount": { "type": "integer", "minimum": 0 },
+        "reasonCounts": { "$ref": "#/$defs/reasonCounts" }
+      }
+    },
+    "usageRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "matchedSymbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbol", "usages"],
+      "properties": {
+        "symbol": { "type": "string", "minLength": 1 },
+        "usages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/usageRecord" }
+        }
+      }
+    },
+    "findingEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "findingId", "kind", "summary", "impacted", "reasonCode", "matchedSymbols"],
+      "properties": {
+        "id": { "$ref": "#/$defs/digest" },
+        "findingId": { "type": "string", "minLength": 1 },
+        "kind": { "const": "breakingChange" },
+        "summary": { "type": "string", "minLength": 1 },
+        "impacted": { "type": "boolean" },
+        "reasonCode": {
+          "enum": ["DEPENDENCY_NOT_USED", "EXACT_SYMBOL_USAGE_FOUND", "NO_EXACT_SYMBOL_USAGE_FOUND", "NO_MATCHABLE_SYMBOL_FOUND"]
+        },
+        "matchedSymbols": { "type": "array", "items": { "$ref": "#/$defs/matchedSymbol" } }
+      }
+    },
+    "dependencyEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["analysisResultId", "projectId", "packageId", "name", "impacted", "findings"],
+      "properties": {
+        "analysisResultId": { "$ref": "#/$defs/digest" },
+        "projectId": { "type": "string", "minLength": 1 },
+        "packageId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "impacted": { "type": "boolean" },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/findingEvidence" } }
+      }
+    }
+  }
+}

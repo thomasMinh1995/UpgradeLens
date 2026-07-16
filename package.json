@@ -1,6 +1,6 @@
 {
   "name": "upgradelens",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Discover the structure and technology footprint of a software project.",
   "type": "module",
   "bin": {
@@ -36,6 +36,7 @@
     "url": "git+https://github.com/thomasMinh1995/UpgradeLens.git"
   },
   "dependencies": {
+    "@babel/parser": "^7.29.7",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
     "undici": "^6.27.0"
