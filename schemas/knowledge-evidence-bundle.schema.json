@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/knowledge-evidence-bundle.schema.json",
+  "title": "UpgradeLens Knowledge Evidence Bundle",
+  "description": "Portable bounded textual evidence produced by Knowledge Research and consumed by Version Analysis.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "generator",
+    "input",
+    "summary",
+    "evidence",
+    "warnings"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": { "$ref": "#/$defs/generator" },
+    "input": { "$ref": "#/$defs/input" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceItem" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/warning" }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "httpsUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://(?![^/?#]*@)"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "sourceId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S+$"
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "UpgradeLens" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "knowledgeManifestLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest", "researchId"],
+      "properties": {
+        "schemaVersion": { "const": "1.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" },
+        "researchId": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["knowledgeManifest"],
+      "properties": {
+        "knowledgeManifest": { "$ref": "#/$defs/knowledgeManifestLineage" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceCount", "packageCount", "sourceCount", "warningCount"],
+      "properties": {
+        "evidenceCount": { "type": "integer", "minimum": 0 },
+        "packageCount": { "type": "integer", "minimum": 0 },
+        "sourceCount": { "type": "integer", "minimum": 0 },
+        "warningCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "evidenceKind": {
+      "enum": [
+        "breakingChanges",
+        "changelog",
+        "compatibility",
+        "deprecations",
+        "migrationGuide",
+        "registryFact",
+        "releaseNotes"
+      ]
+    },
+    "evidenceItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "packageId",
+        "sourceId",
+        "kind",
+        "contentDigest",
+        "retrievedAt",
+        "mediaType",
+        "locator",
+        "releaseVersions",
+        "content"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/digest" },
+        "packageId": {
+          "type": "string",
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9._-]*:.+$"
+        },
+        "sourceId": { "$ref": "#/$defs/sourceId" },
+        "kind": { "$ref": "#/$defs/evidenceKind" },
+        "contentDigest": { "$ref": "#/$defs/digest" },
+        "retrievedAt": { "type": "string", "format": "date-time" },
+        "mediaType": { "type": "string", "minLength": 1 },
+        "locator": { "type": "string", "minLength": 1 },
+        "releaseVersions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "content": { "type": "string", "minLength": 1 }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "packageId": { "type": "string", "minLength": 5 },
+        "sourceId": { "$ref": "#/$defs/sourceId" },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

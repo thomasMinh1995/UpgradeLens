@@ -9,6 +9,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { runCli } from '../src/cli.js';
+import { createSanitizedTestEnvironment } from '../test-support/environment.mjs';
 
 const childEntry = new URL('../test-support/cli-http-runtime-child.mjs', import.meta.url);
 
@@ -18,7 +19,10 @@ function capture() {
 
 async function runChild(root, mode) {
   const startedAt = Date.now();
-  const child = spawn(process.execPath, [fileURLToPath(childEntry), root, mode], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [fileURLToPath(childEntry), root, mode], {
+    env: createSanitizedTestEnvironment(process.env),
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
   let stderr = '';
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (chunk) => { stderr += chunk; });
@@ -26,6 +30,15 @@ async function runChild(root, mode) {
   const [code, signal] = await once(child, 'close');
   clearTimeout(timeout);
   return { code, signal, stderr, elapsedMs: Date.now() - startedAt };
+}
+
+function childSummary(stderr) {
+  const match = /CHILD_COMPLETE (\d+) REQUESTS (\d+) EXPECTED (\d+) REGISTRY (\d+)\/(\d+) EVIDENCE (\d+)\/(\d+) RETRIES (\d+) AI_ENV (\d+)/.exec(stderr);
+  assert.ok(match, `Missing child completion summary:\n${stderr}`);
+  const [code, requests, expected, registry, expectedRegistry, evidence, expectedEvidence, retries, aiEnv] = match
+    .slice(1)
+    .map(Number);
+  return { code, requests, expected, registry, expectedRegistry, evidence, expectedEvidence, retries, aiEnv };
 }
 
 async function loopbackAvailable() {
@@ -61,7 +74,19 @@ test('online CLI closes its scoped dispatcher after concurrent real keep-alive H
     const result = await runChild(root, mode);
     assert.equal(result.signal, null, result.stderr);
     assert.equal(result.code, 0, result.stderr);
-    assert.match(result.stderr, /CHILD_COMPLETE 0 REQUESTS 3/);
+    const summary = childSummary(result.stderr);
+    assert.equal(summary.code, 0);
+    assert.equal(summary.requests, summary.expected);
+    assert.equal(summary.registry, summary.expectedRegistry);
+    assert.equal(summary.evidence, summary.expectedEvidence);
+    assert.equal(summary.retries, 0);
+    assert.equal(summary.aiEnv, 0);
+    assert.doesNotMatch(result.stderr, /must-not-leak|Bearer\s|Authorization/i);
+    if (mode === 'normal') assert.ok(summary.evidence > 0, 'Normal mode must exercise evidence enrichment requests.');
+    else assert.equal(summary.evidence, 0);
+    t.diagnostic(
+      `${mode}: requests=${summary.requests}, registry=${summary.registry}, evidence=${summary.evidence}, retries=${summary.retries}`
+    );
     assert.ok(result.elapsedMs < 3_000, `CLI exceeded natural-exit budget: ${result.elapsedMs}ms`);
     const manifest = JSON.parse(await fs.readFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), 'utf8'));
     assert.equal(manifest.schemaVersion, '1.0.0');

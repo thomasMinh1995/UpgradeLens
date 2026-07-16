@@ -308,6 +308,7 @@ export function validateKnowledgeResearchResult(result, researchPlan) {
   const packages = result?.packages ?? [];
   const sources = result?.sources ?? [];
   const warnings = result?.warnings ?? [];
+  const evidence = result?.evidence ?? [];
   const invalidOccurrences = result?.invalidOccurrences ?? [];
   const unsupported = result?.unsupported ?? [];
   const packageOutcomes = result?.execution?.packageOutcomes ?? [];
@@ -321,6 +322,14 @@ export function validateKnowledgeResearchResult(result, researchPlan) {
   if (!isSorted(invalidOccurrences, compareInvalidOccurrences)) errors.push('invalidOccurrences must be canonically sorted.');
   if (!isSorted(unsupported, (left, right) => compareText(left.ecosystem, right.ecosystem))) errors.push('unsupported must be sorted by ecosystem.');
   if (!isSorted(packageOutcomes, comparePackageOutcomes)) errors.push('execution packageOutcomes must be sorted by packageId.');
+  if (!Array.isArray(evidence)
+    || !isSorted(evidence, (left, right) => compareText(left.id, right.id))) {
+    errors.push('evidence must be an array sorted by id.');
+  }
+  for (const item of evidence) {
+    if (!knownSourceIds.has(item.sourceId)) errors.push(`evidence ${item.id} references an unknown source.`);
+    if (!plannedPackages.has(item.packageId)) errors.push(`evidence ${item.id} references an unknown package.`);
+  }
 
   const packageIds = new Set();
   for (const packageRecord of packages) {
@@ -454,6 +463,7 @@ export function validateKnowledgeResearchResult(result, researchPlan) {
  */
 export function createKnowledgeResearchOrchestrator({
   adapters = {},
+  evidenceSourceAdapter = null,
   sourceProvenanceResolver = resolveSourceProvenance,
   clock = () => new Date(),
   concurrency = DEFAULT_CONCURRENCY
@@ -461,6 +471,9 @@ export function createKnowledgeResearchOrchestrator({
   const configuredConcurrency = validateConcurrency(concurrency);
   if (typeof sourceProvenanceResolver !== 'function') {
     throw new Error('Knowledge Research requires a source provenance resolver function.');
+  }
+  if (evidenceSourceAdapter !== null && typeof evidenceSourceAdapter?.enrich !== 'function') {
+    throw new Error('Knowledge Research evidence source adapter must provide enrich(input).');
   }
   return {
     async run(researchPlan, options = {}) {
@@ -498,12 +511,30 @@ export function createKnowledgeResearchOrchestrator({
 
       const normalizedResults = registryResults.map((item) => item.result);
       const provenance = sourceProvenanceResolver(normalizedResults);
-      const packageSources = sourceIdsByPackage(provenance);
+      const initialPackageSources = sourceIdsByPackage(provenance);
+      const provisionalPackages = normalizedResults.map((item) => ({
+        ...clone(item.package),
+        sourceIds: clone(initialPackageSources.get(item.package.id) ?? [])
+      }));
+      const enrichment = evidenceSourceAdapter
+        ? await evidenceSourceAdapter.enrich({ packages: provisionalPackages, sources: clone(provenance.sources) })
+        : { packageSources: [], sources: [], evidence: [], warnings: [] };
+      const sourcesById = new Map(provenance.sources.map((source) => [source.id, source]));
+      for (const source of enrichment.sources ?? []) sourcesById.set(source.id, source);
+      const sources = [...sourcesById.values()].sort((left, right) => compareText(left.id, right.id));
+      const packageSources = new Map(initialPackageSources);
+      for (const record of enrichment.packageSources ?? []) {
+        packageSources.set(record.packageId, sortedUnique([
+          ...(packageSources.get(record.packageId) ?? []),
+          ...record.sourceIds
+        ]));
+      }
       const provenanceWarnings = provenance.warnings;
       const adapterWarnings = normalizedResults.flatMap((item) => item.warnings);
       const warnings = deduplicateWarnings([
         ...adapterWarnings,
         ...provenanceWarnings,
+        ...(enrichment.warnings ?? []),
         ...invalidWarnings(researchPlan.invalidOccurrences)
       ]);
       const warningsByPackage = new Map();
@@ -553,7 +584,7 @@ export function createKnowledgeResearchOrchestrator({
           inputPackageCount: packages.length,
           adapterInvocationCount: packageOutcomes.filter((item) => item.adapterInvoked).length,
           adapterInvocationCounts: invocationCounts,
-          sourceCount: provenance.sources.length,
+          sourceCount: sources.length,
           warningCount: warnings.length,
           partialFailureCount,
           ...cache,
@@ -565,14 +596,15 @@ export function createKnowledgeResearchOrchestrator({
           ...statuses,
           invalidOccurrenceCount: researchPlan.invalidOccurrences.length,
           unsupportedOccurrenceCount: researchPlan.summary.unsupportedOccurrenceCount,
-          sourceCount: provenance.sources.length,
+          sourceCount: sources.length,
           warningCount: warnings.length,
           ...cache,
           retryCount: 0,
           partialFailureCount
         },
         packages,
-        sources: provenance.sources,
+        sources,
+        evidence: clone(enrichment.evidence ?? []),
         warnings,
         invalidOccurrences: clone(researchPlan.invalidOccurrences),
         unsupported: clone(researchPlan.unsupported)

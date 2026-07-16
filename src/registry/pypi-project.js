@@ -11,7 +11,8 @@ const PROJECT_URL_ROLES = {
 const SOURCE_CANDIDATE_ROLES = {
   changelog: ['changelog', 'changes'],
   releaseNotes: ['release notes'],
-  releases: ['releases']
+  releases: ['releases'],
+  migrationGuide: ['migration', 'migration guide', 'upgrade guide']
 };
 
 export class PypiProjectError extends Error {

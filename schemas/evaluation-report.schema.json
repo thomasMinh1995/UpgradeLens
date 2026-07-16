@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/evaluation-report.schema.json",
+  "title": "UpgradeLens AI Evaluation Report",
+  "description": "Machine-readable report produced by the UpgradeLens AI Evaluation Runner.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "generator",
+    "evaluation",
+    "model",
+    "summary",
+    "metrics",
+    "cases"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "UpgradeLens" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["datasetPath", "datasetVersion", "promptVersion", "caseCount"],
+      "properties": {
+        "datasetPath": { "type": "string", "minLength": 1 },
+        "datasetVersion": { "type": "string", "minLength": 1 },
+        "promptVersion": { "type": "string", "minLength": 1 },
+        "caseCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "name"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalCases", "passed", "failed"],
+      "properties": {
+        "totalCases": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "riskClassificationAccuracy",
+        "humanReviewAccuracy",
+        "evidenceReferenceAccuracy",
+        "schemaValidationPassRate"
+      ],
+      "properties": {
+        "riskClassificationAccuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "humanReviewAccuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "evidenceReferenceAccuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "schemaValidationPassRate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/caseResult" }
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed"],
+      "properties": {
+        "passed": { "type": "boolean" },
+        "expected": {},
+        "actual": {},
+        "message": { "type": "string" }
+      }
+    },
+    "caseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "category",
+        "ecosystem",
+        "passed",
+        "checks",
+        "actual"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 },
+        "ecosystem": { "type": "string", "minLength": 1 },
+        "passed": { "type": "boolean" },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "summaryPresent",
+            "riskLevel",
+            "humanReview",
+            "humanReviewReasons",
+            "evidenceCoverage",
+            "validationState",
+            "evidenceReferences",
+            "findings"
+          ],
+          "properties": {
+            "schema": { "$ref": "#/$defs/check" },
+            "summaryPresent": { "$ref": "#/$defs/check" },
+            "riskLevel": { "$ref": "#/$defs/check" },
+            "humanReview": { "$ref": "#/$defs/check" },
+            "humanReviewReasons": { "$ref": "#/$defs/check" },
+            "evidenceCoverage": { "$ref": "#/$defs/check" },
+            "validationState": { "$ref": "#/$defs/check" },
+            "evidenceReferences": { "$ref": "#/$defs/check" },
+            "findings": { "$ref": "#/$defs/check" }
+          }
+        },
+        "actual": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "riskLevel",
+            "requiresHumanReview",
+            "evidenceCoverage",
+            "validationStatus"
+          ],
+          "properties": {
+            "status": { "type": "string", "minLength": 1 },
+            "riskLevel": { "type": "string", "minLength": 1 },
+            "requiresHumanReview": { "type": "boolean" },
+            "evidenceCoverage": { "type": "string", "minLength": 1 },
+            "validationStatus": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

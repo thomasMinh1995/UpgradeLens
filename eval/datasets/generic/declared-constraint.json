@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "generic/declared-constraint",
+  "title": "Declared constraint without resolved current version",
+  "category": "declared-constraint",
+  "repository": {
+    "name": "declared-constraint-fixture",
+    "fixturePath": "fixtures/generic/declared-constraint",
+    "ecosystem": "generic",
+    "packageManager": null,
+    "languages": ["Generic"]
+  },
+  "dependency": {
+    "packageId": "generic:example",
+    "declaredName": "example",
+    "normalizedName": "example",
+    "ecosystem": "generic",
+    "registry": "generic",
+    "dependencyType": "dependency",
+    "manifest": "manifest.json"
+  },
+  "versions": {
+    "analysisMode": "declaredConstraint",
+    "declaredVersion": "^1.0.0",
+    "currentVersion": null,
+    "targetVersion": "2.0.0",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "unknown", "classification": "unknown" }
+  },
+  "selectedEvidence": [
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5",
+      "kind": "releaseNotes",
+      "sourceId": "generic:example:release-notes",
+      "sourceUrl": "https://example.org/releases/2.0.0",
+      "authority": "officialProject",
+      "trust": "official",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb5",
+      "locator": "heading:2.0.0",
+      "releaseVersions": ["2.0.0"],
+      "content": "Version 2.0.0 documents target release behavior. The installed current version is not known from the declared constraint."
+    }
+  ],
+  "expectedResult": {
+    "riskLevel": "unknown",
+    "requiresHumanReview": true,
+    "humanReviewReasons": ["UNKNOWN_RISK", "VERSION_UNCERTAIN"],
+    "evidenceCoverage": "sufficient",
+    "validation": { "status": "valid", "warningCodes": [] },
+    "expectedEvidenceRefs": {
+      "summary": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa5"],
+      "risk": [],
+      "findings": []
+    },
+    "expectedFindings": [],
+    "forbiddenClaims": ["installed version", "exact delta", "low risk"]
+  },
+  "notes": "Constraint mode can use target-scoped evidence but must not pretend to know the installed baseline."
+}

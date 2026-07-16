@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/qualification-record.schema.json",
+  "title": "UpgradeLens AI Runtime Qualification Record",
+  "description": "Portable task-scoped governance decision for one exact capability and deployment tuple.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "qualificationId",
+    "deploymentProfileDigest",
+    "capabilityProfileDigest",
+    "conformanceReportDigest",
+    "status",
+    "qualifiedFor"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "qualificationId": { "$ref": "#/$defs/id" },
+    "deploymentProfileDigest": { "$ref": "#/$defs/digest" },
+    "capabilityProfileDigest": { "$ref": "#/$defs/digest" },
+    "conformanceReportDigest": {
+      "oneOf": [
+        { "$ref": "#/$defs/digest" },
+        { "type": "null" }
+      ]
+    },
+    "status": {
+      "enum": ["EXPERIMENTAL", "SUPPORTED", "CERTIFIED", "DEPRECATED", "RETIRED"]
+    },
+    "qualifiedFor": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/task" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

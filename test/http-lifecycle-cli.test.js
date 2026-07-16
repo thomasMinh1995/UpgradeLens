@@ -8,6 +8,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { runCli } from '../src/cli.js';
+import { createSanitizedTestEnvironment } from '../test-support/environment.mjs';
 
 const childEntry = new URL('../test-support/http-lifecycle-cli.mjs', import.meta.url);
 
@@ -17,7 +18,10 @@ function capture() {
 
 async function runChild(root, mode) {
   const startedAt = Date.now();
-  const child = spawn(process.execPath, [fileURLToPath(childEntry), root, mode], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [fileURLToPath(childEntry), root, mode], {
+    env: createSanitizedTestEnvironment(process.env),
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
   let stderr = '';
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (chunk) => { stderr += chunk; });

@@ -14,6 +14,9 @@ const ROLE_ALIASES = new Map([
   ['releasenotes', 'releaseNotes'],
   ['releases', 'releases'],
   ['releasefeed', 'releases'],
+  ['migration', 'migrationGuide'],
+  ['migrationguide', 'migrationGuide'],
+  ['upgradeguide', 'migrationGuide'],
   ['community', 'community']
 ]);
 
@@ -25,6 +28,7 @@ const ROLE_DETAILS = {
   changelog: { group: 'changelog', kind: 'officialDocumentation' },
   releaseNotes: { group: 'releaseNotes', kind: 'officialDocumentation' },
   releases: { group: 'releaseFeed', kind: 'releaseFeed' },
+  migrationGuide: { group: 'migrationGuide', kind: 'officialDocumentation' },
   community: { group: 'community', kind: 'community' }
 };
 
@@ -349,8 +353,14 @@ export function validateSourceGraph(graph) {
       if (source.authority === 'officialProject' || source.trust === 'official') {
         errors.push(`source ${source.id} cannot claim official project control without an explicit rule.`);
       }
-      if (source.status !== 'unverified' || source.snapshot !== null) {
-        errors.push(`unfetched source ${source.id} must remain unverified without a snapshot.`);
+      if (source.status === 'unverified' && source.snapshot !== null) {
+        errors.push(`unfetched source ${source.id} must not have a snapshot.`);
+      }
+      if (['available', 'stale'].includes(source.status) && source.snapshot === null) {
+        errors.push(`fetched source ${source.id} must have a snapshot.`);
+      }
+      if (['notFound', 'unavailable'].includes(source.status) && source.snapshot !== null) {
+        errors.push(`unavailable source ${source.id} must not have a snapshot.`);
       }
     }
     if (source.trust === 'verified') {

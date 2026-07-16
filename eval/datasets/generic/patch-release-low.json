@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "generic/patch-release-low",
+  "title": "Generic patch release with explicit no-breaking evidence",
+  "category": "low-risk",
+  "repository": {
+    "name": "patch-low-fixture",
+    "fixturePath": "fixtures/generic/patch-release-low",
+    "ecosystem": "ruby",
+    "packageManager": "bundler",
+    "languages": ["Ruby"]
+  },
+  "dependency": {
+    "packageId": "rubygems:example",
+    "declaredName": "example",
+    "normalizedName": "example",
+    "ecosystem": "ruby",
+    "registry": "rubygems",
+    "dependencyType": "dependency",
+    "manifest": "Gemfile"
+  },
+  "versions": {
+    "analysisMode": "exactBaseline",
+    "declaredVersion": "3.4.1",
+    "currentVersion": "3.4.1",
+    "targetVersion": "3.4.2",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "upgrade", "classification": "patch" }
+  },
+  "selectedEvidence": [
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa9",
+      "kind": "releaseNotes",
+      "sourceId": "rubygems:example:release-notes",
+      "sourceUrl": "https://example.org/ruby/example/releases/3.4.2",
+      "authority": "officialProject",
+      "trust": "official",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb9",
+      "locator": "release:3.4.2",
+      "releaseVersions": ["3.4.2"],
+      "content": "Version 3.4.2 fixes a documentation typo and a small internal bug. No breaking changes, deprecations, or compatibility actions are documented."
+    }
+  ],
+  "expectedResult": {
+    "riskLevel": "low",
+    "requiresHumanReview": false,
+    "humanReviewReasons": [],
+    "evidenceCoverage": "sufficient",
+    "validation": { "status": "valid", "warningCodes": [] },
+    "expectedEvidenceRefs": {
+      "summary": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa9"],
+      "risk": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa9"],
+      "findings": []
+    },
+    "expectedFindings": [],
+    "forbiddenClaims": ["breaking change", "migration plan", "source-code impact"]
+  },
+  "notes": "Cross-ecosystem low-risk patch case."
+}

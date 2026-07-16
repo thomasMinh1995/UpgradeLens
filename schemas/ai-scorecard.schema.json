@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/ai-scorecard.schema.json",
+  "title": "UpgradeLens AI Engineering Scorecard",
+  "description": "Deterministic scorecard derived from AI quality metrics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "generator",
+    "input",
+    "overallScore",
+    "categoryScores",
+    "metricDetails",
+    "recommendations"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": { "$ref": "#/$defs/generator" },
+    "input": { "$ref": "#/$defs/input" },
+    "overallScore": { "$ref": "#/$defs/score" },
+    "categoryScores": { "$ref": "#/$defs/categoryScores" },
+    "metricDetails": { "$ref": "#/$defs/metricDetails" },
+    "recommendations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/recommendation" }
+    }
+  },
+  "$defs": {
+    "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "UpgradeLens" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metrics"],
+      "properties": {
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schemaVersion", "generatedAt", "datasetVersion", "promptVersion", "model", "caseCount"],
+          "properties": {
+            "schemaVersion": { "const": "1.0.0" },
+            "generatedAt": { "type": "string", "format": "date-time" },
+            "datasetVersion": { "type": "string", "minLength": 1 },
+            "promptVersion": { "type": "string", "minLength": 1 },
+            "model": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["provider", "name"],
+              "properties": {
+                "provider": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 }
+              }
+            },
+            "caseCount": { "$ref": "#/$defs/nonNegativeInteger" }
+          }
+        }
+      }
+    },
+    "categoryScores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "riskAnalysis",
+        "humanReview",
+        "evidenceQuality",
+        "trustLayer",
+        "deterministicQuality"
+      ],
+      "properties": {
+        "riskAnalysis": { "$ref": "#/$defs/score" },
+        "humanReview": { "$ref": "#/$defs/score" },
+        "evidenceQuality": { "$ref": "#/$defs/score" },
+        "trustLayer": { "$ref": "#/$defs/score" },
+        "deterministicQuality": { "$ref": "#/$defs/score" }
+      }
+    },
+    "metricDetails": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "casePassRate",
+        "riskClassificationAccuracy",
+        "humanReviewAccuracy",
+        "humanReviewReasonAccuracy",
+        "evidenceReferenceAccuracy",
+        "evidenceCoverageAccuracy",
+        "evidenceReferenceCoverage",
+        "unsupportedClaimRate",
+        "validationPassRate",
+        "deterministicPassRate"
+      ],
+      "properties": {
+        "casePassRate": { "$ref": "#/$defs/ratio" },
+        "riskClassificationAccuracy": { "$ref": "#/$defs/ratio" },
+        "humanReviewAccuracy": { "$ref": "#/$defs/ratio" },
+        "humanReviewReasonAccuracy": { "$ref": "#/$defs/ratio" },
+        "evidenceReferenceAccuracy": { "$ref": "#/$defs/ratio" },
+        "evidenceCoverageAccuracy": { "$ref": "#/$defs/ratio" },
+        "evidenceReferenceCoverage": { "$ref": "#/$defs/ratio" },
+        "unsupportedClaimRate": { "$ref": "#/$defs/ratio" },
+        "validationPassRate": { "$ref": "#/$defs/ratio" },
+        "deterministicPassRate": { "$ref": "#/$defs/ratio" }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "category", "code", "message"],
+      "properties": {
+        "severity": { "enum": ["info", "medium", "high"] },
+        "category": {
+          "enum": ["Risk Analysis", "Human Review", "Evidence Quality", "Trust Layer", "Deterministic Quality", "General"]
+        },
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

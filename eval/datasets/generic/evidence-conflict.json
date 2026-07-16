@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "generic/evidence-conflict",
+  "title": "Conflicting evidence forces review",
+  "category": "conflict",
+  "repository": {
+    "name": "evidence-conflict-fixture",
+    "fixturePath": "fixtures/generic/evidence-conflict",
+    "ecosystem": "generic",
+    "packageManager": null,
+    "languages": ["Generic"]
+  },
+  "dependency": {
+    "packageId": "generic:example",
+    "declaredName": "example",
+    "normalizedName": "example",
+    "ecosystem": "generic",
+    "registry": "generic",
+    "dependencyType": "dependency",
+    "manifest": "manifest.json"
+  },
+  "versions": {
+    "analysisMode": "exactBaseline",
+    "declaredVersion": "1.0.0",
+    "currentVersion": "1.0.0",
+    "targetVersion": "2.0.0",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "upgrade", "classification": "major" }
+  },
+  "selectedEvidence": [
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6",
+      "kind": "breakingChanges",
+      "sourceId": "generic:example:official-notes",
+      "sourceUrl": "https://example.org/releases/2.0.0",
+      "authority": "officialProject",
+      "trust": "official",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb6",
+      "locator": "heading:Breaking changes",
+      "releaseVersions": ["2.0.0"],
+      "content": "Version 2.0.0 documents a breaking configuration change.",
+      "conflictsWith": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7"]
+    },
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7",
+      "kind": "releaseNotes",
+      "sourceId": "generic:example:registry",
+      "sourceUrl": "https://registry.example.org/example/2.0.0",
+      "authority": "registryAuthoritative",
+      "trust": "publisher",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb7",
+      "locator": "release:2.0.0",
+      "releaseVersions": ["2.0.0"],
+      "content": "Version 2.0.0 is listed as a routine release with no migration note.",
+      "conflictsWith": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6"]
+    }
+  ],
+  "expectedResult": {
+    "riskLevel": "unknown",
+    "requiresHumanReview": true,
+    "humanReviewReasons": ["UNKNOWN_RISK", "EVIDENCE_PARTIAL", "SOURCE_CONFLICT"],
+    "evidenceCoverage": "partial",
+    "validation": { "status": "validWithWarnings", "warningCodes": ["SOURCE_CONFLICT"] },
+    "expectedEvidenceRefs": {
+      "summary": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa6", "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa7"],
+      "risk": [],
+      "findings": []
+    },
+    "expectedFindings": [],
+    "forbiddenClaims": ["low risk", "conflict resolved", "source-code impact"]
+  },
+  "notes": "Conflicting evidence should stay visible instead of silently choosing a winner."
+}

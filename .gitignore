@@ -14,3 +14,9 @@ dist/
 *.tgz
 .DS_Store
 *.log
+
+# Local runtime configuration and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
