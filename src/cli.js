@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   CLI_NAME,
   CAPABILITY_PROFILE_FILENAME,
+  DEFAULT_ANALYSIS_LOG_PATH,
   DEFAULT_AI_SCORECARD_PATH,
   DEFAULT_BENCHMARK_CONFIG_PATH,
   DEFAULT_BENCHMARK_REPORT_PATH,
@@ -16,6 +17,10 @@ import {
   DEFAULT_METRICS_PATH,
   QUALIFICATION_RECORD_FILENAME,
   DEFAULT_VERSION_ANALYSIS_PATH,
+  DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
+  DEFAULT_REPOSITORY_IMPACT_PATH,
+  DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
+  DEFAULT_USAGE_INDEX_PATH,
   PRODUCT_NAME,
   VERSION
 } from './constants.js';
@@ -79,10 +84,21 @@ import {
 import { buildKnowledgeManifest } from './knowledge-manifest-builder.js';
 import { serializeKnowledgeManifest, writeKnowledgeManifest } from './knowledge-manifest-writer.js';
 import { createKnowledgeResearchOrchestrator } from './knowledge-research.js';
+import { runImpactEvidenceGeneration } from './impact-evidence/runtime.js';
+import { writeRepositoryImpactEvidence } from './impact-evidence/writer.js';
+import { runImpactAnalysis } from './impact/runtime.js';
+import { writeRepositoryImpact } from './impact/writer.js';
+import { PipelineStageError, runAnalysisPipeline } from './orchestration/pipeline.js';
+import { writeAnalysisFailureLog } from './orchestration/failure-log.js';
+import { createProgressReporter } from './orchestration/progress-reporter.js';
+import { writeTextArtifact } from './orchestration/text-writer.js';
 import { loadProjectManifestInput } from './project-manifest-input.js';
 import { createResearchPlan } from './research-plan.js';
 import { createNpmRegistryAdapter } from './registry/npm-registry-adapter.js';
 import { createPypiRegistryAdapter } from './registry/pypi-registry-adapter.js';
+import { renderConsoleSummary } from './renderers/console.js';
+import { buildImpactPresentationViewModel } from './renderers/impact-presentation.js';
+import { renderMarkdownReport } from './renderers/markdown.js';
 import { isPortableRelativePath } from './portable.js';
 import {
   DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH,
@@ -90,12 +106,15 @@ import {
 } from './version-analysis-loader.js';
 import { buildVersionAnalysisManifest } from './version-analysis-manifest.js';
 import { serializeVersionAnalysisManifest, writeVersionAnalysisManifest } from './version-analysis-writer.js';
+import { runUsageDiscovery } from './usage/runtime.js';
+import { writeUsageIndex } from './usage/writer.js';
 
 const HELP = `${PRODUCT_NAME} ${VERSION}
 
-Discover repository structure or research declared public packages.
+Analyze a repository or run an individual UpgradeLens stage.
 
 Usage:
+  ${CLI_NAME} analyze <repository> [options]
   ${CLI_NAME} discover [path] [options]
   ${CLI_NAME} research [path] [options]
   ${CLI_NAME} analyze-version [path] [options]
@@ -105,6 +124,10 @@ Usage:
   ${CLI_NAME} conformance [options]
   ${CLI_NAME} governance [options]
   ${CLI_NAME} [path] [options]
+
+Analyze options:
+      --offline         Use fresh research cache entries only; never request registries
+      --max-depth <n>   Maximum directory depth for discovery and usage scanning
 
 Discover options:
   -o, --output <path>   Project Manifest path relative to the project root
@@ -176,13 +199,15 @@ function outputPath(root, output) {
 
 export function parseArguments(argv) {
   const args = [...argv];
-  const command = ['discover', 'research', 'analyze-version', 'eval', 'scorecard', 'benchmark', 'conformance', 'governance'].includes(args[0])
+  const command = ['analyze', 'discover', 'research', 'analyze-version', 'eval', 'scorecard', 'benchmark', 'conformance', 'governance'].includes(args[0])
     ? args.shift()
     : 'discover';
   const options = {
     command,
     root: '.',
-    output: command === 'research'
+    output: command === 'analyze'
+      ? DEFAULT_REPOSITORY_IMPACT_REPORT_PATH
+      : command === 'research'
       ? DEFAULT_KNOWLEDGE_MANIFEST_PATH
       : command === 'analyze-version'
         ? DEFAULT_VERSION_ANALYSIS_PATH
@@ -262,9 +287,12 @@ export function parseArguments(argv) {
       throw new Error(`Unexpected argument: ${argument}`);
     } else throw new Error(`Unexpected argument: ${argument}`);
   }
-  if (command === 'discover' && options.offline) throw new Error('--offline is only supported by research');
-  if (command !== 'research' && options.offline) throw new Error('--offline is only supported by research');
-  if (command !== 'discover' && options.maxDepth !== undefined) throw new Error('--max-depth is only supported by discover');
+  if (!['research', 'analyze'].includes(command) && options.offline) {
+    throw new Error('--offline is only supported by research and analyze');
+  }
+  if (!['discover', 'analyze'].includes(command) && options.maxDepth !== undefined) {
+    throw new Error('--max-depth is only supported by discover and analyze');
+  }
   if (command !== 'discover' && options.failOnWarning) throw new Error('--fail-on-warning is only supported by discover');
   if (command !== 'discover' && !options.pretty) throw new Error('--no-pretty is only supported by discover');
   if (command !== 'eval' && options.dataset !== DEFAULT_EVALUATION_DATASET_PATH) throw new Error('--dataset is only supported by eval');
@@ -489,7 +517,7 @@ async function executeAnalyzeVersion(options, io) {
   const contents = serializeVersionAnalysisManifest(manifest);
   if (options.stdout) {
     io.stdout.write(contents);
-    return 0;
+    return manifest;
   }
   const target = await (io.writeVersionAnalysisManifest ?? writeVersionAnalysisManifest)(outputPath(root, options.output), manifest);
   io.stderr.write('✓ Loaded Project, Knowledge, and Evidence artifacts\n');
@@ -497,7 +525,7 @@ async function executeAnalyzeVersion(options, io) {
   io.stderr.write('✓ AI Version Analysis complete\n');
   io.stderr.write('✓ Version Analysis artifact validated\n');
   io.stderr.write(`✓ Wrote:\n${target}\n`);
-  return 0;
+  return manifest;
 }
 
 function evaluationRuntime(options, io) {
@@ -660,6 +688,129 @@ async function executeGovernance(options, io) {
   return 0;
 }
 
+function silentStream() {
+  return Object.freeze({ write: () => true });
+}
+
+export function createCliAnalysisStageRunners(options, io) {
+  const root = path.resolve(options.root);
+  const quiet = silentStream();
+  const clockOptions = io.clock ? { clock: io.clock } : {};
+  return {
+    async projectDiscovery() {
+      const manifest = await discoverProject(root, { maxDepth: options.maxDepth });
+      await writeProjectManifest(root, DEFAULT_MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
+      return manifest;
+    },
+    async knowledgeResearch() {
+      await runResearch({
+        ...options,
+        command: 'research',
+        root,
+        output: DEFAULT_KNOWLEDGE_MANIFEST_PATH,
+        stdout: false
+      }, { ...io, stdout: quiet, stderr: quiet });
+      return DEFAULT_KNOWLEDGE_MANIFEST_PATH;
+    },
+    async versionAnalysis() {
+      return executeAnalyzeVersion({
+        ...options,
+        command: 'analyze-version',
+        root,
+        output: DEFAULT_VERSION_ANALYSIS_PATH,
+        stdout: false,
+        packageId: undefined
+      }, { ...io, stdout: quiet, stderr: quiet });
+    },
+    async usageDiscovery() {
+      const usageIndex = await runUsageDiscovery({
+        repositoryRoot: root,
+        maxDepth: options.maxDepth,
+        ...clockOptions
+      });
+      await writeUsageIndex(path.join(root, DEFAULT_USAGE_INDEX_PATH), usageIndex);
+      return usageIndex;
+    },
+    async impactAnalysis() {
+      const repositoryImpact = await runImpactAnalysis({
+        sources: {
+          projectManifest: path.join(root, DEFAULT_MANIFEST_PATH),
+          versionAnalysis: path.join(root, DEFAULT_VERSION_ANALYSIS_PATH),
+          usageIndex: path.join(root, DEFAULT_USAGE_INDEX_PATH)
+        },
+        ...clockOptions
+      });
+      await writeRepositoryImpact(path.join(root, DEFAULT_REPOSITORY_IMPACT_PATH), repositoryImpact);
+      return repositoryImpact;
+    },
+    async impactEvidence() {
+      const impactEvidence = await runImpactEvidenceGeneration({
+        sources: {
+          projectManifest: path.join(root, DEFAULT_MANIFEST_PATH),
+          versionAnalysis: path.join(root, DEFAULT_VERSION_ANALYSIS_PATH),
+          usageIndex: path.join(root, DEFAULT_USAGE_INDEX_PATH),
+          repositoryImpact: path.join(root, DEFAULT_REPOSITORY_IMPACT_PATH)
+        },
+        ...clockOptions
+      });
+      await writeRepositoryImpactEvidence(
+        path.join(root, DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH),
+        impactEvidence
+      );
+      return impactEvidence;
+    },
+    async markdownReport({ artifacts }) {
+      const viewModel = buildImpactPresentationViewModel({
+        projectManifest: artifacts.projectDiscovery,
+        versionAnalysis: artifacts.versionAnalysis,
+        repositoryImpact: artifacts.impactAnalysis,
+        impactEvidence: artifacts.impactEvidence
+      });
+      const contents = renderMarkdownReport({ viewModel });
+      const target = await (io.writeMarkdownReport ?? writeTextArtifact)(
+        outputPath(root, options.output),
+        contents
+      );
+      return Object.freeze({ target, viewModel });
+    }
+  };
+}
+
+export async function executeAnalyze(options, io) {
+  const root = path.resolve(options.root);
+  const runners = {
+    ...createCliAnalysisStageRunners(options, io),
+    ...io.analysisStageRunners
+  };
+  const progressReporter = io.progressReporter ?? createProgressReporter(io.stderr);
+  let result;
+  try {
+    result = await (io.runAnalysisPipeline ?? runAnalysisPipeline)({
+      repositoryRoot: root,
+      runners,
+      progressReporter
+    });
+  } catch (error) {
+    if (!(error instanceof PipelineStageError)) throw error;
+    let logTarget;
+    try {
+      logTarget = await (io.writeAnalysisFailureLog ?? writeAnalysisFailureLog)(root, error);
+    } catch {
+      io.stderr.write(`\n${error.stage.label} failed.\n\nUnable to write analysis log.\n`);
+      return 1;
+    }
+    const displayLog = path.relative(root, logTarget).split(path.sep).join('/');
+    io.stderr.write(`\n${error.stage.label} failed.\n\nSee:\n${displayLog || DEFAULT_ANALYSIS_LOG_PATH}\n`);
+    return 1;
+  }
+
+  io.stdout.write(renderConsoleSummary({
+    viewModel: result.artifacts.markdownReport.viewModel,
+    reportPath: options.output
+  }));
+  return 0;
+}
+
 export async function runCli(argv, io = {}) {
   const stdout = io.stdout ?? process.stdout;
   const stderr = io.stderr ?? process.stderr;
@@ -673,8 +824,12 @@ export async function runCli(argv, io = {}) {
       stdout.write(`${VERSION}\n`);
       return 0;
     }
+    if (options.command === 'analyze') return await executeAnalyze(options, { ...io, stdout, stderr });
     if (options.command === 'research') return await runResearch(options, { ...io, stdout, stderr });
-    if (options.command === 'analyze-version') return await executeAnalyzeVersion(options, { ...io, stdout, stderr });
+    if (options.command === 'analyze-version') {
+      await executeAnalyzeVersion(options, { ...io, stdout, stderr });
+      return 0;
+    }
     if (options.command === 'eval') return await executeEval(options, { ...io, stdout, stderr });
     if (options.command === 'scorecard') return await executeScorecard(options, { ...io, stdout, stderr });
     if (options.command === 'benchmark') return await executeBenchmark(options, { ...io, stdout, stderr });

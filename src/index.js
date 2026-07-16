@@ -1,6 +1,7 @@
 export {
   CLI_NAME,
   CAPABILITY_PROFILE_FILENAME,
+  DEFAULT_ANALYSIS_LOG_PATH,
   DEFAULT_AI_SCORECARD_PATH,
   DEFAULT_BENCHMARK_CONFIG_PATH,
   DEFAULT_BENCHMARK_REPORT_PATH,
@@ -19,6 +20,7 @@ export {
   DEFAULT_USAGE_INDEX_PATH,
   DEFAULT_REPOSITORY_IMPACT_PATH,
   DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
+  DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
   MANIFEST_SCHEMA_VERSION,
   PACKAGE_NAME,
   PRODUCT_NAME,
@@ -78,6 +80,17 @@ export {
   serializeRepositoryImpactEvidence,
   writeRepositoryImpactEvidence
 } from './impact-evidence/writer.js';
+export { ANALYSIS_STAGES, PipelineStageError, runAnalysisPipeline } from './orchestration/pipeline.js';
+export { createProgressReporter } from './orchestration/progress-reporter.js';
+export { renderAnalysisFailureLog, writeAnalysisFailureLog } from './orchestration/failure-log.js';
+export { writeTextArtifact } from './orchestration/text-writer.js';
+export { renderConsoleSummary } from './renderers/console.js';
+export {
+  ANALYSIS_PRESENTATION_STATUSES,
+  DEPENDENCY_IMPACT_STATUSES,
+  buildImpactPresentationViewModel
+} from './renderers/impact-presentation.js';
+export { renderMarkdownReport } from './renderers/markdown.js';
 export { createResearchPlan, validateResearchPlan } from './research-plan.js';
 export {
   AI_RUNTIME_CONTRACT_VERSION,
