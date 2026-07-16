@@ -18,12 +18,14 @@ export {
   DEFAULT_VERSION_ANALYSIS_PATH,
   DEFAULT_USAGE_INDEX_PATH,
   DEFAULT_REPOSITORY_IMPACT_PATH,
+  DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
   MANIFEST_SCHEMA_VERSION,
   PACKAGE_NAME,
   PRODUCT_NAME,
   VERSION_ANALYSIS_SCHEMA_VERSION,
   USAGE_INDEX_SCHEMA_VERSION,
   REPOSITORY_IMPACT_SCHEMA_VERSION,
+  REPOSITORY_IMPACT_EVIDENCE_SCHEMA_VERSION,
   VERSION
 } from './constants.js';
 export { discoverProject } from './discovery.js';
@@ -59,6 +61,23 @@ export {
 } from './impact/repository-impact.js';
 export { analyzeRepositoryImpact, runImpactAnalysis } from './impact/runtime.js';
 export { serializeRepositoryImpact, writeRepositoryImpact } from './impact/writer.js';
+export { ImpactEvidenceInputError, loadImpactEvidenceInputs } from './impact-evidence/input-loader.js';
+export {
+  IMPACT_EVIDENCE_GENERATOR_ID,
+  IMPACT_EVIDENCE_GENERATOR_VERSION,
+  IMPACT_EVIDENCE_REASON_CODES,
+  buildRepositoryImpactEvidence,
+  validateRepositoryImpactEvidence,
+  validateRepositoryImpactEvidenceInvariants
+} from './impact-evidence/repository-impact-evidence.js';
+export {
+  generateRepositoryImpactEvidence,
+  runImpactEvidenceGeneration
+} from './impact-evidence/runtime.js';
+export {
+  serializeRepositoryImpactEvidence,
+  writeRepositoryImpactEvidence
+} from './impact-evidence/writer.js';
 export { createResearchPlan, validateResearchPlan } from './research-plan.js';
 export {
   AI_RUNTIME_CONTRACT_VERSION,
