@@ -4,7 +4,7 @@
 
 `.upgradelens/migration-checklist.json` is a versioned, provider-neutral, human-review artifact. It records evidence-grounded review actions and deterministic fallback records. It is not an autonomous migration plan, safety certificate, patch, command runner, or migration execution log.
 
-The initial schema is [`migration-checklist.schema.json`](../schemas/migration-checklist.schema.json), version `1.0.0`. MP-01 provides a pure builder, schema validator, invariant validator, stable item IDs, deterministic serialization, and grounding/eligibility policy. It does not read the seven artifacts; exact-byte loading and upstream joins belong to MP-02.
+The initial schema is [`migration-checklist.schema.json`](../schemas/migration-checklist.schema.json), version `1.0.0`. MP-01 provides a pure builder, schema validator, invariant validator, stable item IDs, deterministic serialization, and grounding/eligibility policy. MP-02 exact-byte loading and upstream joins are documented in [`mvp-05-deterministic-context-runtime.md`](./mvp-05-deterministic-context-runtime.md).
 
 `COMPLETE` never means “migration complete” or “safe to upgrade.” It only means all dependency checklist records in the normalized valid input contain structurally grounded actionable records.
 
@@ -128,12 +128,7 @@ The schema has no fields for dependency ordering, inferred prerequisites, genera
 
 ### MP-02 — deterministic loader and context
 
-- Read and schema-validate all seven exact artifacts.
-- Compute exact-byte digests and validate the full lineage chain.
-- Verify result, finding, evidence, and impact-evidence IDs actually exist upstream.
-- Build the selected bounded evidence allowlist from Version Analysis/Knowledge Evidence.
-- Verify source authority/trust/freshness/conflicts and analyzer coverage.
-- Map only positive Repository Impact Evidence to candidate locations.
+Implemented as a separate read-only runtime. It validates all seven exact-byte artifacts, the full lineage/reference graph, bounded official evidence, independent action/location eligibility, immutable MP-03 contexts, and MP-01-compatible deterministic fallbacks.
 
 ### MP-03 — generator and trust validation
 

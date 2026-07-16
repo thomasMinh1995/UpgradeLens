@@ -101,6 +101,22 @@ export {
   validateMigrationChecklist,
   validateMigrationChecklistInvariants
 } from './migration-checklist/migration-checklist.js';
+export {
+  MigrationChecklistInputError,
+  loadMigrationChecklistInputs,
+  validateMigrationChecklistInputLineage,
+  validateMigrationChecklistInputReferences
+} from './migration-checklist/input-loader.js';
+export {
+  DEFAULT_MIGRATION_CONTEXT_MAX_EVIDENCE_CHARACTERS,
+  DEFAULT_MIGRATION_CONTEXT_MAX_EVIDENCE_ITEMS,
+  DEFAULT_MIGRATION_CONTEXT_MAX_FINDING_SUMMARY_CHARACTERS,
+  MIGRATION_LOCATION_REASON_CODES,
+  MIGRATION_TASK_CONTEXT_VERSION,
+  buildMigrationTaskContexts,
+  classifyMigrationEligibility,
+  prepareMigrationChecklistContexts
+} from './migration-checklist/context-runtime.js';
 export { ANALYSIS_STAGES, PipelineStageError, runAnalysisPipeline } from './orchestration/pipeline.js';
 export { createProgressReporter } from './orchestration/progress-reporter.js';
 export { renderAnalysisFailureLog, writeAnalysisFailureLog } from './orchestration/failure-log.js';
