@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/metrics.schema.json",
+  "title": "UpgradeLens AI Quality Metrics",
+  "description": "Deterministic AI quality metrics derived from an Evaluation Report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "generator",
+    "input",
+    "summary",
+    "metrics",
+    "cases"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": { "$ref": "#/$defs/generator" },
+    "input": { "$ref": "#/$defs/input" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "metrics": { "$ref": "#/$defs/metrics" },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/caseMetric" }
+    }
+  },
+  "$defs": {
+    "ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+    "nonNegativeInteger": { "type": "integer", "minimum": 0 },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "UpgradeLens" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluationReport"],
+      "properties": {
+        "evaluationReport": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion",
+            "generatedAt",
+            "datasetPath",
+            "datasetVersion",
+            "promptVersion",
+            "model",
+            "caseCount"
+          ],
+          "properties": {
+            "schemaVersion": { "const": "1.0.0" },
+            "generatedAt": { "type": "string", "format": "date-time" },
+            "datasetPath": { "type": "string", "minLength": 1 },
+            "datasetVersion": { "type": "string", "minLength": 1 },
+            "promptVersion": { "type": "string", "minLength": 1 },
+            "model": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["provider", "name"],
+              "properties": {
+                "provider": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 }
+              }
+            },
+            "caseCount": { "$ref": "#/$defs/nonNegativeInteger" }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalCases", "passed", "failed"],
+      "properties": {
+        "totalCases": { "$ref": "#/$defs/nonNegativeInteger" },
+        "passed": { "$ref": "#/$defs/nonNegativeInteger" },
+        "failed": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "passed", "total"],
+      "properties": {
+        "value": { "$ref": "#/$defs/ratio" },
+        "passed": { "$ref": "#/$defs/nonNegativeInteger" },
+        "total": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "unsupportedClaimMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unsupportedClaimCount", "totalFindingCount", "denominator"],
+      "properties": {
+        "value": { "$ref": "#/$defs/ratio" },
+        "unsupportedClaimCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "totalFindingCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "denominator": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "coverageMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "matchedReferenceCount", "expectedReferenceCount"],
+      "properties": {
+        "value": { "$ref": "#/$defs/ratio" },
+        "matchedReferenceCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "expectedReferenceCount": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "casePassRate",
+        "riskClassificationAccuracy",
+        "humanReviewAccuracy",
+        "humanReviewReasonAccuracy",
+        "evidenceReferenceAccuracy",
+        "evidenceCoverageAccuracy",
+        "evidenceReferenceCoverage",
+        "unsupportedClaimRate",
+        "validationPassRate",
+        "deterministicPassRate"
+      ],
+      "properties": {
+        "casePassRate": { "$ref": "#/$defs/metric" },
+        "riskClassificationAccuracy": { "$ref": "#/$defs/metric" },
+        "humanReviewAccuracy": { "$ref": "#/$defs/metric" },
+        "humanReviewReasonAccuracy": { "$ref": "#/$defs/metric" },
+        "evidenceReferenceAccuracy": { "$ref": "#/$defs/metric" },
+        "evidenceCoverageAccuracy": { "$ref": "#/$defs/metric" },
+        "evidenceReferenceCoverage": { "$ref": "#/$defs/coverageMetric" },
+        "unsupportedClaimRate": { "$ref": "#/$defs/unsupportedClaimMetric" },
+        "validationPassRate": { "$ref": "#/$defs/metric" },
+        "deterministicPassRate": { "$ref": "#/$defs/metric" }
+      }
+    },
+    "caseMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "category",
+        "ecosystem",
+        "passed",
+        "riskClassificationPassed",
+        "humanReviewPassed",
+        "evidenceReferencesPassed",
+        "validationPassed",
+        "deterministicPassed",
+        "unsupportedClaimCount",
+        "actualFindingCount"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 },
+        "ecosystem": { "type": "string", "minLength": 1 },
+        "passed": { "type": "boolean" },
+        "riskClassificationPassed": { "type": "boolean" },
+        "humanReviewPassed": { "type": "boolean" },
+        "evidenceReferencesPassed": { "type": "boolean" },
+        "validationPassed": { "type": "boolean" },
+        "deterministicPassed": { "type": "boolean" },
+        "unsupportedClaimCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "actualFindingCount": { "$ref": "#/$defs/nonNegativeInteger" }
+      }
+    }
+  }
+}

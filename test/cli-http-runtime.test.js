@@ -52,6 +52,7 @@ test('online research creates and closes a CLI-owned runtime exactly once, inclu
   assert.equal(await runCli(['research', root, '--stdout'], {
     stdout: stdout.stream,
     stderr: stderr.stream,
+    evidenceSourceAdapter: null,
     createHttpRuntime() { created += 1; return tracked.runtime; }
   }), 0);
   assert.equal(created, 1);

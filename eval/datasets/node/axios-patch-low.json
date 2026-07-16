@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "node/axios-patch-low",
+  "title": "Axios patch release with bug fixes only",
+  "category": "low-risk",
+  "repository": {
+    "name": "axios-patch-fixture",
+    "fixturePath": "fixtures/node/axios-patch-low",
+    "ecosystem": "node",
+    "packageManager": "npm",
+    "languages": ["JavaScript"]
+  },
+  "dependency": {
+    "packageId": "npm:axios",
+    "declaredName": "axios",
+    "normalizedName": "axios",
+    "ecosystem": "node",
+    "registry": "npm",
+    "dependencyType": "dependency",
+    "manifest": "package.json"
+  },
+  "versions": {
+    "analysisMode": "exactBaseline",
+    "declaredVersion": "1.6.7",
+    "currentVersion": "1.6.7",
+    "targetVersion": "1.6.8",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "upgrade", "classification": "patch" }
+  },
+  "selectedEvidence": [
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2",
+      "kind": "releaseNotes",
+      "sourceId": "npm:axios:release-notes",
+      "sourceUrl": "https://github.com/axios/axios/releases/tag/v1.6.8",
+      "authority": "officialProject",
+      "trust": "official",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb2",
+      "locator": "release:v1.6.8",
+      "releaseVersions": ["1.6.8"],
+      "content": "Axios 1.6.8 contains bug fixes and maintenance updates. No breaking changes or migration actions are documented for this patch release."
+    }
+  ],
+  "expectedResult": {
+    "riskLevel": "low",
+    "requiresHumanReview": false,
+    "humanReviewReasons": [],
+    "evidenceCoverage": "sufficient",
+    "validation": { "status": "valid", "warningCodes": [] },
+    "expectedEvidenceRefs": {
+      "summary": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2"],
+      "risk": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa2"],
+      "findings": []
+    },
+    "expectedFindings": [],
+    "forbiddenClaims": ["breaking change", "migration plan", "source-code impact"]
+  },
+  "notes": "Low risk requires explicit evidence that the patch has no documented breaking or migration content."
+}

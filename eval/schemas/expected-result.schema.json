@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/eval/schemas/expected-result.schema.json",
+  "title": "UpgradeLens Golden Expected Result",
+  "description": "Provider-independent expected outcome for AI Version Analysis evaluation cases.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "riskLevel",
+    "requiresHumanReview",
+    "humanReviewReasons",
+    "evidenceCoverage",
+    "validation",
+    "expectedEvidenceRefs",
+    "expectedFindings"
+  ],
+  "properties": {
+    "riskLevel": { "enum": ["low", "medium", "high", "unknown"] },
+    "requiresHumanReview": { "type": "boolean" },
+    "humanReviewReasons": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "evidenceCoverage": { "enum": ["none", "partial", "sufficient"] },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "warningCodes"],
+      "properties": {
+        "status": { "enum": ["valid", "validWithWarnings", "invalid"] },
+        "warningCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "expectedEvidenceRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "risk", "findings"],
+      "properties": {
+        "summary": { "$ref": "#/$defs/evidenceRefArray" },
+        "risk": { "$ref": "#/$defs/evidenceRefArray" },
+        "findings": { "$ref": "#/$defs/evidenceRefArray" }
+      }
+    },
+    "expectedFindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "appliesToVersions", "evidenceRefs"],
+        "properties": {
+          "kind": { "enum": ["breakingChange", "deprecation", "compatibility"] },
+          "appliesToVersions": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "evidenceRefs": { "$ref": "#/$defs/evidenceRefArray" },
+          "requiredKeywords": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "forbiddenClaims": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "evidenceRefArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/digest" }
+    }
+  }
+}

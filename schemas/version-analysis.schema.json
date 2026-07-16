@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/version-analysis.schema.json",
+  "title": "UpgradeLens Version Analysis Manifest",
+  "description": "Portable output produced by UpgradeLens AI Version Analysis.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "generator",
+    "input",
+    "analysis",
+    "summary",
+    "results"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": { "$ref": "#/$defs/generator" },
+    "input": { "$ref": "#/$defs/input" },
+    "analysis": { "$ref": "#/$defs/analysis" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "results": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/result" }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "httpsUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://(?![^/?#]*@)"
+    },
+    "nullableString": {
+      "type": ["string", "null"]
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "UpgradeLens" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "projectManifestLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest", "repository"],
+      "properties": {
+        "schemaVersion": { "const": "2.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "root"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "root": { "const": "." }
+          }
+        }
+      }
+    },
+    "knowledgeManifestLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest", "researchId"],
+      "properties": {
+        "schemaVersion": { "const": "1.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" },
+        "researchId": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "evidenceArtifactLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest"],
+      "properties": {
+        "schemaVersion": { "const": "1.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["projectManifest", "knowledgeManifest", "evidenceArtifact"],
+      "properties": {
+        "projectManifest": { "$ref": "#/$defs/projectManifestLineage" },
+        "knowledgeManifest": { "$ref": "#/$defs/knowledgeManifestLineage" },
+        "evidenceArtifact": { "$ref": "#/$defs/evidenceArtifactLineage" }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["promptVersion", "contextVersion", "resultCount"],
+      "properties": {
+        "promptVersion": { "type": "string", "minLength": 1 },
+        "contextVersion": { "type": "string", "minLength": 1 },
+        "resultCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resultCount",
+        "analyzedCount",
+        "skippedCount",
+        "failedCount",
+        "requiresHumanReviewCount",
+        "riskCounts"
+      ],
+      "properties": {
+        "resultCount": { "type": "integer", "minimum": 0 },
+        "analyzedCount": { "type": "integer", "minimum": 0 },
+        "skippedCount": { "type": "integer", "minimum": 0 },
+        "failedCount": { "type": "integer", "minimum": 0 },
+        "requiresHumanReviewCount": { "type": "integer", "minimum": 0 },
+        "riskCounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["low", "medium", "high", "unknown"],
+          "properties": {
+            "low": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 },
+            "unknown": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "packageId",
+        "declaredName",
+        "normalizedName",
+        "ecosystem",
+        "registry",
+        "packageManager",
+        "dependencyType",
+        "manifest"
+      ],
+      "properties": {
+        "projectId": { "type": "string", "minLength": 1 },
+        "packageId": { "type": "string", "minLength": 1 },
+        "declaredName": { "type": "string", "minLength": 1 },
+        "normalizedName": { "type": "string", "minLength": 1 },
+        "ecosystem": { "type": "string", "minLength": 1 },
+        "registry": { "type": "string", "minLength": 1 },
+        "packageManager": { "$ref": "#/$defs/nullableString" },
+        "dependencyType": { "type": "string", "minLength": 1 },
+        "manifest": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisMode",
+        "declaredVersion",
+        "currentVersion",
+        "currentVersionSource",
+        "targetVersion",
+        "targetPolicy",
+        "delta"
+      ],
+      "properties": {
+        "analysisMode": { "enum": ["exactBaseline", "declaredConstraint", "unsupportedBaseline"] },
+        "declaredVersion": { "$ref": "#/$defs/nullableString" },
+        "currentVersion": { "$ref": "#/$defs/nullableString" },
+        "currentVersionSource": {
+          "anyOf": [
+            { "enum": ["explicit", "exactDeclaration", "resolvedArtifact"] },
+            { "type": "null" }
+          ]
+        },
+        "targetVersion": { "$ref": "#/$defs/nullableString" },
+        "targetPolicy": { "enum": ["explicit", "registryLatest"] },
+        "delta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["direction", "classification"],
+          "properties": {
+            "direction": { "enum": ["upgrade", "same", "downgrade", "unknown"] },
+            "classification": { "enum": ["major", "minor", "patch", "prerelease", "other", "unknown"] }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "sourceId",
+        "sourceUrl",
+        "authority",
+        "trust",
+        "retrievedAt",
+        "contentDigest",
+        "locator",
+        "releaseVersions"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/digest" },
+        "kind": { "type": "string", "minLength": 1 },
+        "sourceId": { "type": "string", "minLength": 1 },
+        "sourceUrl": { "$ref": "#/$defs/httpsUrl" },
+        "authority": { "type": "string", "minLength": 1 },
+        "trust": { "type": "string", "minLength": 1 },
+        "retrievedAt": { "type": "string", "format": "date-time" },
+        "contentDigest": { "$ref": "#/$defs/digest" },
+        "locator": { "type": "string", "minLength": 1 },
+        "releaseVersions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "summary", "appliesToVersions", "evidenceRefs"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["breakingChange", "deprecation", "compatibility"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "appliesToVersions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "warningCodes"],
+      "properties": {
+        "status": { "enum": ["valid", "validWithWarnings", "invalid"] },
+        "warningCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "limitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidenceCoverage", "validationStatus", "requiresHumanReview"],
+      "properties": {
+        "evidenceCoverage": { "enum": ["none", "partial", "sufficient"] },
+        "validationStatus": { "enum": ["valid", "validWithWarnings", "invalid"] },
+        "requiresHumanReview": { "type": "boolean" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "contextId",
+        "dependency",
+        "versions",
+        "summary",
+        "summaryEvidenceRefs",
+        "riskLevel",
+        "riskEvidenceRefs",
+        "findings",
+        "evidence",
+        "evidenceCoverage",
+        "confidence",
+        "validation",
+        "requiresHumanReview",
+        "humanReviewReasons",
+        "nextAction",
+        "limitations"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/digest" },
+        "status": { "enum": ["analyzed", "skipped", "failed"] },
+        "contextId": { "$ref": "#/$defs/digest" },
+        "dependency": { "$ref": "#/$defs/dependency" },
+        "versions": { "$ref": "#/$defs/versions" },
+        "summary": { "type": "string", "minLength": 1 },
+        "summaryEvidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "riskLevel": { "enum": ["low", "medium", "high", "unknown"] },
+        "riskEvidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" }
+        },
+        "evidenceCoverage": { "enum": ["none", "partial", "sufficient"] },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "validation": { "$ref": "#/$defs/validation" },
+        "requiresHumanReview": { "type": "boolean" },
+        "humanReviewReasons": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "nextAction": {
+          "enum": [
+            "collectEvidence",
+            "provideExplicitTarget",
+            "resolveCurrentVersion",
+            "reviewBeforeImpactAnalysis",
+            "proceedToImpactAnalysis",
+            "noUpgradeNeeded",
+            "retryAnalysis"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/limitation" }
+        }
+      }
+    }
+  }
+}

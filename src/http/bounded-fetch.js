@@ -1,6 +1,7 @@
 import { USER_AGENT } from '../constants.js';
 
 const JSON_MEDIA_TYPE = /^(?:application\/(?:json|[a-z0-9.+-]+\+json))(?:\s*;|$)/i;
+const EVIDENCE_MEDIA_TYPE = /^(?:text\/(?:plain|markdown|html)|application\/(?:json|[a-z0-9.+-]+\+json|xhtml\+xml))(?:\s*;|$)/i;
 
 /**
  * Adapter configuration is intentionally bounded even though the transport
@@ -203,4 +204,75 @@ export async function fetchRegistryJson(url, {
 
 export function fetchNpmJson(url, options = {}) {
   return fetchRegistryJson(url, { ...options, errorPrefix: 'NPM', serviceName: 'npm Registry' });
+}
+
+/**
+ * Fetch one bounded public evidence document. This deliberately shares the
+ * registry transport policy: GET only, no credentials, no redirects, a hard
+ * deadline, a hard body limit, and sanitized failures.
+ */
+export async function fetchEvidenceDocument(url, {
+  fetchImplementation = globalThis.fetch,
+  timeoutMs = 10_000,
+  maxResponseBytes = 512 * 1024,
+  userAgent = USER_AGENT,
+  setTimeoutImplementation = setTimeout,
+  clearTimeoutImplementation = clearTimeout
+} = {}) {
+  if (typeof fetchImplementation !== 'function') {
+    throw new BoundedFetchError('EVIDENCE_REQUEST_INVALID', 'A WHATWG-compatible fetch implementation is required.');
+  }
+  validLimit(timeoutMs, 'timeoutMs', 'EVIDENCE');
+  validLimit(maxResponseBytes, 'maxResponseBytes', 'EVIDENCE');
+  const controller = new AbortController();
+  const timer = setTimeoutImplementation(() => controller.abort(), timeoutMs);
+  let response;
+  try {
+    try {
+      response = await fetchImplementation(url, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json, text/markdown, text/plain, text/html;q=0.8',
+          'User-Agent': userAgent
+        },
+        signal: controller.signal,
+        credentials: 'omit',
+        redirect: 'error'
+      });
+    } catch (error) {
+      if (controller.signal.aborted || error?.name === 'AbortError') {
+        throw new BoundedFetchError('EVIDENCE_REQUEST_TIMEOUT', 'Evidence source request timed out.');
+      }
+      throw new BoundedFetchError('EVIDENCE_TRANSPORT_FAILED', 'Evidence source request failed.');
+    }
+    if (!response || !Number.isInteger(response.status)) {
+      await discardResponseBody(response);
+      throw new BoundedFetchError('EVIDENCE_RESPONSE_INVALID', 'Evidence source returned an invalid HTTP response.');
+    }
+    if (response.status !== 200) {
+      await discardResponseBody(response);
+      return { status: response.status, mediaType: null, text: null };
+    }
+    const contentType = headerValue(response.headers, 'content-type');
+    if (!contentType || !EVIDENCE_MEDIA_TYPE.test(contentType)) {
+      await discardResponseBody(response);
+      throw new BoundedFetchError('EVIDENCE_RESPONSE_INVALID', 'Evidence source returned an unsupported media type.');
+    }
+    let text;
+    try {
+      text = await readBoundedText(response, maxResponseBytes, {
+        errorPrefix: 'EVIDENCE',
+        serviceName: 'Evidence source'
+      });
+    } catch (error) {
+      if (error instanceof BoundedFetchError) throw error;
+      if (controller.signal.aborted || error?.name === 'AbortError') {
+        throw new BoundedFetchError('EVIDENCE_REQUEST_TIMEOUT', 'Evidence source request timed out.');
+      }
+      throw new BoundedFetchError('EVIDENCE_TRANSPORT_FAILED', 'Evidence source response could not be read.');
+    }
+    return { status: 200, mediaType: contentType.split(';', 1)[0].trim().toLowerCase(), text };
+  } finally {
+    clearTimeoutImplementation(timer);
+  }
 }

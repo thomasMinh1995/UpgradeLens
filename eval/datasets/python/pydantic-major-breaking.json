@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "python/pydantic-major-breaking",
+  "title": "Pydantic major upgrade with migration guide",
+  "category": "high-risk",
+  "repository": {
+    "name": "pydantic-major-fixture",
+    "fixturePath": "fixtures/python/pydantic-major-breaking",
+    "ecosystem": "python",
+    "packageManager": "pip",
+    "languages": ["Python"]
+  },
+  "dependency": {
+    "packageId": "pypi:pydantic",
+    "declaredName": "pydantic",
+    "normalizedName": "pydantic",
+    "ecosystem": "python",
+    "registry": "pypi",
+    "dependencyType": "runtime",
+    "manifest": "requirements.txt"
+  },
+  "versions": {
+    "analysisMode": "exactBaseline",
+    "declaredVersion": "1.10.13",
+    "currentVersion": "1.10.13",
+    "targetVersion": "2.0.0",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "upgrade", "classification": "major" }
+  },
+  "selectedEvidence": [
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4",
+      "kind": "migrationGuide",
+      "sourceId": "pypi:pydantic:migration-guide",
+      "sourceUrl": "https://docs.pydantic.dev/latest/migration/",
+      "authority": "officialProject",
+      "trust": "official",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb4",
+      "locator": "heading:Migration Guide",
+      "releaseVersions": ["2.0.0"],
+      "content": "Pydantic V2 includes many breaking changes from V1. Users should read the migration guide before upgrading from Pydantic V1 to V2."
+    }
+  ],
+  "expectedResult": {
+    "riskLevel": "high",
+    "requiresHumanReview": true,
+    "humanReviewReasons": ["HIGH_RISK"],
+    "evidenceCoverage": "sufficient",
+    "validation": { "status": "valid", "warningCodes": [] },
+    "expectedEvidenceRefs": {
+      "summary": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4"],
+      "risk": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4"],
+      "findings": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4"]
+    },
+    "expectedFindings": [
+      {
+        "kind": "breakingChange",
+        "appliesToVersions": ["2.0.0"],
+        "evidenceRefs": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa4"],
+        "requiredKeywords": ["breaking", "migration"]
+      }
+    ],
+    "forbiddenClaims": ["source-code impact", "automatic fix"]
+  },
+  "notes": "Major migration guide case for Python ecosystem."
+}

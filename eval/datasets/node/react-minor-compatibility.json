@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "node/react-minor-compatibility",
+  "title": "React minor release with compatibility note",
+  "category": "medium-risk",
+  "repository": {
+    "name": "react-minor-fixture",
+    "fixturePath": "fixtures/node/react-minor-compatibility",
+    "ecosystem": "node",
+    "packageManager": "npm",
+    "languages": ["JavaScript"]
+  },
+  "dependency": {
+    "packageId": "npm:react",
+    "declaredName": "react",
+    "normalizedName": "react",
+    "ecosystem": "node",
+    "registry": "npm",
+    "dependencyType": "dependency",
+    "manifest": "package.json"
+  },
+  "versions": {
+    "analysisMode": "exactBaseline",
+    "declaredVersion": "18.2.0",
+    "currentVersion": "18.2.0",
+    "targetVersion": "18.3.0",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "upgrade", "classification": "minor" }
+  },
+  "selectedEvidence": [
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1",
+      "kind": "compatibility",
+      "sourceId": "npm:react:official-release-notes",
+      "sourceUrl": "https://react.dev/blog/2024/04/25/react-19-upgrade-guide",
+      "authority": "officialProject",
+      "trust": "official",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1",
+      "locator": "heading:18.3 warnings",
+      "releaseVersions": ["18.3.0"],
+      "content": "React 18.3 adds warnings that help prepare for React 19. The release is intended to surface compatibility issues before the next major upgrade."
+    }
+  ],
+  "expectedResult": {
+    "riskLevel": "medium",
+    "requiresHumanReview": false,
+    "humanReviewReasons": [],
+    "evidenceCoverage": "sufficient",
+    "validation": { "status": "valid", "warningCodes": [] },
+    "expectedEvidenceRefs": {
+      "summary": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"],
+      "risk": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"],
+      "findings": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"]
+    },
+    "expectedFindings": [
+      {
+        "kind": "compatibility",
+        "appliesToVersions": ["18.3.0"],
+        "evidenceRefs": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1"],
+        "requiredKeywords": ["warnings", "compatibility"]
+      }
+    ],
+    "forbiddenClaims": ["source-code impact", "mandatory migration"]
+  },
+  "notes": "Minor release has compatibility warnings but no documented hard break."
+}

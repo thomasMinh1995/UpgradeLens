@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/capability-profile.schema.json",
+  "title": "UpgradeLens AI Runtime Capability Profile",
+  "description": "Portable descriptive metadata for one declared runtime capability set.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "capabilityId",
+    "protocol",
+    "structuredOutput",
+    "jsonMode",
+    "streaming",
+    "toolCalling",
+    "responsesApi",
+    "usageMetadata",
+    "identityVerification",
+    "timeoutSupported"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "capabilityId": { "$ref": "#/$defs/id" },
+    "protocol": { "$ref": "#/$defs/id" },
+    "structuredOutput": {
+      "enum": ["jsonSchema", "jsonMode", "promptOnly", "none"]
+    },
+    "jsonMode": { "type": "boolean" },
+    "streaming": { "type": "boolean" },
+    "toolCalling": { "type": "boolean" },
+    "responsesApi": { "type": "boolean" },
+    "usageMetadata": { "type": "boolean" },
+    "identityVerification": { "type": "boolean" },
+    "timeoutSupported": { "type": "boolean" }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    }
+  }
+}

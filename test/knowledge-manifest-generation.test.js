@@ -11,6 +11,7 @@ import {
 } from '../src/knowledge-manifest-builder.js';
 import { serializeKnowledgeManifest, writeKnowledgeManifest } from '../src/knowledge-manifest-writer.js';
 import { runCli } from '../src/cli.js';
+import { createEvidenceSourceAdapter } from '../src/evidence-source-adapter.js';
 
 const manifestFixtureDirectory = new URL('./fixtures/knowledge-manifest/', import.meta.url);
 const npmFixtureDirectory = new URL('./fixtures/npm/', import.meta.url);
@@ -22,6 +23,20 @@ async function fixture(name) {
 function capture() {
   let value = '';
   return { stream: { write(chunk) { value += chunk; } }, value: () => value };
+}
+
+function memoryCache() {
+  const entries = new Map();
+  return {
+    async read(identity) {
+      return entries.get(JSON.stringify(identity)) ?? { status: 'missing' };
+    },
+    async write(identity, body) {
+      const storedAt = '2026-07-15T00:00:00.000Z';
+      entries.set(JSON.stringify(identity), { status: 'fresh', body, storedAt });
+      return { status: 'written', storedAt };
+    }
+  };
 }
 
 function researchResultFrom(manifest) {
@@ -157,8 +172,42 @@ test('research CLI writes the default/custom artifact and --stdout prints only J
   const stderr = capture();
   assert.equal(await runCli(['research', root], { stdout: capture().stream, stderr: stderr.stream, fetch }), 0);
   const defaultPath = path.join(root, '.upgradelens', 'knowledge-manifest.json');
+  const evidencePath = path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json');
   assert.equal(JSON.parse(await fs.readFile(defaultPath, 'utf8')).schemaVersion, '1.0.0');
+  const evidenceBundle = JSON.parse(await fs.readFile(evidencePath, 'utf8'));
+  assert.equal(evidenceBundle.schemaVersion, '1.0.0');
+  assert.equal(evidenceBundle.summary.evidenceCount, 1);
+  assert.equal(evidenceBundle.evidence[0].kind, 'registryFact');
   assert.match(stderr.value(), /Planned research \(1 packages\)/);
+  assert.match(stderr.value(), /Knowledge Evidence Bundle validated/);
+
+  const analyzeCode = await runCli(['analyze-version', root], {
+    stdout: capture().stream,
+    stderr: capture().stream,
+    aiRuntime: {
+      async generateStructured(request) {
+        const contextJson = request.userPrompt.split('Dependency AI Context:\n').at(-1);
+        const evidenceId = JSON.parse(contextJson).metadata.selectedEvidenceIds[0];
+        return {
+          output: {
+            summary: 'Registry evidence identifies the latest React release.',
+            summaryEvidenceRefs: [evidenceId],
+            riskLevel: 'unknown',
+            riskEvidenceRefs: [],
+            findings: []
+          },
+          provider: 'fake',
+          model: 'fake',
+          latencyMs: 0
+        };
+      }
+    }
+  });
+  assert.equal(analyzeCode, 0);
+  assert.equal(
+    JSON.parse(await fs.readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8')).schemaVersion,
+    '1.0.0'
+  );
 
   const stdout = capture();
   assert.equal(await runCli(['research', root, '--stdout'], { stdout: stdout.stream, stderr: capture().stream, fetch }), 0);
@@ -168,6 +217,7 @@ test('research CLI writes the default/custom artifact and --stdout prints only J
     stdout: capture().stream, stderr: capture().stream, fetch
   }), 0);
   assert.equal(JSON.parse(await fs.readFile(path.join(root, 'artifacts/knowledge.json'), 'utf8')).schemaVersion, '1.0.0');
+  assert.equal(JSON.parse(await fs.readFile(evidencePath, 'utf8')).input.knowledgeManifest.artifact, 'artifacts/knowledge.json');
 });
 
 test('offline research uses a fresh cache without fetch and emits unavailable cache-miss facts when absent', async (t) => {
@@ -196,4 +246,44 @@ test('offline research uses a fresh cache without fetch and emits unavailable ca
   const offline = JSON.parse(coldStdout.value());
   assert.equal(offline.packages[0].status, 'unavailable');
   assert.ok(offline.warnings.some((warning) => warning.code === 'OFFLINE_CACHE_MISS'));
+});
+
+test('research CLI enriches the portable bundle from a registry-qualified official release source', async (t) => {
+  const root = await repository();
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const packument = JSON.parse(await fs.readFile(new URL('react-packument.json', npmFixtureDirectory), 'utf8'));
+  const fetch = async (url) => {
+    const target = String(url);
+    if (target.startsWith('https://registry.npmjs.org/')) {
+      return new Response(JSON.stringify(packument), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (target === 'https://api.github.com/repos/facebook/react/releases') {
+      return new Response(JSON.stringify([{
+        tag_name: 'v19.2.0',
+        name: 'React 19.2.0 release',
+        body: 'This official release documents compatibility updates.',
+        draft: false,
+        published_at: '2026-07-15T00:00:00.000Z'
+      }]), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('', { status: 404, headers: { 'content-type': 'text/plain' } });
+  };
+  await runCli(['discover', root], { stdout: capture().stream, stderr: capture().stream });
+  const evidenceSourceAdapter = createEvidenceSourceAdapter({ cache: memoryCache(), fetch });
+  assert.equal(await runCli(['research', root], {
+    stdout: capture().stream,
+    stderr: capture().stream,
+    fetch,
+    evidenceSourceAdapter
+  }), 0);
+  const manifest = JSON.parse(await fs.readFile(path.join(root, '.upgradelens/knowledge-manifest.json'), 'utf8'));
+  const bundle = JSON.parse(await fs.readFile(path.join(root, '.upgradelens/knowledge-evidence-bundle.json'), 'utf8'));
+  assert.ok(manifest.sources.some((source) => source.kind === 'releaseFeed' && source.status === 'available'));
+  assert.ok(bundle.evidence.some((item) => item.kind === 'releaseNotes'
+    && item.releaseVersions.includes('19.2.0')));
+  assert.ok(bundle.evidence.some((item) => item.kind === 'registryFact'), JSON.stringify({
+    evidence: bundle.evidence,
+    latest: manifest.packages[0].latest,
+    sources: manifest.sources
+  }));
 });

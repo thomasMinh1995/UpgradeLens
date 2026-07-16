@@ -3,14 +3,79 @@ import path from 'node:path';
 
 import {
   CLI_NAME,
+  CAPABILITY_PROFILE_FILENAME,
+  DEFAULT_AI_SCORECARD_PATH,
+  DEFAULT_BENCHMARK_CONFIG_PATH,
+  DEFAULT_BENCHMARK_REPORT_PATH,
+  DEFAULT_CONFORMANCE_REPORT_PATH,
+  DEPLOYMENT_PROFILE_FILENAME,
+  DEFAULT_GOVERNANCE_DIRECTORY,
   DEFAULT_KNOWLEDGE_MANIFEST_PATH,
   DEFAULT_MANIFEST_PATH,
+  DEFAULT_EVALUATION_REPORT_PATH,
+  DEFAULT_METRICS_PATH,
+  QUALIFICATION_RECORD_FILENAME,
+  DEFAULT_VERSION_ANALYSIS_PATH,
   PRODUCT_NAME,
   VERSION
 } from './constants.js';
+import {
+  buildAiScorecard,
+  serializeAiScorecard,
+  writeAiScorecard
+} from './ai-scorecard.js';
+import {
+  analyzeDependencyAiContext,
+  buildVersionAnalysisPrompt
+} from './ai-version-analysis.js';
+import {
+  createHttpJsonAiProvider,
+  createProviderAiRuntime
+} from './ai-runtime.js';
+import {
+  DEFAULT_AI_TIMEOUT_MS,
+  createOpenAiCompatibleProvider
+} from './openai-compatible-provider.js';
+import { isAiRuntimeDebugEnabled } from './ai-runtime-debug.js';
+import {
+  buildDependencyAiContext,
+  resolveDependencyAnalysisInputs
+} from './dependency-ai-context.js';
+import { createEvidenceSourceAdapter } from './evidence-source-adapter.js';
 import { discoverProject } from './discovery.js';
+import {
+  DEFAULT_EVALUATION_DATASET_PATH,
+  runEvaluation,
+  writeEvaluationReport
+} from './evaluation-runner.js';
+import { serializeEvaluationReport } from './evaluation-report.js';
+import {
+  loadBenchmarkConfig,
+  runBenchmark,
+  serializeBenchmarkReport,
+  writeBenchmarkReport
+} from './benchmark-runner.js';
+import { runConformance } from './conformance-runner.js';
+import {
+  serializeConformanceReport,
+  writeConformanceReport
+} from './conformance-report.js';
+import {
+  createDefaultGovernanceArtifacts,
+  serializeGovernanceArtifacts,
+  writeGovernanceArtifacts
+} from './governance-metadata.js';
+import {
+  buildMetrics,
+  loadEvaluationReportForMetrics,
+  writeMetrics
+} from './metrics-engine.js';
 import { createCliHttpRuntime } from './http/cli-http-runtime.js';
 import { createKnowledgeCache } from './knowledge-cache.js';
+import {
+  buildKnowledgeEvidenceBundle,
+  writeKnowledgeEvidenceBundle
+} from './knowledge-evidence-producer.js';
 import { buildKnowledgeManifest } from './knowledge-manifest-builder.js';
 import { serializeKnowledgeManifest, writeKnowledgeManifest } from './knowledge-manifest-writer.js';
 import { createKnowledgeResearchOrchestrator } from './knowledge-research.js';
@@ -19,6 +84,12 @@ import { createResearchPlan } from './research-plan.js';
 import { createNpmRegistryAdapter } from './registry/npm-registry-adapter.js';
 import { createPypiRegistryAdapter } from './registry/pypi-registry-adapter.js';
 import { isPortableRelativePath } from './portable.js';
+import {
+  DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH,
+  loadVersionAnalysisArtifacts
+} from './version-analysis-loader.js';
+import { buildVersionAnalysisManifest } from './version-analysis-manifest.js';
+import { serializeVersionAnalysisManifest, writeVersionAnalysisManifest } from './version-analysis-writer.js';
 
 const HELP = `${PRODUCT_NAME} ${VERSION}
 
@@ -27,6 +98,12 @@ Discover repository structure or research declared public packages.
 Usage:
   ${CLI_NAME} discover [path] [options]
   ${CLI_NAME} research [path] [options]
+  ${CLI_NAME} analyze-version [path] [options]
+  ${CLI_NAME} eval [options]
+  ${CLI_NAME} scorecard [options]
+  ${CLI_NAME} benchmark [options]
+  ${CLI_NAME} conformance [options]
+  ${CLI_NAME} governance [options]
   ${CLI_NAME} [path] [options]
 
 Discover options:
@@ -42,6 +119,46 @@ Research options:
                         (default: ${DEFAULT_KNOWLEDGE_MANIFEST_PATH})
       --stdout          Print only the Knowledge Manifest JSON
       --offline         Use fresh cache entries only; never request registries
+
+Analyze-version options:
+  -o, --output <path>   Version Analysis artifact path relative to the project root
+                        (default: ${DEFAULT_VERSION_ANALYSIS_PATH})
+      --package <id>    Analyze one exact canonical package ID (for example, pypi:langsmith)
+      --stdout          Print only the Version Analysis JSON
+
+Eval options:
+      --dataset <path>  Golden Dataset file or directory
+                        (default: ${DEFAULT_EVALUATION_DATASET_PATH})
+  -o, --output <path>   Evaluation report path
+                        (default: ${DEFAULT_EVALUATION_REPORT_PATH})
+      --stdout          Print only the Evaluation Report JSON
+
+Scorecard options:
+      --report <path>   Evaluation Report path
+                        (default: ${DEFAULT_EVALUATION_REPORT_PATH})
+      --metrics-output <path>
+                        Metrics artifact path
+                        (default: ${DEFAULT_METRICS_PATH})
+  -o, --output <path>   AI Scorecard path
+                        (default: ${DEFAULT_AI_SCORECARD_PATH})
+      --stdout          Print only the AI Scorecard JSON
+
+Benchmark options:
+      --config <path>   Benchmark config path
+                        (default: ${DEFAULT_BENCHMARK_CONFIG_PATH})
+  -o, --output <path>   Benchmark Report path
+                        (default: ${DEFAULT_BENCHMARK_REPORT_PATH})
+      --stdout          Print only the Benchmark Report JSON
+
+Conformance options:
+  -o, --output <path>   Offline Conformance Report path
+                        (default: ${DEFAULT_CONFORMANCE_REPORT_PATH})
+      --stdout          Print only the Offline Conformance Report JSON
+
+Governance options:
+  -o, --output <path>   Directory for portable governance artifacts
+                        (default: ${DEFAULT_GOVERNANCE_DIRECTORY})
+      --stdout          Print a bundle containing the three governance artifacts
   -h, --help            Show help
   -v, --version         Show version
 `;
@@ -59,11 +176,31 @@ function outputPath(root, output) {
 
 export function parseArguments(argv) {
   const args = [...argv];
-  const command = ['discover', 'research'].includes(args[0]) ? args.shift() : 'discover';
+  const command = ['discover', 'research', 'analyze-version', 'eval', 'scorecard', 'benchmark', 'conformance', 'governance'].includes(args[0])
+    ? args.shift()
+    : 'discover';
   const options = {
     command,
     root: '.',
-    output: command === 'research' ? DEFAULT_KNOWLEDGE_MANIFEST_PATH : DEFAULT_MANIFEST_PATH,
+    output: command === 'research'
+      ? DEFAULT_KNOWLEDGE_MANIFEST_PATH
+      : command === 'analyze-version'
+        ? DEFAULT_VERSION_ANALYSIS_PATH
+        : command === 'eval'
+          ? DEFAULT_EVALUATION_REPORT_PATH
+        : command === 'scorecard'
+          ? DEFAULT_AI_SCORECARD_PATH
+        : command === 'benchmark'
+          ? DEFAULT_BENCHMARK_REPORT_PATH
+        : command === 'conformance'
+          ? DEFAULT_CONFORMANCE_REPORT_PATH
+        : command === 'governance'
+          ? DEFAULT_GOVERNANCE_DIRECTORY
+        : DEFAULT_MANIFEST_PATH,
+    dataset: DEFAULT_EVALUATION_DATASET_PATH,
+    report: DEFAULT_EVALUATION_REPORT_PATH,
+    metricsOutput: DEFAULT_METRICS_PATH,
+    config: DEFAULT_BENCHMARK_CONFIG_PATH,
     pretty: true,
     stdout: false,
     failOnWarning: false,
@@ -81,6 +218,24 @@ export function parseArguments(argv) {
     else if (argument === '--output' || argument === '-o') {
       options.output = takeValue(args, index, argument);
       index += 1;
+    } else if (argument === '--dataset') {
+      options.dataset = takeValue(args, index, argument);
+      index += 1;
+    } else if (argument === '--report') {
+      options.report = takeValue(args, index, argument);
+      index += 1;
+    } else if (argument === '--metrics-output') {
+      options.metricsOutput = takeValue(args, index, argument);
+      index += 1;
+    } else if (argument === '--config') {
+      options.config = takeValue(args, index, argument);
+      index += 1;
+    } else if (argument === '--package') {
+      if (options.packageId !== undefined) {
+        throw new Error('--package accepts exactly one canonical package ID.');
+      }
+      options.packageId = takeValue(args, index, argument);
+      index += 1;
     } else if (argument === '--max-depth') {
       const raw = takeValue(args, index, argument);
       const depth = Number(raw);
@@ -88,15 +243,47 @@ export function parseArguments(argv) {
       options.maxDepth = depth;
       index += 1;
     } else if (argument.startsWith('-')) throw new Error(`Unknown option: ${argument}`);
-    else if (!rootSet) {
+    else if (!rootSet && command !== 'eval' && command !== 'scorecard' && command !== 'benchmark'
+      && command !== 'conformance' && command !== 'governance') {
       options.root = argument;
       rootSet = true;
+    } else if (!rootSet && command === 'eval') {
+      options.dataset = argument;
+      rootSet = true;
+    } else if (!rootSet && command === 'scorecard') {
+      options.report = argument;
+      rootSet = true;
+    } else if (!rootSet && command === 'benchmark') {
+      options.config = argument;
+      rootSet = true;
+    } else if (!rootSet && command === 'conformance') {
+      throw new Error(`Unexpected argument: ${argument}`);
+    } else if (!rootSet && command === 'governance') {
+      throw new Error(`Unexpected argument: ${argument}`);
     } else throw new Error(`Unexpected argument: ${argument}`);
   }
   if (command === 'discover' && options.offline) throw new Error('--offline is only supported by research');
-  if (command === 'research' && options.maxDepth !== undefined) throw new Error('--max-depth is only supported by discover');
-  if (command === 'research' && options.failOnWarning) throw new Error('--fail-on-warning is only supported by discover');
-  if (command === 'research' && !options.pretty) throw new Error('--no-pretty is only supported by discover');
+  if (command !== 'research' && options.offline) throw new Error('--offline is only supported by research');
+  if (command !== 'discover' && options.maxDepth !== undefined) throw new Error('--max-depth is only supported by discover');
+  if (command !== 'discover' && options.failOnWarning) throw new Error('--fail-on-warning is only supported by discover');
+  if (command !== 'discover' && !options.pretty) throw new Error('--no-pretty is only supported by discover');
+  if (command !== 'eval' && options.dataset !== DEFAULT_EVALUATION_DATASET_PATH) throw new Error('--dataset is only supported by eval');
+  if (command !== 'scorecard' && options.report !== DEFAULT_EVALUATION_REPORT_PATH) throw new Error('--report is only supported by scorecard');
+  if (command !== 'scorecard' && options.metricsOutput !== DEFAULT_METRICS_PATH) {
+    throw new Error('--metrics-output is only supported by scorecard');
+  }
+  if (command !== 'benchmark' && options.config !== DEFAULT_BENCHMARK_CONFIG_PATH) throw new Error('--config is only supported by benchmark');
+  if (command !== 'analyze-version' && options.packageId !== undefined) {
+    throw new Error('--package is only supported by analyze-version');
+  }
+  if (options.packageId !== undefined) {
+    const separator = options.packageId.indexOf(':');
+    const ecosystem = options.packageId.slice(0, separator);
+    const name = options.packageId.slice(separator + 1);
+    if (separator <= 0 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(ecosystem) || name.length === 0 || /\s/.test(name)) {
+      throw new Error('--package must be an exact canonical package ID such as npm:react or pypi:langsmith.');
+    }
+  }
   return options;
 }
 
@@ -109,8 +296,13 @@ async function writeProjectManifest(root, output, contents) {
   return target;
 }
 
-function researchAdapters(root, options, io) {
-  if (io.adapters) return io.adapters;
+function researchComponents(root, options, io) {
+  if (io.adapters) {
+    return {
+      adapters: io.adapters,
+      evidenceSourceAdapter: io.evidenceSourceAdapter ?? null
+    };
+  }
   const clock = io.clock ?? (() => new Date());
   const cache = createKnowledgeCache({
     rootDirectory: path.join(root, '.upgradelens/cache/knowledge/v1'),
@@ -118,12 +310,26 @@ function researchAdapters(root, options, io) {
   });
   const adapterOptions = { cache, clock, fetch: io.fetch, offline: options.offline };
   return {
-    npm: createNpmRegistryAdapter(adapterOptions),
-    pypi: createPypiRegistryAdapter(adapterOptions)
+    adapters: {
+      npm: createNpmRegistryAdapter(adapterOptions),
+      pypi: createPypiRegistryAdapter(adapterOptions)
+    },
+    evidenceSourceAdapter: io.evidenceSourceAdapter !== undefined
+      ? io.evidenceSourceAdapter
+      : io.defaultEvidenceEnrichment === false
+        ? null
+        : createEvidenceSourceAdapter({
+            cache,
+            clock,
+            fetch: io.fetch,
+            offline: options.offline
+          })
   };
 }
 
 async function runResearch(options, io) {
+  const defaultEvidenceEnrichment = io.evidenceSourceAdapter !== undefined
+    || (!io.adapters && !io.fetch);
   const runtime = options.offline || io.fetch
     ? null
     : (io.createHttpRuntime ?? createCliHttpRuntime)();
@@ -132,7 +338,8 @@ async function runResearch(options, io) {
   try {
     result = await executeResearch(options, {
       ...io,
-      fetch: runtime?.fetch ?? io.fetch
+      fetch: runtime?.fetch ?? io.fetch,
+      defaultEvidenceEnrichment
     });
   } catch (error) {
     primaryError = error;
@@ -155,8 +362,10 @@ async function executeResearch(options, io) {
   });
   const plan = createResearchPlan(loaded);
   const clock = io.clock ?? (() => new Date());
+  const components = researchComponents(root, options, io);
   const orchestrator = createKnowledgeResearchOrchestrator({
-    adapters: researchAdapters(root, options, io),
+    adapters: components.adapters,
+    evidenceSourceAdapter: components.evidenceSourceAdapter,
     clock,
     concurrency: io.concurrency ?? 4
   });
@@ -172,12 +381,282 @@ async function executeResearch(options, io) {
     io.stdout.write(contents);
     return 0;
   }
+  const manifestBytes = Buffer.from(contents, 'utf8');
+  const evidenceBundle = (io.buildKnowledgeEvidenceBundle ?? buildKnowledgeEvidenceBundle)(manifest, {
+    knowledgeManifestArtifact: options.output,
+    knowledgeManifestBytes: manifestBytes,
+    generatedAt: manifest.generatedAt,
+    enrichedEvidence: result.evidence
+  });
   const target = await (io.writeKnowledgeManifest ?? writeKnowledgeManifest)(outputPath(root, options.output), manifest);
+  const evidenceTarget = await (io.writeKnowledgeEvidenceBundle ?? writeKnowledgeEvidenceBundle)(
+    outputPath(root, DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH),
+    evidenceBundle
+  );
   io.stderr.write('✓ Loaded Project Manifest\n');
   io.stderr.write(`✓ Planned research (${plan.packages.length} packages)\n`);
   io.stderr.write('✓ Research complete\n');
   io.stderr.write('✓ Knowledge Manifest validated\n');
   io.stderr.write(`✓ Wrote:\n${target}\n`);
+  io.stderr.write(`✓ Knowledge Evidence Bundle validated\n`);
+  io.stderr.write(`✓ Wrote:\n${evidenceTarget}\n`);
+  return 0;
+}
+
+function createDefaultAiRuntime(io) {
+  const env = io.env ?? process.env;
+  const providerName = env.UPGRADELENS_AI_PROVIDER ?? 'http-json';
+  if (!env.UPGRADELENS_AI_ENDPOINT) {
+    throw new Error('AI runtime is not configured. Set UPGRADELENS_AI_ENDPOINT or provide an AiRuntime.');
+  }
+  if (providerName === 'openai-compatible') {
+    const provider = createOpenAiCompatibleProvider({
+      endpoint: env.UPGRADELENS_AI_ENDPOINT,
+      model: env.UPGRADELENS_AI_MODEL,
+      authorization: env.UPGRADELENS_AI_AUTHORIZATION,
+      fetchImplementation: io.fetch,
+      timeoutMs: configuredAiTimeoutMs(env),
+      debug: isAiRuntimeDebugEnabled(env),
+      debugWriter: io.aiDebugWriter ?? io.stderr ?? process.stderr
+    });
+    return createProviderAiRuntime({ provider });
+  }
+  const headers = {};
+  if (env.UPGRADELENS_AI_AUTHORIZATION) headers.authorization = env.UPGRADELENS_AI_AUTHORIZATION;
+  const provider = createHttpJsonAiProvider({
+    endpoint: env.UPGRADELENS_AI_ENDPOINT,
+    fetchImplementation: io.fetch,
+    headers,
+    provider: providerName,
+    model: env.UPGRADELENS_AI_MODEL ?? 'unknown'
+  });
+  return createProviderAiRuntime({
+    provider,
+    promptBuilder: buildVersionAnalysisPrompt
+  });
+}
+
+function configuredAiTimeoutMs(env) {
+  const raw = env.UPGRADELENS_AI_TIMEOUT_MS;
+  if (raw === undefined) return DEFAULT_AI_TIMEOUT_MS;
+  const timeoutMs = Number(raw);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('UPGRADELENS_AI_TIMEOUT_MS must be a positive integer.');
+  }
+  return timeoutMs;
+}
+
+async function executeAnalyzeVersion(options, io) {
+  const root = path.resolve(options.root);
+  const artifacts = await loadVersionAnalysisArtifacts({
+    projectManifest: path.join(root, DEFAULT_MANIFEST_PATH),
+    knowledgeManifest: path.join(root, DEFAULT_KNOWLEDGE_MANIFEST_PATH),
+    evidenceBundle: path.join(root, DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH)
+  });
+  const allInputs = resolveDependencyAnalysisInputs(artifacts);
+  let inputs = allInputs;
+  if (options.packageId !== undefined) {
+    const packageExists = artifacts.knowledgeManifest.packages.some((item) => item.id === options.packageId);
+    if (!packageExists) {
+      throw new Error(`Selected package ${options.packageId} was not found in the Knowledge Manifest; no runtime call was made.`);
+    }
+    inputs = allInputs.filter((input) => input.packageRecord.id === options.packageId);
+    if (inputs.length === 0) {
+      throw new Error(`Selected package ${options.packageId} is not eligible for Version Analysis because it has no parsed dependency occurrence; no runtime call was made.`);
+    }
+    if (inputs.length > 1) {
+      throw new Error(`Selected package ${options.packageId} matches ${inputs.length} dependency occurrences; one-dependency selection is ambiguous and no runtime call was made.`);
+    }
+  }
+  const contexts = inputs.map((input) => buildDependencyAiContext(artifacts, {
+    input,
+    target: { policy: 'registryLatest' }
+  }));
+  const needsRuntime = contexts.some((context) => context.knowledge.evidence.length > 0
+    && context.versions.analysisMode !== 'unsupportedBaseline'
+    && context.versions.targetVersion !== null);
+  const runtime = io.aiRuntime ?? (needsRuntime ? createDefaultAiRuntime(io) : null);
+  const results = [];
+  for (const context of contexts) {
+    results.push(await analyzeDependencyAiContext(context, { runtime }));
+  }
+  const manifest = (io.buildVersionAnalysisManifest ?? buildVersionAnalysisManifest)({
+    input: artifacts.input,
+    contexts,
+    results,
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const contents = serializeVersionAnalysisManifest(manifest);
+  if (options.stdout) {
+    io.stdout.write(contents);
+    return 0;
+  }
+  const target = await (io.writeVersionAnalysisManifest ?? writeVersionAnalysisManifest)(outputPath(root, options.output), manifest);
+  io.stderr.write('✓ Loaded Project, Knowledge, and Evidence artifacts\n');
+  io.stderr.write(`✓ Built AI contexts (${contexts.length} dependencies)\n`);
+  io.stderr.write('✓ AI Version Analysis complete\n');
+  io.stderr.write('✓ Version Analysis artifact validated\n');
+  io.stderr.write(`✓ Wrote:\n${target}\n`);
+  return 0;
+}
+
+function evaluationRuntime(options, io) {
+  if (io.aiRuntime) return {
+    runtime: io.aiRuntime,
+    model: io.model ?? { provider: 'injected', name: 'injected' }
+  };
+  const env = io.env ?? process.env;
+  if (env.UPGRADELENS_AI_ENDPOINT) {
+    return {
+      runtime: createDefaultAiRuntime(io),
+      model: {
+        provider: env.UPGRADELENS_AI_PROVIDER ?? 'http-json',
+        name: env.UPGRADELENS_AI_MODEL ?? 'unknown'
+      }
+    };
+  }
+  return {
+    runtime: null,
+    model: { provider: 'golden-fake', name: 'golden-fake' }
+  };
+}
+
+async function executeEval(options, io) {
+  const selected = evaluationRuntime(options, io);
+  const report = await (io.runEvaluation ?? runEvaluation)({
+    datasetPath: options.dataset,
+    runtime: selected.runtime,
+    model: selected.model,
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const contents = serializeEvaluationReport(report);
+  if (options.stdout) {
+    io.stdout.write(contents);
+    return report.summary.failed > 0 ? 2 : 0;
+  }
+  const target = await (io.writeEvaluationReport ?? writeEvaluationReport)(outputPath('.', options.output), report);
+  io.stderr.write(`✓ Loaded Golden Dataset (${report.summary.totalCases} cases)\n`);
+  io.stderr.write('✓ Evaluation complete\n');
+  io.stderr.write(`✓ Passed: ${report.summary.passed}; Failed: ${report.summary.failed}\n`);
+  io.stderr.write(`✓ Wrote:\n${target}\n`);
+  return report.summary.failed > 0 ? 2 : 0;
+}
+
+async function executeScorecard(options, io) {
+  const report = await (io.loadEvaluationReportForMetrics ?? loadEvaluationReportForMetrics)(path.resolve(options.report));
+  const metrics = (io.buildMetrics ?? buildMetrics)(report, {
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const scorecard = (io.buildAiScorecard ?? buildAiScorecard)(metrics, {
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  if (options.stdout) {
+    io.stdout.write(serializeAiScorecard(scorecard));
+    return 0;
+  }
+  const metricsTarget = await (io.writeMetrics ?? writeMetrics)(path.resolve(options.metricsOutput), metrics);
+  const scorecardTarget = await (io.writeAiScorecard ?? writeAiScorecard)(outputPath('.', options.output), scorecard);
+  io.stderr.write(`✓ Loaded Evaluation Report (${report.summary.totalCases} cases)\n`);
+  io.stderr.write('✓ Metrics complete\n');
+  io.stderr.write(`✓ Scorecard: ${scorecard.overallScore}/100\n`);
+  io.stderr.write(`✓ Wrote metrics:\n${metricsTarget}\n`);
+  io.stderr.write(`✓ Wrote scorecard:\n${scorecardTarget}\n`);
+  return 0;
+}
+
+function benchmarkRuntimeFactory(io) {
+  return async (run, config) => {
+    if (io.benchmarkRuntimeFactory) return io.benchmarkRuntimeFactory(run, config);
+    if (run.runtime.type === 'goldenFake') return null;
+    if (run.runtime.type === 'environment') return createDefaultAiRuntime(io);
+    throw new Error(`Benchmark runtime ${run.runtime.type} is not supported by the CLI.`);
+  };
+}
+
+async function executeBenchmark(options, io) {
+  const configPath = path.resolve(options.config);
+  const config = await (io.loadBenchmarkConfig ?? loadBenchmarkConfig)(configPath);
+  const report = await (io.runBenchmark ?? runBenchmark)(config, {
+    configPath,
+    runtimeFactory: benchmarkRuntimeFactory(io),
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const contents = serializeBenchmarkReport(report);
+  if (options.stdout) {
+    io.stdout.write(contents);
+    return 0;
+  }
+  const target = await (io.writeBenchmarkReport ?? writeBenchmarkReport)(outputPath('.', options.output), report);
+  io.stderr.write(`✓ Loaded Benchmark Config (${report.benchmark.runCount} runs)\n`);
+  io.stderr.write('✓ Benchmark complete\n');
+  io.stderr.write(`✓ Top run: ${report.ranking[0]?.runId ?? 'none'}\n`);
+  io.stderr.write(`✓ Wrote:\n${target}\n`);
+  return 0;
+}
+
+async function executeConformance(options, io) {
+  const env = io.env ?? process.env;
+  const report = await (io.runConformance ?? runConformance)({
+    runtime: {
+      provider: env.UPGRADELENS_AI_PROVIDER ?? 'openai-compatible',
+      model: env.UPGRADELENS_AI_MODEL ?? 'offline-fixture'
+    },
+    generatedAt: io.clock ? io.clock() : new Date()
+  });
+  const contents = serializeConformanceReport(report);
+  if (options.stdout) {
+    io.stdout.write(contents);
+    return report.summary.failed > 0 ? 2 : 0;
+  }
+  const target = await (io.writeConformanceReport ?? writeConformanceReport)(
+    outputPath('.', options.output),
+    report
+  );
+  io.stderr.write(`✓ Offline conformance complete (${report.summary.total} cases)\n`);
+  io.stderr.write(`✓ Passed: ${report.summary.passed}; Failed: ${report.summary.failed}\n`);
+  io.stderr.write(`✓ Recommendation: ${report.recommendation}\n`);
+  io.stderr.write(`✓ Wrote:\n${target}\n`);
+  return report.summary.failed > 0 ? 2 : 0;
+}
+
+function governancePositiveInteger(value, fallback, name) {
+  if (value === undefined) return fallback;
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number <= 0) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return number;
+}
+
+async function executeGovernance(options, io) {
+  const env = io.env ?? process.env;
+  const artifacts = (io.createDefaultGovernanceArtifacts ?? createDefaultGovernanceArtifacts)({
+    provider: env.UPGRADELENS_AI_PROVIDER ?? 'openai-compatible',
+    endpoint: env.UPGRADELENS_AI_ENDPOINT,
+    model: env.UPGRADELENS_AI_MODEL ?? 'offline-fixture',
+    timeoutSeconds: governancePositiveInteger(
+      env.UPGRADELENS_AI_TIMEOUT_SECONDS,
+      180,
+      'UPGRADELENS_AI_TIMEOUT_SECONDS'
+    ),
+    maxResponseBytes: governancePositiveInteger(
+      env.UPGRADELENS_AI_MAX_RESPONSE_BYTES,
+      1_048_576,
+      'UPGRADELENS_AI_MAX_RESPONSE_BYTES'
+    )
+  });
+  if (options.stdout) {
+    io.stdout.write(serializeGovernanceArtifacts(artifacts));
+    return 0;
+  }
+  const targets = await (io.writeGovernanceArtifacts ?? writeGovernanceArtifacts)(
+    outputPath('.', options.output),
+    artifacts
+  );
+  io.stderr.write('✓ Governance metadata validated\n');
+  io.stderr.write(`✓ Wrote ${CAPABILITY_PROFILE_FILENAME}:\n${targets.capabilityProfile}\n`);
+  io.stderr.write(`✓ Wrote ${DEPLOYMENT_PROFILE_FILENAME}:\n${targets.deploymentProfile}\n`);
+  io.stderr.write(`✓ Wrote ${QUALIFICATION_RECORD_FILENAME}:\n${targets.qualificationRecord}\n`);
   return 0;
 }
 
@@ -195,6 +674,12 @@ export async function runCli(argv, io = {}) {
       return 0;
     }
     if (options.command === 'research') return await runResearch(options, { ...io, stdout, stderr });
+    if (options.command === 'analyze-version') return await executeAnalyzeVersion(options, { ...io, stdout, stderr });
+    if (options.command === 'eval') return await executeEval(options, { ...io, stdout, stderr });
+    if (options.command === 'scorecard') return await executeScorecard(options, { ...io, stdout, stderr });
+    if (options.command === 'benchmark') return await executeBenchmark(options, { ...io, stdout, stderr });
+    if (options.command === 'conformance') return await executeConformance(options, { ...io, stdout, stderr });
+    if (options.command === 'governance') return await executeGovernance(options, { ...io, stdout, stderr });
 
     const manifest = await discoverProject(options.root, { maxDepth: options.maxDepth });
     const contents = `${JSON.stringify(manifest, null, options.pretty ? 2 : 0)}\n`;

@@ -168,4 +168,19 @@ test('validates internal source graph invariants', () => {
   const source = nonRegistry(asymmetric)[0];
   source.conflictsWith = ['npm:example:registry'];
   assert.throws(() => validateSourceGraph(asymmetric), /invalid conflict reference/);
+
+  const fetched = structuredClone(graph);
+  const fetchedSource = nonRegistry(fetched)[0];
+  fetchedSource.status = 'available';
+  fetchedSource.snapshot = {
+    contentDigest: `sha256:${'a'.repeat(64)}`,
+    mediaType: 'text/markdown',
+    retrievedAt: '2026-07-15T00:00:00.000Z',
+    freshness: 'fresh'
+  };
+  assert.equal(validateSourceGraph(fetched), fetched);
+
+  const missingSnapshot = structuredClone(fetched);
+  nonRegistry(missingSnapshot)[0].snapshot = null;
+  assert.throws(() => validateSourceGraph(missingSnapshot), /must have a snapshot/);
 });

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "python/fastapi-deprecation",
+  "title": "FastAPI release with documented deprecation",
+  "category": "medium-risk",
+  "repository": {
+    "name": "fastapi-deprecation-fixture",
+    "fixturePath": "fixtures/python/fastapi-deprecation",
+    "ecosystem": "python",
+    "packageManager": "pip",
+    "languages": ["Python"]
+  },
+  "dependency": {
+    "packageId": "pypi:fastapi",
+    "declaredName": "fastapi",
+    "normalizedName": "fastapi",
+    "ecosystem": "python",
+    "registry": "pypi",
+    "dependencyType": "runtime",
+    "manifest": "requirements.txt"
+  },
+  "versions": {
+    "analysisMode": "exactBaseline",
+    "declaredVersion": "0.109.0",
+    "currentVersion": "0.109.0",
+    "targetVersion": "0.110.0",
+    "targetPolicy": "explicit",
+    "delta": { "direction": "upgrade", "classification": "minor" }
+  },
+  "selectedEvidence": [
+    {
+      "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3",
+      "kind": "deprecations",
+      "sourceId": "pypi:fastapi:release-notes",
+      "sourceUrl": "https://fastapi.tiangolo.com/release-notes/",
+      "authority": "officialProject",
+      "trust": "official",
+      "contentDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb3",
+      "locator": "heading:0.110.0",
+      "releaseVersions": ["0.110.0"],
+      "content": "FastAPI 0.110.0 documents a deprecation for an older parameter behavior. Existing projects should review usage before relying on the old behavior."
+    }
+  ],
+  "expectedResult": {
+    "riskLevel": "medium",
+    "requiresHumanReview": false,
+    "humanReviewReasons": [],
+    "evidenceCoverage": "sufficient",
+    "validation": { "status": "valid", "warningCodes": [] },
+    "expectedEvidenceRefs": {
+      "summary": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3"],
+      "risk": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3"],
+      "findings": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3"]
+    },
+    "expectedFindings": [
+      {
+        "kind": "deprecation",
+        "appliesToVersions": ["0.110.0"],
+        "evidenceRefs": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa3"],
+        "requiredKeywords": ["deprecation"]
+      }
+    ],
+    "forbiddenClaims": ["source-code impact", "major breaking change"]
+  },
+  "notes": "Deprecation evidence should not be escalated to high risk without a documented hard break."
+}
