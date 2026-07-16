@@ -16,14 +16,49 @@ export {
   DEFAULT_QUALIFICATION_RECORD_PATH,
   QUALIFICATION_RECORD_FILENAME,
   DEFAULT_VERSION_ANALYSIS_PATH,
+  DEFAULT_USAGE_INDEX_PATH,
+  DEFAULT_REPOSITORY_IMPACT_PATH,
   MANIFEST_SCHEMA_VERSION,
   PACKAGE_NAME,
   PRODUCT_NAME,
   VERSION_ANALYSIS_SCHEMA_VERSION,
+  USAGE_INDEX_SCHEMA_VERSION,
+  REPOSITORY_IMPACT_SCHEMA_VERSION,
   VERSION
 } from './constants.js';
 export { discoverProject } from './discovery.js';
 export { loadProjectManifestInput } from './project-manifest-input.js';
+export { createUsageAnalyzerRegistry } from './usage/analyzer-registry.js';
+export { UsageDiscoveryInputError, loadUsageDiscoveryInputs } from './usage/input-loader.js';
+export {
+  JAVASCRIPT_SOURCE_EXTENSIONS,
+  JAVASCRIPT_USAGE_ANALYZER_ID,
+  JAVASCRIPT_USAGE_ANALYZER_VERSION,
+  analyzeJavaScriptUsage,
+  createJavaScriptUsageAnalyzer,
+  npmPackageName
+} from './usage/js/analyzer.js';
+export { parseJavaScriptModule, parseJavaScriptSource } from './usage/js/parser.js';
+export { createDefaultUsageAnalyzerRegistry, discoverRepositoryUsage, runUsageDiscovery } from './usage/runtime.js';
+export { collectRepositorySourceFiles, collectUsageSourceFiles } from './usage/source-files.js';
+export { buildUsageIndex, validateUsageIndex, validateUsageIndexInvariants } from './usage/usage-index.js';
+export { serializeUsageIndex, writeUsageIndex } from './usage/writer.js';
+export { ImpactAnalysisInputError, loadImpactAnalysisInputs } from './impact/input-loader.js';
+export {
+  EXACT_SYMBOL_MATCHER_ID,
+  EXACT_SYMBOL_MATCHER_VERSION,
+  createExactSymbolImpactMatcher,
+  isMatchableUsageSymbol,
+  matchFindingToUsage,
+  summaryContainsExactSymbol
+} from './impact/matcher.js';
+export {
+  buildRepositoryImpact,
+  validateRepositoryImpact,
+  validateRepositoryImpactInvariants
+} from './impact/repository-impact.js';
+export { analyzeRepositoryImpact, runImpactAnalysis } from './impact/runtime.js';
+export { serializeRepositoryImpact, writeRepositoryImpact } from './impact/writer.js';
 export { createResearchPlan, validateResearchPlan } from './research-plan.js';
 export {
   AI_RUNTIME_CONTRACT_VERSION,
