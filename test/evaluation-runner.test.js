@@ -12,6 +12,10 @@ import {
   writeEvaluationReport
 } from '../src/index.js';
 import { runCli } from '../src/cli.js';
+import {
+  createSanitizedTestEnvironment,
+  UPGRADELENS_AI_ENV_KEYS
+} from '../test-support/environment.mjs';
 
 const passCasePath = 'eval/datasets/node/axios-patch-low.json';
 
@@ -105,14 +109,33 @@ test('evaluation report writer writes pretty JSON', async (t) => {
   assert.equal(JSON.parse(contents).schemaVersion, '1.0.0');
 });
 
+test('CLI evaluation environment removes inherited real AI configuration', () => {
+  const env = createSanitizedTestEnvironment({
+    ...process.env,
+    UPGRADELENS_AI_PROVIDER: 'openai-compatible',
+    UPGRADELENS_AI_ENDPOINT: 'https://example.invalid/chat/completions',
+    UPGRADELENS_AI_MODEL: 'hostile-parent-model',
+    UPGRADELENS_AI_AUTHORIZATION: 'Bearer must-not-leak',
+    UPGRADELENS_AI_TIMEOUT_MS: '1',
+    UPGRADELENS_AI_DEBUG: '1'
+  });
+
+  for (const key of UPGRADELENS_AI_ENV_KEYS) assert.equal(env[key], undefined);
+  assert.equal(env.PATH, process.env.PATH);
+});
+
 test('CLI eval supports stdout and output path', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-eval-cli-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const stdout = capture();
   const stderr = capture();
+  const env = createSanitizedTestEnvironment(process.env);
+  const unexpectedFetch = () => assert.fail('Evaluation CLI attempted a provider request.');
   const code = await runCli(['eval', '--dataset', passCasePath, '--stdout'], {
     stdout: stdout.stream,
     stderr: stderr.stream,
+    env,
+    fetch: unexpectedFetch,
     clock: () => new Date('2026-07-15T00:00:00.000Z')
   });
 
@@ -121,9 +144,13 @@ test('CLI eval supports stdout and output path', async (t) => {
   assert.equal(stderr.value(), '');
 
   let writtenReport;
+  const writeStdout = capture();
+  const writeStderr = capture();
   const writeCode = await runCli(['eval', passCasePath, '--output', 'reports/evaluation-report.json'], {
-    stdout: capture().stream,
-    stderr: capture().stream,
+    stdout: writeStdout.stream,
+    stderr: writeStderr.stream,
+    env,
+    fetch: unexpectedFetch,
     clock: () => new Date('2026-07-15T00:00:00.000Z'),
     writeEvaluationReport: async (target, report) => {
       writtenReport = { target, report };
@@ -133,4 +160,8 @@ test('CLI eval supports stdout and output path', async (t) => {
   assert.equal(writeCode, 0);
   assert.equal(writtenReport.report.summary.passed, 1);
   assert.ok(writtenReport.target.endsWith(path.join('reports', 'evaluation-report.json')));
+  assert.doesNotMatch(
+    `${stdout.value()}\n${stderr.value()}\n${writeStdout.value()}\n${writeStderr.value()}`,
+    /must-not-leak|Authorization/i
+  );
 });
