@@ -21,7 +21,9 @@ export {
   DEFAULT_REPOSITORY_IMPACT_PATH,
   DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
   DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
+  DEFAULT_MIGRATION_CHECKLIST_PATH,
   MANIFEST_SCHEMA_VERSION,
+  MIGRATION_CHECKLIST_SCHEMA_VERSION,
   PACKAGE_NAME,
   PRODUCT_NAME,
   VERSION_ANALYSIS_SCHEMA_VERSION,
@@ -80,6 +82,25 @@ export {
   serializeRepositoryImpactEvidence,
   writeRepositoryImpactEvidence
 } from './impact-evidence/writer.js';
+export {
+  MIGRATION_CHECKLIST_ELIGIBILITY_REASON_CODES,
+  MIGRATION_CHECKLIST_ELIGIBILITY_STATUSES,
+  MIGRATION_CHECKLIST_ITEM_BASES,
+  MIGRATION_CHECKLIST_ITEM_KINDS,
+  MIGRATION_CHECKLIST_PROHIBITED_CAPABILITIES,
+  MIGRATION_CHECKLIST_STATUSES,
+  isActionableMigrationChecklistItem,
+  migrationChecklistEligibility,
+  migrationChecklistStatusForEligibility,
+  validateMigrationChecklistInstructionContent
+} from './migration-checklist/grounding-policy.js';
+export {
+  buildMigrationChecklist,
+  migrationChecklistItemId,
+  serializeMigrationChecklist,
+  validateMigrationChecklist,
+  validateMigrationChecklistInvariants
+} from './migration-checklist/migration-checklist.js';
 export { ANALYSIS_STAGES, PipelineStageError, runAnalysisPipeline } from './orchestration/pipeline.js';
 export { createProgressReporter } from './orchestration/progress-reporter.js';
 export { renderAnalysisFailureLog, writeAnalysisFailureLog } from './orchestration/failure-log.js';

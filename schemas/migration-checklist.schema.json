@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/migration-checklist.schema.json",
+  "title": "UpgradeLens Evidence-Grounded Migration Checklist",
+  "description": "A human-review checklist grounded in version, source-evidence, and positive repository-impact references.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "generator",
+    "input",
+    "repository",
+    "status",
+    "summary",
+    "dependencies",
+    "limitations"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "generator": { "$ref": "#/$defs/generator" },
+    "input": { "$ref": "#/$defs/input" },
+    "repository": { "$ref": "#/$defs/repository" },
+    "status": { "$ref": "#/$defs/checklistStatus" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "dependencies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dependencyChecklist" }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/limitation" }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "nullableString": { "type": ["string", "null"] },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "UpgradeLens" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "root"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "root": { "const": "." }
+      }
+    },
+    "projectManifestLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest", "repository"],
+      "properties": {
+        "schemaVersion": { "const": "2.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" },
+        "repository": { "$ref": "#/$defs/repository" }
+      }
+    },
+    "knowledgeManifestLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest", "researchId"],
+      "properties": {
+        "schemaVersion": { "const": "1.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" },
+        "researchId": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "artifactLineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "artifact", "artifactDigest"],
+      "properties": {
+        "schemaVersion": { "const": "1.0.0" },
+        "artifact": { "$ref": "#/$defs/relativePath" },
+        "artifactDigest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectManifest",
+        "knowledgeManifest",
+        "knowledgeEvidenceBundle",
+        "versionAnalysis",
+        "usageIndex",
+        "repositoryImpact",
+        "repositoryImpactEvidence"
+      ],
+      "properties": {
+        "projectManifest": { "$ref": "#/$defs/projectManifestLineage" },
+        "knowledgeManifest": { "$ref": "#/$defs/knowledgeManifestLineage" },
+        "knowledgeEvidenceBundle": { "$ref": "#/$defs/artifactLineage" },
+        "versionAnalysis": { "$ref": "#/$defs/artifactLineage" },
+        "usageIndex": { "$ref": "#/$defs/artifactLineage" },
+        "repositoryImpact": { "$ref": "#/$defs/artifactLineage" },
+        "repositoryImpactEvidence": { "$ref": "#/$defs/artifactLineage" }
+      }
+    },
+    "checklistStatus": {
+      "enum": ["COMPLETE", "INCOMPLETE", "NO_GROUNDED_ACTION", "NOT_ANALYZED"]
+    },
+    "eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasonCode"],
+      "properties": {
+        "status": { "enum": ["ELIGIBLE", "INELIGIBLE", "REVIEW_REQUIRED"] },
+        "reasonCode": {
+          "enum": [
+            "ELIGIBLE",
+            "NOT_ANALYZED",
+            "NO_GROUNDED_ACTION",
+            "UNSUPPORTED_USAGE_COVERAGE",
+            "INVALID_OR_CONFLICTED_EVIDENCE",
+            "MANUAL_REVIEW_REQUIRED"
+          ]
+        }
+      }
+    },
+    "statusCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["COMPLETE", "INCOMPLETE", "NO_GROUNDED_ACTION", "NOT_ANALYZED"],
+      "properties": {
+        "COMPLETE": { "type": "integer", "minimum": 0 },
+        "INCOMPLETE": { "type": "integer", "minimum": 0 },
+        "NO_GROUNDED_ACTION": { "type": "integer", "minimum": 0 },
+        "NOT_ANALYZED": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dependencyCount",
+        "findingCount",
+        "itemCount",
+        "groundedActionCount",
+        "aiAuthoredItemCount",
+        "candidateLocationCount",
+        "requiresHumanReviewItemCount",
+        "limitationCount",
+        "statusCounts"
+      ],
+      "properties": {
+        "dependencyCount": { "type": "integer", "minimum": 0 },
+        "findingCount": { "type": "integer", "minimum": 0 },
+        "itemCount": { "type": "integer", "minimum": 0 },
+        "groundedActionCount": { "type": "integer", "minimum": 0 },
+        "aiAuthoredItemCount": { "type": "integer", "minimum": 0 },
+        "candidateLocationCount": { "type": "integer", "minimum": 0 },
+        "requiresHumanReviewItemCount": { "type": "integer", "minimum": 0 },
+        "limitationCount": { "type": "integer", "minimum": 0 },
+        "statusCounts": { "$ref": "#/$defs/statusCounts" }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "packageId",
+        "declaredName",
+        "normalizedName",
+        "ecosystem",
+        "registry",
+        "packageManager",
+        "dependencyType",
+        "manifest"
+      ],
+      "properties": {
+        "projectId": { "type": "string", "minLength": 1 },
+        "packageId": { "type": "string", "minLength": 1 },
+        "declaredName": { "type": "string", "minLength": 1 },
+        "normalizedName": { "type": "string", "minLength": 1 },
+        "ecosystem": { "type": "string", "minLength": 1 },
+        "registry": { "type": "string", "minLength": 1 },
+        "packageManager": { "$ref": "#/$defs/nullableString" },
+        "dependencyType": { "type": "string", "minLength": 1 },
+        "manifest": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisMode",
+        "declaredVersion",
+        "currentVersion",
+        "currentVersionSource",
+        "targetVersion",
+        "targetPolicy",
+        "delta"
+      ],
+      "properties": {
+        "analysisMode": { "enum": ["exactBaseline", "declaredConstraint", "unsupportedBaseline"] },
+        "declaredVersion": { "$ref": "#/$defs/nullableString" },
+        "currentVersion": { "$ref": "#/$defs/nullableString" },
+        "currentVersionSource": {
+          "anyOf": [
+            { "enum": ["explicit", "exactDeclaration", "resolvedArtifact"] },
+            { "type": "null" }
+          ]
+        },
+        "targetVersion": { "$ref": "#/$defs/nullableString" },
+        "targetPolicy": { "enum": ["explicit", "registryLatest"] },
+        "delta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["direction", "classification"],
+          "properties": {
+            "direction": { "enum": ["upgrade", "same", "downgrade", "unknown"] },
+            "classification": { "enum": ["major", "minor", "patch", "prerelease", "other", "unknown"] }
+          }
+        }
+      }
+    },
+    "candidateLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["impactEvidenceId", "symbol", "file"],
+      "properties": {
+        "impactEvidenceId": { "$ref": "#/$defs/digest" },
+        "symbol": { "type": "string", "minLength": 1 },
+        "file": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "checklistItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "basis",
+        "instruction",
+        "findingId",
+        "evidenceRefs",
+        "candidateLocations",
+        "requiresHumanReview"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/digest" },
+        "kind": {
+          "enum": [
+            "REVIEW_MIGRATION_INSTRUCTION",
+            "REVIEW_CANDIDATE_USAGE",
+            "VERIFY_OFFICIAL_REQUIREMENT",
+            "MANUAL_REVIEW_REQUIRED"
+          ]
+        },
+        "basis": { "enum": ["DETERMINISTIC", "AI_AUTHORED"] },
+        "instruction": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "findingId": { "type": "string", "minLength": 1 },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "candidateLocations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/candidateLocation" }
+        },
+        "requiresHumanReview": { "const": true }
+      }
+    },
+    "findingChecklist": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "summary",
+        "status",
+        "eligibility",
+        "evidenceRefs",
+        "positiveImpactLocations",
+        "items"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "const": "breakingChange" },
+        "summary": { "type": "string", "minLength": 1 },
+        "status": { "$ref": "#/$defs/checklistStatus" },
+        "eligibility": { "$ref": "#/$defs/eligibility" },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "positiveImpactLocations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/candidateLocation" }
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/checklistItem" }
+        }
+      }
+    },
+    "limitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "dependencyChecklist": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisResultId",
+        "dependency",
+        "versions",
+        "analysisStatus",
+        "status",
+        "eligibility",
+        "selectedEvidenceRefs",
+        "findings",
+        "limitations"
+      ],
+      "properties": {
+        "analysisResultId": { "$ref": "#/$defs/digest" },
+        "dependency": { "$ref": "#/$defs/dependency" },
+        "versions": { "$ref": "#/$defs/versions" },
+        "analysisStatus": { "enum": ["analyzed", "skipped", "failed"] },
+        "status": { "$ref": "#/$defs/checklistStatus" },
+        "eligibility": { "$ref": "#/$defs/eligibility" },
+        "selectedEvidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/findingChecklist" }
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/limitation" }
+        }
+      }
+    }
+  }
+}
