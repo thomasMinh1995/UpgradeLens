@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "rr02-rerun-cli-captures.v1",
+  "generatedAt": "2026-07-17T08:48:06Z",
+  "cliInvocationsRepresented": 0,
+  "entries": [],
+  "stoppedBeforeProductCliScenarios": true,
+  "stopGate": "REMEDIATION_REPORT_AND_PACKAGE_PREFLIGHT",
+  "stopReasonCodes": [
+    "REMEDIATION_REPORTS_MISSING",
+    "PACKAGE_REQUIRED_ASSETS_MISSING",
+    "PACKAGE_CAPTURE_EXCLUSION_NOT_COMMITTED"
+  ],
+  "verdict": "NO_GO_PACKAGE_OR_REGRESSION",
+  "screenshotsExpectedForExecutedInvocations": 0,
+  "screenshotsCreated": 0,
+  "missingFinalScreens": 0,
+  "rawTranscriptCount": 0,
+  "cleanTranscriptCount": 0,
+  "sanitizationFailures": 0,
+  "realProviderRequests": 0,
+  "note": "The validation-only preflight stopped before RERUN-001 because the committed RR02-FIX-03 package contract is incomplete."
+}

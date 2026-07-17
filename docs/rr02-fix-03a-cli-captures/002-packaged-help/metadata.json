@@ -1,0 +1,24 @@
+{
+  "scenarioId": "PACKAGED-HELP",
+  "sequence": 2,
+  "purpose": "verify the packaged public help surface",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageSource": "fresh working-tree npm tarball",
+  "installedFromTarball": true,
+  "startedAt": "2026-07-17T09:06:40.441Z",
+  "completedAt": "2026-07-17T09:06:41.429Z",
+  "durationMs": 988,
+  "exitCode": 0,
+  "signal": null,
+  "tty": false,
+  "progressMode": "not-applicable",
+  "offline": false,
+  "realProviderRequests": 0,
+  "rawHasAnsi": false,
+  "cleanHasAnsi": false,
+  "sanitizationPassed": true,
+  "captureComplete": true,
+  "screenshots": [
+    "final-screen.png"
+  ]
+}

@@ -10,7 +10,8 @@ export const FORBIDDEN_CAPTURE_PREFIXES = Object.freeze([
   'package/docs/rr02-fix-01-cli-captures/',
   'package/docs/rr02-fix-02-cli-captures/',
   'package/docs/rr02-rerun-cli-captures/',
-  'package/docs/rr02-fix-03-cli-captures/'
+  'package/docs/rr02-fix-03-cli-captures/',
+  'package/docs/rr02-fix-03a-cli-captures/'
 ]);
 
 export const REQUIRED_PACKAGE_PATHS = Object.freeze([

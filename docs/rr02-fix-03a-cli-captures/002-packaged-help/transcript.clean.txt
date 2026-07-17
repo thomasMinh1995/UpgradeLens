@@ -1,0 +1,85 @@
+UpgradeLens 0.4.0
+
+Analyze a repository or run an individual UpgradeLens stage.
+
+Usage:
+  upgradelens analyze <repository> [options]
+  upgradelens discover [path] [options]
+  upgradelens research [path] [options]
+  upgradelens analyze-version [path] [options]
+  upgradelens eval [options]
+  upgradelens scorecard [options]
+  upgradelens benchmark [options]
+  upgradelens conformance [options]
+  upgradelens governance [options]
+  upgradelens [path] [options]
+
+Analyze options:
+      --offline         Use fresh research cache entries only; never request registries
+      --max-depth <n>   Maximum directory depth for discovery and usage scanning
+      --experimental-migration-checklist
+                        Generate an evidence-grounded migration checklist.
+                        Experimental. Requires human review.
+      --migration-qualification <path>
+                        Migration Planning v2 qualification record relative to the
+                        repository (default: .upgradelens/migration-planning-qualification.json)
+      --progress <mode> Control analysis progress: auto, interactive, or plain
+                        auto uses interactive output on a TTY and stable plain
+                        lines otherwise. Heartbeats show real elapsed time;
+                        no percentage or ETA is inferred. (default: auto)
+
+Discover options:
+  -o, --output <path>   Project Manifest path relative to the project root
+                        (default: .upgradelens/project-manifest.json)
+      --stdout          Print the manifest instead of writing a file
+      --no-pretty       Emit compact JSON
+      --max-depth <n>   Maximum directory depth to scan
+      --fail-on-warning Return exit code 2 when discovery has warnings
+
+Research options:
+  -o, --output <path>   Knowledge Manifest path relative to the project root
+                        (default: .upgradelens/knowledge-manifest.json)
+      --stdout          Print only the Knowledge Manifest JSON
+      --offline         Use fresh cache entries only; never request registries
+
+Analyze-version options:
+  -o, --output <path>   Version Analysis artifact path relative to the project root
+                        (default: .upgradelens/version-analysis.json)
+      --package <id>    Analyze one exact canonical package ID (for example, pypi:langsmith)
+      --stdout          Print only the Version Analysis JSON
+
+Eval options:
+      --dataset <path>  Golden Dataset file or directory
+                        (default: eval/datasets)
+  -o, --output <path>   Evaluation report path
+                        (default: evaluation-report.json)
+      --stdout          Print only the Evaluation Report JSON
+
+Scorecard options:
+      --report <path>   Evaluation Report path
+                        (default: evaluation-report.json)
+      --metrics-output <path>
+                        Metrics artifact path
+                        (default: metrics.json)
+  -o, --output <path>   AI Scorecard path
+                        (default: ai-scorecard.json)
+      --stdout          Print only the AI Scorecard JSON
+
+Benchmark options:
+      --config <path>   Benchmark config path
+                        (default: benchmark.json)
+  -o, --output <path>   Benchmark Report path
+                        (default: benchmark-report.json)
+      --stdout          Print only the Benchmark Report JSON
+
+Conformance options:
+  -o, --output <path>   Offline Conformance Report path
+                        (default: .upgradelens/conformance-report.json)
+      --stdout          Print only the Offline Conformance Report JSON
+
+Governance options:
+  -o, --output <path>   Directory for portable governance artifacts
+                        (default: .upgradelens)
+      --stdout          Print a bundle containing the three governance artifacts
+  -h, --help            Show help
+  -v, --version         Show version

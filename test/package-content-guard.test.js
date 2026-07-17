@@ -16,7 +16,7 @@ import {
   validatePackageEntries
 } from '../scripts/package-content-guard.mjs';
 
-test('capture contract recognizes all five exact trees and the future naming convention', () => {
+test('capture contract recognizes all six exact trees and the future naming convention', () => {
   for (const prefix of FORBIDDEN_CAPTURE_PREFIXES) {
     assert.equal(isForbiddenPackagePath(`${prefix}manifest.json`), true);
     assert.equal(isForbiddenPackagePath(`${prefix}001/final-screen.png`), true);

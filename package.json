@@ -12,6 +12,7 @@
   "files": [
     "bin",
     "docs",
+    "!docs/*-cli-captures",
     "eval/README.md",
     "eval/datasets",
     "eval/migration-planning/golden-dataset.json",
