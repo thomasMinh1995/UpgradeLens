@@ -24,7 +24,8 @@
   ],
   "scripts": {
     "test": "node --test",
-    "check": "npm test && npm pack --dry-run"
+    "check": "npm test && npm run check:package",
+    "check:package": "node scripts/package-content-guard.mjs"
   },
   "engines": {
     "node": ">=20"
