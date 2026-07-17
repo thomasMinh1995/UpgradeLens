@@ -2,6 +2,7 @@ import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 import { DEFAULT_MANIFEST_PATH, DEFAULT_VERSION_ANALYSIS_PATH } from '../constants.js';
+import { createCooperativeScheduler } from '../cooperative-scheduler.js';
 import { relativePath } from '../files.js';
 import { createUsageAnalyzerRegistry } from './analyzer-registry.js';
 import { loadUsageDiscoveryInputs } from './input-loader.js';
@@ -48,8 +49,22 @@ export async function discoverRepositoryUsage({
   input,
   registry = createDefaultUsageAnalyzerRegistry(),
   clock,
-  maxDepth
+  maxDepth,
+  signal,
+  cooperativeScheduler: injectedCooperativeScheduler,
+  cooperativeScheduling = true,
+  cooperativeBatchSize,
+  cooperativeMaxIntervalMs,
+  monotonicClock
 }) {
+  const cooperativeScheduler = injectedCooperativeScheduler ?? createCooperativeScheduler({
+    signal,
+    enabled: cooperativeScheduling,
+    batchSize: cooperativeBatchSize,
+    maxIntervalMs: cooperativeMaxIntervalMs,
+    monotonicClock
+  });
+  cooperativeScheduler.checkpoint();
   const root = await repositoryDirectory(repositoryRoot);
   const scopes = createUsageDiscoveryScope(projectManifest, versionAnalysis);
   const projectScopes = projectManifest.projects.map((project) => ({
@@ -61,52 +76,61 @@ export async function discoverRepositoryUsage({
   for (const scope of scopes) {
     if (!dependenciesByProject.has(scope.projectId)) dependenciesByProject.set(scope.projectId, []);
     dependenciesByProject.get(scope.projectId).push(scope);
+    await cooperativeScheduler.boundary();
   }
-  const collected = await collectUsageSourceFiles(root, registry.extensions(), { maxDepth });
+  const collected = await collectUsageSourceFiles(root, registry.extensions(), {
+    maxDepth,
+    cooperativeScheduler
+  });
   const warnings = [...collected.warnings];
   const usages = [];
   let scannedFileCount = 0;
   let analyzedFileCount = 0;
 
   for (const absoluteFile of collected.files) {
-    const file = relativePath(root, absoluteFile);
-    const project = owningProject(file, projectScopes, registry);
-    if (!project) continue;
-    if (!dependenciesByProject.has(project.projectId)) continue;
-    const analyzer = registry.find(project.ecosystem, file);
-    if (!analyzer) continue;
-    scannedFileCount += 1;
-    let source;
     try {
-      source = await readFile(absoluteFile, 'utf8');
-    } catch (error) {
-      warnings.push({
-        code: 'FILE_UNREADABLE',
-        path: file,
-        message: `Unable to read source file (${error.code ?? 'unknown error'}).`
-      });
-      continue;
-    }
-    try {
-      const discovered = await analyzer.analyze({
-        source,
-        file,
-        projectId: project.projectId,
-        dependencies: dependenciesByProject.get(project.projectId) ?? []
-      });
-      usages.push(...discovered.map((usage) => ({ ...usage, projectId: project.projectId })));
-      analyzedFileCount += 1;
-    } catch (error) {
-      warnings.push({
-        code: error instanceof SyntaxError ? 'SOURCE_PARSE_FAILED' : 'ANALYZER_FAILED',
-        path: file,
-        message: error instanceof SyntaxError
-          ? 'Unable to parse source file.'
-          : `Analyzer failed (${error.code ?? error.name ?? 'unknown error'}).`
-      });
+      const file = relativePath(root, absoluteFile);
+      const project = owningProject(file, projectScopes, registry);
+      if (!project) continue;
+      if (!dependenciesByProject.has(project.projectId)) continue;
+      const analyzer = registry.find(project.ecosystem, file);
+      if (!analyzer) continue;
+      scannedFileCount += 1;
+      let source;
+      try {
+        source = await readFile(absoluteFile, 'utf8');
+      } catch (error) {
+        warnings.push({
+          code: 'FILE_UNREADABLE',
+          path: file,
+          message: `Unable to read source file (${error.code ?? 'unknown error'}).`
+        });
+        continue;
+      }
+      try {
+        const discovered = await analyzer.analyze({
+          source,
+          file,
+          projectId: project.projectId,
+          dependencies: dependenciesByProject.get(project.projectId) ?? []
+        });
+        usages.push(...discovered.map((usage) => ({ ...usage, projectId: project.projectId })));
+        analyzedFileCount += 1;
+      } catch (error) {
+        warnings.push({
+          code: error instanceof SyntaxError ? 'SOURCE_PARSE_FAILED' : 'ANALYZER_FAILED',
+          path: file,
+          message: error instanceof SyntaxError
+            ? 'Unable to parse source file.'
+            : `Analyzer failed (${error.code ?? error.name ?? 'unknown error'}).`
+        });
+      }
+    } finally {
+      await cooperativeScheduler.boundary();
     }
   }
 
+  cooperativeScheduler.checkpoint();
   return buildUsageIndex({
     input,
     usages,

@@ -1,0 +1,22 @@
+{
+  "scenarioId": "RERUN-002",
+  "sequence": 3,
+  "purpose": "Default TTY auto analysis without Migration Checklist.",
+  "result": "PASS",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageTarballSha256": "4fb18ddc056687f239d74630b56914f55cf95f37839249008d0c1faee59e9e7a",
+  "completedAt": "2026-07-17T09:34:42.410Z",
+  "exitCode": 0,
+  "signal": null,
+  "tty": true,
+  "progressMode": "auto (resolved interactive)",
+  "captureMethod": "real-pty-typescript",
+  "realProviderRequests": 0,
+  "retries": 0,
+  "rawHasAnsi": true,
+  "cleanHasAnsi": false,
+  "sanitizationPassed": true,
+  "captureComplete": true,
+  "heartbeatExpected": false,
+  "heartbeatObserved": null
+}

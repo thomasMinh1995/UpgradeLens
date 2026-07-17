@@ -59,6 +59,14 @@ does not produce a percentage, ETA, token stream, retry claim, or model
 “thinking” state. A known count is displayed as `(completed/total)` without
 converting it to a percentage.
 
+Project Discovery and Repository Usage Discovery cooperatively yield to the
+Node.js event loop after 64 completed scan units or 50 milliseconds of
+completed-unit work, whichever occurs first. The operation-local scheduler
+uses `setImmediate`; it does not sleep, parallelize scanning, change traversal
+order, or emit heartbeat events itself. Yield points occur only after a
+directory entry, manifest group, or source file has completed, so timers and
+cancellation can run without exposing partially constructed records.
+
 ## Cancellation and output failures
 
 The first `SIGINT` aborts the active analysis signal, marks the current stage
@@ -70,8 +78,9 @@ immediate behavior.
 
 OpenAI-compatible and generic HTTP provider calls receive the caller signal.
 Other stage adapters check the signal at safe boundaries and before artifact
-publication. Artifact writers remain validate-first and atomic, including
-temporary-file cleanup on write failure.
+publication. Discovery and Usage check it at every completed unit and again
+after each actual cooperative yield. Artifact writers remain validate-first
+and atomic, including temporary-file cleanup on write failure.
 
 Progress callbacks and renderer writes are isolated. Throwing observers,
 invalid activity updates, or renderer exceptions do not change stage results,
@@ -90,3 +99,10 @@ Research currently reports a meaningful stage activity but not package
 per-package callback. No count is invented. Migration Checklist remains
 experimental, opt-in, and mandatory-human-review; progress does not change its
 persisted qualification decision.
+
+JavaScript parsing is synchronous within one source file. Cooperative
+scheduling can therefore observe cancellation and run a due heartbeat only
+after that file finishes parsing; it cannot interrupt a single parser call.
+Current supported validation fixtures do not contain one file whose parse
+alone exceeds the five-second quiet threshold. A real supported fixture that
+does so would require a separate incremental-parser or isolation experiment.

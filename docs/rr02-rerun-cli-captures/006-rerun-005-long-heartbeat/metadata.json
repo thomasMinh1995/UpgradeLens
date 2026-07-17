@@ -1,0 +1,22 @@
+{
+  "scenarioId": "RERUN-005-ATTEMPT-1",
+  "sequence": 6,
+  "purpose": "First controlled heartbeat attempt; stage work remained shorter than five seconds.",
+  "result": "INSUFFICIENT_DURATION",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageTarballSha256": "4fb18ddc056687f239d74630b56914f55cf95f37839249008d0c1faee59e9e7a",
+  "completedAt": "2026-07-17T09:35:54.046Z",
+  "exitCode": 0,
+  "signal": null,
+  "tty": true,
+  "progressMode": "interactive",
+  "captureMethod": "real-pty-typescript",
+  "realProviderRequests": 0,
+  "retries": 0,
+  "rawHasAnsi": true,
+  "cleanHasAnsi": false,
+  "sanitizationPassed": true,
+  "captureComplete": true,
+  "heartbeatExpected": false,
+  "heartbeatObserved": null
+}

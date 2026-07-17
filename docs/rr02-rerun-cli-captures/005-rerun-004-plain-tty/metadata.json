@@ -1,0 +1,22 @@
+{
+  "scenarioId": "RERUN-004",
+  "sequence": 5,
+  "purpose": "Explicit plain progress inside an 80-column PTY.",
+  "result": "PASS_WITH_TRUNCATED_DETAIL",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageTarballSha256": "4fb18ddc056687f239d74630b56914f55cf95f37839249008d0c1faee59e9e7a",
+  "completedAt": "2026-07-17T09:35:02.492Z",
+  "exitCode": 0,
+  "signal": null,
+  "tty": true,
+  "progressMode": "plain",
+  "captureMethod": "real-pty-typescript",
+  "realProviderRequests": 0,
+  "retries": 0,
+  "rawHasAnsi": true,
+  "cleanHasAnsi": false,
+  "sanitizationPassed": true,
+  "captureComplete": true,
+  "heartbeatExpected": false,
+  "heartbeatObserved": null
+}

@@ -1,0 +1,57 @@
+^DRunning UpgradeLens Analysis (7 stages)...
+● Project Discovery [0.0s]
+  ↳ Project Discovery — Discovering project manifests [0.0s]
+  ↳ Project Discovery — Writing Project Manifest [3.2s]
+✓ Project Discovery completed [3.2s]
+● Knowledge Research [0.0s]
+  ↳ Knowledge Research — Researching dependency metadata [0.0s]
+  ↳ Knowledge Research — Validated Knowledge Research artifacts [0.1s]
+✓ Knowledge Research completed [0.1s]
+● Version Analysis [0.0s]
+  ↳ Version Analysis — Preparing dependency analysis [0.0s]
+  ↳ Version Analysis — Waiting for analysis response: antd (0/1) [0.0s]
+✓ Version Analysis completed [0.1s]
+● Repository Usage Discovery [0.0s]
+  ↳ Repository Usage Discovery — Scanning supported source files [0.0s]
+  … Repository Usage Discovery — Scanning supported source files [5.0s]
+  … Repository Usage Discovery — Scanning supported source files [10.0s]
+  … Repository Usage Discovery — Scanning supported source files [15.0s]
+  ↳ Repository Usage Discovery — Writing Repository Usage Index [19.4s]
+✓ Repository Usage Discovery completed [19.4s]
+● Repository Impact Analysis [0.0s]
+  ↳ Repository Impact Analysis — Matching repository impact [0.0s]
+  ↳ Repository Impact Analysis — Writing Repository Impact artifact [0.1s]
+✓ Repository Impact Analysis completed [0.1s]
+● Repository Impact Evidence [0.0s]
+  ↳ Repository Impact Evidence — Validating repository impact evidence [0.0s]
+  ↳ Repository Impact Evidence — Writing Repository Impact Evidence artifact [0.1s]
+✓ Repository Impact Evidence completed [0.1s]
+● Markdown Report [0.0s]
+  ↳ Markdown Report — Rendering Markdown report [0.0s]
+  ↳ Markdown Report — Writing Markdown report [0.0s]
+✓ Markdown Report completed [0.0s]
+Analysis completed: 7/7 stages completed.
+Repository
+
+slow-heartbeat
+
+Analysis status: INCOMPLETE
+
+Dependencies: 1
+Analyzed: 0
+Skipped: 1
+Failed: 0
+Requires human review: 1
+
+Impacted: 0
+Not impacted: 0
+Not analyzed: 1
+
+Impact conclusions are incomplete because some dependencies were not analyzed.
+
+Breaking findings: 0
+Evidence records: 0
+
+Markdown Report
+
+.upgradelens/repository-impact.md

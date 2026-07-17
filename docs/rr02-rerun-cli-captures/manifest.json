@@ -1,22 +1,154 @@
 {
   "schemaVersion": "rr02-rerun-cli-captures.v1",
-  "generatedAt": "2026-07-17T08:48:06Z",
-  "cliInvocationsRepresented": 0,
-  "entries": [],
-  "stoppedBeforeProductCliScenarios": true,
-  "stopGate": "REMEDIATION_REPORT_AND_PACKAGE_PREFLIGHT",
-  "stopReasonCodes": [
-    "REMEDIATION_REPORTS_MISSING",
-    "PACKAGE_REQUIRED_ASSETS_MISSING",
-    "PACKAGE_CAPTURE_EXCLUSION_NOT_COMMITTED"
+  "generatedAt": "2026-07-17T09:39:20.545Z",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageCommit": "a24899dee1714c8b6f7c20cd9a129e9e80a97261",
+  "freshTarball": true,
+  "packageTarballSha1": "ac2dc3de07922c5057cddef0920b0515b97eb595",
+  "packageTarballSha256": "4fb18ddc056687f239d74630b56914f55cf95f37839249008d0c1faee59e9e7a",
+  "cliInvocationsRepresented": 7,
+  "entries": [
+    {
+      "scenarioId": "RERUN-001-VERSION",
+      "sequence": 1,
+      "purpose": "Identify the fresh clean-installed package CLI.",
+      "result": "PASS",
+      "commandFile": "001-rerun-001-packaged-version/command.txt",
+      "environmentFile": "001-rerun-001-packaged-version/environment.json",
+      "rawTranscript": "001-rerun-001-packaged-version/transcript.raw.txt",
+      "cleanTranscript": "001-rerun-001-packaged-version/transcript.clean.txt",
+      "metadataFile": "001-rerun-001-packaged-version/metadata.json",
+      "screenshots": [
+        "001-rerun-001-packaged-version/final-screen.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "RERUN-001-HELP",
+      "sequence": 2,
+      "purpose": "Verify public progress, experimental, and qualification options.",
+      "result": "PASS",
+      "commandFile": "002-rerun-001-packaged-help/command.txt",
+      "environmentFile": "002-rerun-001-packaged-help/environment.json",
+      "rawTranscript": "002-rerun-001-packaged-help/transcript.raw.txt",
+      "cleanTranscript": "002-rerun-001-packaged-help/transcript.clean.txt",
+      "metadataFile": "002-rerun-001-packaged-help/metadata.json",
+      "screenshots": [
+        "002-rerun-001-packaged-help/final-screen.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "RERUN-002",
+      "sequence": 3,
+      "purpose": "Default TTY auto analysis without Migration Checklist.",
+      "result": "PASS",
+      "commandFile": "003-rerun-002-default-tty-auto/command.txt",
+      "environmentFile": "003-rerun-002-default-tty-auto/environment.json",
+      "rawTranscript": "003-rerun-002-default-tty-auto/transcript.raw.txt",
+      "cleanTranscript": "003-rerun-002-default-tty-auto/transcript.clean.txt",
+      "metadataFile": "003-rerun-002-default-tty-auto/metadata.json",
+      "screenshots": [
+        "003-rerun-002-default-tty-auto/final-screen.png",
+        "003-rerun-002-default-tty-auto/01-start.png",
+        "003-rerun-002-default-tty-auto/02-progress.png",
+        "003-rerun-002-default-tty-auto/03-final.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "RERUN-003",
+      "sequence": 4,
+      "purpose": "Default non-TTY auto analysis with line-oriented progress.",
+      "result": "PASS",
+      "commandFile": "004-rerun-003-default-nontty-auto/command.txt",
+      "environmentFile": "004-rerun-003-default-nontty-auto/environment.json",
+      "rawTranscript": "004-rerun-003-default-nontty-auto/transcript.raw.txt",
+      "cleanTranscript": "004-rerun-003-default-nontty-auto/transcript.clean.txt",
+      "metadataFile": "004-rerun-003-default-nontty-auto/metadata.json",
+      "screenshots": [
+        "004-rerun-003-default-nontty-auto/final-screen.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "RERUN-004",
+      "sequence": 5,
+      "purpose": "Explicit plain progress inside an 80-column PTY.",
+      "result": "PASS_WITH_TRUNCATED_DETAIL",
+      "commandFile": "005-rerun-004-plain-tty/command.txt",
+      "environmentFile": "005-rerun-004-plain-tty/environment.json",
+      "rawTranscript": "005-rerun-004-plain-tty/transcript.raw.txt",
+      "cleanTranscript": "005-rerun-004-plain-tty/transcript.clean.txt",
+      "metadataFile": "005-rerun-004-plain-tty/metadata.json",
+      "screenshots": [
+        "005-rerun-004-plain-tty/final-screen.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "RERUN-005-ATTEMPT-1",
+      "sequence": 6,
+      "purpose": "First controlled heartbeat attempt; stage work remained shorter than five seconds.",
+      "result": "INSUFFICIENT_DURATION",
+      "commandFile": "006-rerun-005-long-heartbeat/command.txt",
+      "environmentFile": "006-rerun-005-long-heartbeat/environment.json",
+      "rawTranscript": "006-rerun-005-long-heartbeat/transcript.raw.txt",
+      "cleanTranscript": "006-rerun-005-long-heartbeat/transcript.clean.txt",
+      "metadataFile": "006-rerun-005-long-heartbeat/metadata.json",
+      "screenshots": [
+        "006-rerun-005-long-heartbeat/final-screen.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "RERUN-005",
+      "sequence": 7,
+      "purpose": "Long CPU-bound Usage Discovery exceeded five quiet seconds without a heartbeat.",
+      "result": "FAIL_NO_HEARTBEAT",
+      "commandFile": "007-rerun-005-long-heartbeat-retry/command.txt",
+      "environmentFile": "007-rerun-005-long-heartbeat-retry/environment.json",
+      "rawTranscript": "007-rerun-005-long-heartbeat-retry/transcript.raw.txt",
+      "cleanTranscript": "007-rerun-005-long-heartbeat-retry/transcript.clean.txt",
+      "metadataFile": "007-rerun-005-long-heartbeat-retry/metadata.json",
+      "screenshots": [
+        "007-rerun-005-long-heartbeat-retry/final-screen.png",
+        "007-rerun-005-long-heartbeat-retry/01-start.png",
+        "007-rerun-005-long-heartbeat-retry/02-progress.png",
+        "007-rerun-005-long-heartbeat-retry/03-final.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    }
   ],
-  "verdict": "NO_GO_PACKAGE_OR_REGRESSION",
-  "screenshotsExpectedForExecutedInvocations": 0,
-  "screenshotsCreated": 0,
+  "screenshotsExpectedForExecutedInvocations": 13,
+  "screenshotsCreated": 13,
   "missingFinalScreens": 0,
-  "rawTranscriptCount": 0,
-  "cleanTranscriptCount": 0,
+  "rawTranscriptCount": 7,
+  "cleanTranscriptCount": 7,
   "sanitizationFailures": 0,
   "realProviderRequests": 0,
-  "note": "The validation-only preflight stopped before RERUN-001 because the committed RR02-FIX-03 package contract is incomplete."
+  "stoppedAfterScenario": "RERUN-005",
+  "stopReasonCode": "PACKAGED_HEARTBEAT_MISSING_AFTER_QUIET_INTERVAL",
+  "verdict": "NO_GO_QUALIFICATION_OR_PROGRESS"
 }

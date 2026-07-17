@@ -7,10 +7,12 @@ import { relativePath } from '../files.js';
 export async function collectUsageSourceFiles(root, extensions, options = {}) {
   const supportedExtensions = new Set(extensions.map((extension) => extension.toLowerCase()));
   const maxDepth = options.maxDepth ?? Number.POSITIVE_INFINITY;
+  const cooperativeScheduler = options.cooperativeScheduler;
   const files = [];
   const warnings = [];
 
   async function visit(directory, depth) {
+    cooperativeScheduler?.checkpoint();
     let entries;
     try {
       entries = await readdir(directory, { withFileTypes: true });
@@ -26,13 +28,17 @@ export async function collectUsageSourceFiles(root, extensions, options = {}) {
     entries.sort((left, right) => left.name.localeCompare(right.name));
     for (const entry of entries) {
       const entryPath = path.join(directory, entry.name);
-      if (entry.isSymbolicLink()) continue;
-      if (entry.isDirectory()) {
-        if (depth < maxDepth && !DEFAULT_IGNORED_DIRECTORIES.has(entry.name)) {
-          await visit(entryPath, depth + 1);
+      try {
+        if (entry.isSymbolicLink()) continue;
+        if (entry.isDirectory()) {
+          if (depth < maxDepth && !DEFAULT_IGNORED_DIRECTORIES.has(entry.name)) {
+            await visit(entryPath, depth + 1);
+          }
+        } else if (entry.isFile() && supportedExtensions.has(path.extname(entry.name).toLowerCase())) {
+          files.push(entryPath);
         }
-      } else if (entry.isFile() && supportedExtensions.has(path.extname(entry.name).toLowerCase())) {
-        files.push(entryPath);
+      } finally {
+        await cooperativeScheduler?.boundary();
       }
     }
   }

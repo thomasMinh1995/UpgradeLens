@@ -6,6 +6,7 @@ import {
   PRODUCT_NAME,
   VERSION
 } from './constants.js';
+import { createCooperativeScheduler } from './cooperative-scheduler.js';
 import { definitionForFile, inspectProjectGroup } from './detectors.js';
 import { collectCandidateFiles, relativePath } from './files.js';
 
@@ -80,47 +81,58 @@ function parsePnpmWorkspace(contents) {
   return patterns;
 }
 
-async function addPnpmWorkspacePatterns(root, files, projects, warnings) {
+async function addPnpmWorkspacePatterns(root, files, projects, warnings, cooperativeScheduler) {
   for (const file of files.filter((candidate) => path.basename(candidate) === 'pnpm-workspace.yaml')) {
-    const projectPath = relativePath(root, path.dirname(file));
-    const project = projects.find((candidate) => candidate.ecosystem === 'node' && candidate.path === projectPath);
-    if (!project) continue;
     try {
-      const patterns = parsePnpmWorkspace(await readFile(file, 'utf8'));
-      project._workspacePatterns = [...new Set([...project._workspacePatterns, ...patterns])];
-    } catch (error) {
-      warnings.push({
-        code: 'MANIFEST_UNREADABLE',
-        path: relativePath(root, file),
-        message: `Unable to read workspace manifest (${error.code ?? 'unknown error'})`
-      });
+      const projectPath = relativePath(root, path.dirname(file));
+      const project = projects.find((candidate) => candidate.ecosystem === 'node' && candidate.path === projectPath);
+      if (!project) continue;
+      try {
+        const patterns = parsePnpmWorkspace(await readFile(file, 'utf8'));
+        project._workspacePatterns = [...new Set([...project._workspacePatterns, ...patterns])];
+      } catch (error) {
+        warnings.push({
+          code: 'MANIFEST_UNREADABLE',
+          path: relativePath(root, file),
+          message: `Unable to read workspace manifest (${error.code ?? 'unknown error'})`
+        });
+      }
+    } finally {
+      await cooperativeScheduler.boundary();
     }
   }
 }
 
-function addWorkspaceRelationships(projects) {
+async function addWorkspaceRelationships(projects, cooperativeScheduler) {
   const roots = projects
     .filter((project) => project.ecosystem === 'node' && project._workspacePatterns.some((pattern) => !pattern.startsWith('!')))
     .sort((left, right) => right.path.length - left.path.length);
 
   for (const project of projects) {
-    if (project.ecosystem !== 'node') continue;
-    const workspaceRoot = roots.find((candidate) => {
-      if (candidate.id === project.id) return false;
-      const relative = path.posix.relative(candidate.path === '.' ? '' : candidate.path, project.path);
-      return matchesWorkspace(candidate._workspacePatterns, relative);
-    });
-    if (workspaceRoot) {
-      project.workspace = { root: workspaceRoot.path, role: 'member' };
-      if (!project.packageManager && workspaceRoot.packageManager) {
-        project.packageManager = { ...workspaceRoot.packageManager };
+    try {
+      if (project.ecosystem !== 'node') continue;
+      const workspaceRoot = roots.find((candidate) => {
+        if (candidate.id === project.id) return false;
+        const relative = path.posix.relative(candidate.path === '.' ? '' : candidate.path, project.path);
+        return matchesWorkspace(candidate._workspacePatterns, relative);
+      });
+      if (workspaceRoot) {
+        project.workspace = { root: workspaceRoot.path, role: 'member' };
+        if (!project.packageManager && workspaceRoot.packageManager) {
+          project.packageManager = { ...workspaceRoot.packageManager };
+        }
+      } else if (project._workspacePatterns.some((pattern) => !pattern.startsWith('!'))) {
+        project.workspace = { root: project.path, role: 'root' };
       }
-    } else if (project._workspacePatterns.some((pattern) => !pattern.startsWith('!'))) {
-      project.workspace = { root: project.path, role: 'root' };
+    } finally {
+      await cooperativeScheduler.boundary();
     }
   }
 
-  for (const project of projects) delete project._workspacePatterns;
+  for (const project of projects) {
+    delete project._workspacePatterns;
+    await cooperativeScheduler.boundary();
+  }
 }
 
 async function gitMetadata(root) {
@@ -163,8 +175,19 @@ function warningFor(error, root, group) {
 }
 
 export async function discoverProject(inputPath = '.', options = {}) {
+  const cooperativeScheduler = options.cooperativeScheduler ?? createCooperativeScheduler({
+    signal: options.signal,
+    enabled: options.cooperativeScheduling !== false,
+    batchSize: options.cooperativeBatchSize,
+    maxIntervalMs: options.cooperativeMaxIntervalMs,
+    monotonicClock: options.monotonicClock
+  });
+  cooperativeScheduler.checkpoint();
   const root = await assertDirectory(inputPath);
-  const { files, warnings } = await collectCandidateFiles(root, { maxDepth: options.maxDepth });
+  const { files, warnings } = await collectCandidateFiles(root, {
+    maxDepth: options.maxDepth,
+    cooperativeScheduler
+  });
   const projects = [];
 
   for (const group of groupCandidateFiles(files)) {
@@ -177,14 +200,17 @@ export async function discoverProject(inputPath = '.', options = {}) {
       }
     } catch (error) {
       warnings.push(warningFor(error, root, group));
+    } finally {
+      await cooperativeScheduler.boundary();
     }
   }
 
   projects.sort((left, right) => left.id.localeCompare(right.id));
-  await addPnpmWorkspacePatterns(root, files, projects, warnings);
-  addWorkspaceRelationships(projects);
+  await addPnpmWorkspacePatterns(root, files, projects, warnings, cooperativeScheduler);
+  await addWorkspaceRelationships(projects, cooperativeScheduler);
   warnings.sort((left, right) => left.path.localeCompare(right.path) || left.code.localeCompare(right.code));
 
+  cooperativeScheduler.checkpoint();
   const now = options.clock?.() ?? new Date();
   const vcs = await gitMetadata(root);
   return {

@@ -822,7 +822,10 @@ export function createCliAnalysisStageRunners(options, io) {
   return {
     async projectDiscovery({ progress, signal } = {}) {
       if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
-      const manifest = await discoverProject(root, { maxDepth: options.maxDepth });
+      const manifest = await discoverProject(root, {
+        maxDepth: options.maxDepth,
+        signal
+      });
       if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       progress?.({
         activityKind: 'WRITE_PROJECT_MANIFEST',
@@ -861,6 +864,7 @@ export function createCliAnalysisStageRunners(options, io) {
       const usageIndex = await runUsageDiscovery({
         repositoryRoot: root,
         maxDepth: options.maxDepth,
+        signal,
         ...clockOptions
       });
       if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);

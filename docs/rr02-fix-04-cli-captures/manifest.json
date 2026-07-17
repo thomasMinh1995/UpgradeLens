@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "rr02-fix-04-cli-captures.v1",
+  "generatedAt": "2026-07-17T10:16:00.728Z",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageCommit": "a24899dee1714c8b6f7c20cd9a129e9e80a97261+worktree-rr02-fix-04",
+  "freshTarball": true,
+  "packageTarballSha1": "18cbe2f81b50bd9ac5b6e65d55475d90a62ed1de",
+  "packageTarballSha256": "56dc6da33a18392b8dfe6e5409db4e92cb85f4cac49a15cc50d50ff8166fdfa6",
+  "cliInvocationsRepresented": 5,
+  "entries": [
+    {
+      "scenarioId": "FIX04-CALIBRATION-REPLAY",
+      "sequence": 1,
+      "purpose": "Exact replay of the initial insufficient no-dependency calibration workload after write-first capture was enabled.",
+      "result": "PASS_HEARTBEAT_REPLAY",
+      "commandFile": "000-calibration-replay/command.txt",
+      "environmentFile": "000-calibration-replay/environment.json",
+      "rawTranscript": "000-calibration-replay/transcript.raw.txt",
+      "cleanTranscript": "000-calibration-replay/transcript.clean.txt",
+      "metadataFile": "000-calibration-replay/metadata.json",
+      "screenshots": [
+        "000-calibration-replay/final-screen.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "FIX04-PACKAGED-DEFAULT-TTY-LONG",
+      "sequence": 2,
+      "purpose": "Default TTY auto mode yields during long Discovery and Usage work and emits a production heartbeat.",
+      "result": "PASS",
+      "commandFile": "001-packaged-default-tty-long-heartbeat/command.txt",
+      "environmentFile": "001-packaged-default-tty-long-heartbeat/environment.json",
+      "rawTranscript": "001-packaged-default-tty-long-heartbeat/transcript.raw.txt",
+      "cleanTranscript": "001-packaged-default-tty-long-heartbeat/transcript.clean.txt",
+      "metadataFile": "001-packaged-default-tty-long-heartbeat/metadata.json",
+      "screenshots": [
+        "001-packaged-default-tty-long-heartbeat/final-screen.png",
+        "001-packaged-default-tty-long-heartbeat/01-start.png",
+        "001-packaged-default-tty-long-heartbeat/02-before-heartbeat.png",
+        "001-packaged-default-tty-long-heartbeat/03-heartbeat.png",
+        "001-packaged-default-tty-long-heartbeat/04-final.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "FIX04-PACKAGED-PLAIN-NONTTY-LONG",
+      "sequence": 3,
+      "purpose": "Plain non-TTY mode emits a line-oriented Usage heartbeat with no cursor control.",
+      "result": "PASS",
+      "commandFile": "002-packaged-plain-nontty-long-heartbeat/command.txt",
+      "environmentFile": "002-packaged-plain-nontty-long-heartbeat/environment.json",
+      "rawTranscript": "002-packaged-plain-nontty-long-heartbeat/transcript.raw.txt",
+      "cleanTranscript": "002-packaged-plain-nontty-long-heartbeat/transcript.clean.txt",
+      "metadataFile": "002-packaged-plain-nontty-long-heartbeat/metadata.json",
+      "screenshots": [
+        "002-packaged-plain-nontty-long-heartbeat/final-screen.png",
+        "002-packaged-plain-nontty-long-heartbeat/01-start.png",
+        "002-packaged-plain-nontty-long-heartbeat/02-before-heartbeat.png",
+        "002-packaged-plain-nontty-long-heartbeat/03-heartbeat.png",
+        "002-packaged-plain-nontty-long-heartbeat/04-final.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "FIX04-PACKAGED-USAGE-CANCELLATION",
+      "sequence": 4,
+      "purpose": "SIGINT during Usage is observed at a cooperative boundary and publishes no partial Usage Index.",
+      "result": "PASS",
+      "commandFile": "003-packaged-usage-cancellation/command.txt",
+      "environmentFile": "003-packaged-usage-cancellation/environment.json",
+      "rawTranscript": "003-packaged-usage-cancellation/transcript.raw.txt",
+      "cleanTranscript": "003-packaged-usage-cancellation/transcript.clean.txt",
+      "metadataFile": "003-packaged-usage-cancellation/metadata.json",
+      "screenshots": [
+        "003-packaged-usage-cancellation/final-screen.png"
+      ],
+      "exitCode": 130,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "FIX04-PACKAGED-DEFAULT-SHORT",
+      "sequence": 5,
+      "purpose": "A short default analysis completes without heartbeat noise or Migration Checklist scheduling.",
+      "result": "PASS",
+      "commandFile": "004-packaged-default-short-no-heartbeat/command.txt",
+      "environmentFile": "004-packaged-default-short-no-heartbeat/environment.json",
+      "rawTranscript": "004-packaged-default-short-no-heartbeat/transcript.raw.txt",
+      "cleanTranscript": "004-packaged-default-short-no-heartbeat/transcript.clean.txt",
+      "metadataFile": "004-packaged-default-short-no-heartbeat/metadata.json",
+      "screenshots": [
+        "004-packaged-default-short-no-heartbeat/final-screen.png"
+      ],
+      "exitCode": 0,
+      "realProviderRequests": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    }
+  ],
+  "screenshotsExpectedForExecutedInvocations": 13,
+  "screenshotsCreated": 13,
+  "missingFinalScreens": 0,
+  "rawTranscriptCount": 5,
+  "cleanTranscriptCount": 5,
+  "sanitizationFailures": 0,
+  "realProviderRequests": 0,
+  "verdict": "READY_TO_RESUME_RR02_RERUN_FROM_RERUN_001"
+}

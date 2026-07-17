@@ -2,234 +2,301 @@
 
 ## 1. Executive Verdict
 
-Final verdict: **`NO_GO_PACKAGE_OR_REGRESSION`**.
+Final verdict: **`NO_GO_QUALIFICATION_OR_PROGRESS`**.
 
-The resumed rerun stopped before RERUN-001. Committed HEAD contains the
-package-content guard, but not the capture exclusion or two documentation
-assets that the guard itself declares required. `npm run check:package`
-therefore fails on a clean worktree. The validation-only stop rule prohibits
-repairing that input inside this rerun.
+The fresh packaged CLI passed canonical parallel regression, the separately
+reported serial suite, package-content validation, clean installation, public
+import, version/help, and the default TTY/non-TTY/plain workflows.
+
+RERUN-005 nevertheless reproduced a High progress defect. Repository Usage
+Discovery remained quiet for 8.4 seconds after its start activity. The next
+line was completion activity; no five-second heartbeat was emitted. This
+violates the production heartbeat contract and can make a long CPU-bound stage
+look stalled. Validation stopped at that reproducible public-CLI evidence.
+
+No production, test, fixture, package, qualification, or progress file was
+changed to make the run pass.
 
 ## 2. Why the Rerun Was Required
 
-RR-02 originally ended `NO_GO_UX_OR_WORKFLOW` because qualification status
-could drift and long pipeline stages could appear stalled. RR02-FIX-01 and
-RR02-FIX-02 implemented those remediations. The first RR02-RERUN then found
-capture evidence in the npm package, and RR02-FIX-03 attempted to add an
-actual-tarball package guard.
+RR-02 ended `NO_GO_UX_OR_WORKFLOW`. RR02-FIX-01 added persisted,
+single-decision qualification resolution. RR02-FIX-02 added stage-aware
+progress, monotonic elapsed time, and a heartbeat after five quiet seconds.
+RR02-FIX-03A then completed package exclusion and committed validation
+evidence.
 
-This resumed run was meant to execute the complete packaged CLI matrix after
-RR02-FIX-03. Instead, it found that the committed remediation input is
-incomplete.
+This rerun started at RERUN-001 on the committed remediation snapshot and was
+required to distinguish focused timer behavior from the behavior of the
+clean-installed public CLI under real stage work.
 
 ## 3. Environment and Packaged CLI Identity
 
-- Repository: UpgradeLens
 - Branch: `feat/mvp-05-evidence-migration-checklist`
-- HEAD: `e0c05b62536b76315c9d19dbe38a48f98b19b3c8`
-- HEAD subject: `fix: package content guard`
+- Commit: `a24899dee1714c8b6f7c20cd9a129e9e80a97261`
+- Subject: `fix: complete package evidence exclusion`
+- Initial worktree and index: clean
 - Package: `upgradelens@0.4.0`
-- Initial worktree: clean
-- Platform date: 2026-07-17, Asia/Ho_Chi_Minh
+- Node captured by the clean install: `v26.0.0`
+- Platform: macOS, arm64
+- Real-provider requests: 0
 
-Fresh preflight tarball:
+The tarball was freshly produced for this rerun under a new isolated
+validation root. No RR02-FIX-03 or RR02-FIX-03A tarball was reused.
 
-- files: 197;
-- compressed size: 471,310 bytes;
-- unpacked size: 1,881,500 bytes;
-- npm SHA-1: `76eadf38bf7c50ebd9c4a90397789fb7075f1336`;
+Fresh tarball identity:
+
+- files: 205;
+- compressed size: 482,238 bytes;
+- unpacked size: 1,914,450 bytes;
+- npm SHA-1: `ac2dc3de07922c5057cddef0920b0515b97eb595`;
 - SHA-256:
-  `04e737d90630674f7a6633b196c1d6a00a33ebd7876a25410301902a0590db70`.
-
-The tarball was produced with a fresh isolated npm cache and inspected by
-actual tar entries.
+  `4fb18ddc056687f239d74630b56914f55cf95f37839249008d0c1faee59e9e7a`.
 
 ## 4. Qualification Identity and Integrity Check
 
-Qualification was not re-evaluated in this resumed attempt because the earlier
-remediation-report/package gate failed first. No qualification record was
-loaded, rewritten, injected, or requalified, and no provider was called.
+The expected FIX-01 and FIX-02 reports exist and retain
+`READY_FOR_RR02_FIX_02` and `READY_FOR_RR02_RERUN`.
 
-The current failure is not classified as identity drift. It is a deterministic
-package/remediation-input failure that must be fixed before qualification and
-packaged surface validation can proceed.
+No persisted `migration-planning-qualification.json` was discoverable in the
+UpgradeLens repository, the new validation targets, the available temporary
+validation roots, or repository roots under Desktop. The rerun did not
+reconstruct a record from prose, copy a test qualification, use a fake
+qualification for the real runtime, rewrite a digest, or requalify.
+
+The historical RR-01 report identifies the most recent qualified tuple, but
+that prose is not a persisted record and was not treated as executable
+qualification input. Therefore RERUN-006 and RERUN-007 could not provide
+current identity/integrity evidence. Negative qualification scenarios were not
+started after the High progress stop.
+
+This missing input would independently prevent a release GO from this
+environment, but the selected verdict is based on the earlier reproduced High
+progress defect rather than misclassifying absence as identity drift.
 
 ## 5. Targeted Scenario Matrix
 
 | Scenario | Packaged CLI | Qualification state | Progress mode | Stage/activity/elapsed | Exit code | Provider calls | Result | Capture |
-| --- | --- | --- | --- | --- | --- | ---: | --- | --- |
-| RERUN-001 install/help | Not invoked | N/A | N/A | Not observed | N/A | 0 | Blocked by preflight | [manifest](rr02-rerun-cli-captures/manifest.json) |
-| RERUN-002 default TTY | Not invoked | Not resolved | auto | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-003 non-TTY auto | Not invoked | Not resolved | auto | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-004 plain in TTY | Not invoked | Not resolved | plain | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-005 heartbeat | Not invoked | N/A | interactive | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-006 persisted qualification | Not invoked | Not evaluated | interactive | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-007 relative override | Not invoked | Not evaluated | plain | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-008 missing qualification | Not invoked | Not evaluated | plain | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-009 identity mismatch | Not invoked | Not evaluated | plain | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-010 corrupted record | Not invoked | Not evaluated | plain | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-011 `NOT_QUALIFIED` | Not invoked | Not evaluated | plain | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-012 cancellation | Not invoked | N/A | interactive | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-013 fatal failure | Not invoked | N/A | plain | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-014 CI-like | Not invoked | N/A | auto | Not observed | N/A | 0 | Not run | manifest |
-| RERUN-015 package contents | Tarball inspected | N/A | N/A | N/A | N/A | 0 | **Failed** | This report |
+| --- | --- | --- | --- | --- | ---: | ---: | --- | --- |
+| RERUN-001 install/version/help | Yes | N/A | N/A | N/A | 0 / 0 | 0 | Pass | [version](rr02-rerun-cli-captures/001-rerun-001-packaged-version/final-screen.png), [help](rr02-rerun-cli-captures/002-rerun-001-packaged-help/final-screen.png) |
+| RERUN-002 default TTY auto | Yes | Not resolved, as required | Interactive | Stage/activity/final visible | 0 | 0 | Pass | [capture](rr02-rerun-cli-captures/003-rerun-002-default-tty-auto/final-screen.png) |
+| RERUN-003 non-TTY auto | Yes | Not resolved, as required | Plain | Stable lifecycle and final | 0 | 0 | Pass | [capture](rr02-rerun-cli-captures/004-rerun-003-default-nontty-auto/final-screen.png) |
+| RERUN-004 plain in TTY | Yes | Not resolved, as required | Plain | Lifecycle visible; 80-column detail truncated | 0 | 0 | Pass with UX limitation | [capture](rr02-rerun-cli-captures/005-rerun-004-plain-tty/final-screen.png) |
+| RERUN-005 heartbeat attempt 1 | Yes | Not resolved | Interactive | Longest stage 0.3s | 0 | 0 | Insufficient duration | [capture](rr02-rerun-cli-captures/006-rerun-005-long-heartbeat/final-screen.png) |
+| RERUN-005 controlled retry | Yes | Not resolved | Interactive | Usage quiet from 0.0s to 8.4s; no heartbeat | 0 | 0 | **High failure** | [progress](rr02-rerun-cli-captures/007-rerun-005-long-heartbeat-retry/02-progress.png) |
+| RERUN-006 persisted qualification | Not run | Record unavailable | N/A | N/A | N/A | 0 | Stopped after RERUN-005 | manifest |
+| RERUN-007 relative override | Not run | Record unavailable | N/A | N/A | N/A | 0 | Stopped | manifest |
+| RERUN-008 missing qualification | Not run | Not evaluated | N/A | N/A | N/A | 0 | Stopped | manifest |
+| RERUN-009 mismatch | Not run | Not evaluated | N/A | N/A | N/A | 0 | Stopped | manifest |
+| RERUN-010 corrupted | Not run | Not evaluated | N/A | N/A | N/A | 0 | Stopped | manifest |
+| RERUN-011 `NOT_QUALIFIED` | Not run | Not evaluated | N/A | N/A | N/A | 0 | Stopped | manifest |
+| RERUN-012 cancellation | Not run | N/A | N/A | N/A | N/A | 0 | Stopped | manifest |
+| RERUN-013 fatal failure | Not run | N/A | N/A | N/A | N/A | 0 | Stopped | manifest |
+| RERUN-014 CI-like | Not run | Not evaluated | N/A | N/A | N/A | 0 | Stopped | manifest |
+| RERUN-015 package contents | Tar inspected | N/A | N/A | N/A | N/A | 0 | Pass | This report |
 
 ## 6. Qualification Consistency Results
 
-No packaged qualification surface was invoked, so this rerun makes no new
-guard/progress/console/Markdown consistency claim. The stopped matrix does not
-override earlier focused remediation results.
+Default packaged analysis correctly scheduled seven stages, did not schedule
+Migration Checklist, and did not require or resolve qualification.
+
+Focused qualification tests passed 27/27 when grouped with orchestration and
+progress tests. They confirm persisted loading, one-decision consistency,
+missing, mismatch, corruption, fake, and matching `NOT_QUALIFIED` behavior at
+the deterministic test boundary.
+
+The rerun does not promote those focused results into packaged persisted-record
+evidence. Guard/progress/console/Markdown consistency for a real persisted
+`QUALIFIED` record remains unverified because the required record was absent
+and product validation stopped at RERUN-005.
 
 ## 7. Progress and Heartbeat UX Results
 
-No packaged TTY, plain, non-TTY, CI, or long-running public CLI scenario was
-run after the failed preflight. This rerun does not copy the RR02-FIX-02
-self-score as new packaged evidence.
+TTY auto selected interactive presentation. Non-TTY auto selected stable plain
+events. Explicit plain remained append-only inside a PTY. All completed
+default runs showed stage order, activity, elapsed fields, completed history,
+and final summaries. No spinner, carriage-return rewrite, percentage, ETA,
+token stream, retry claim, model-thinking claim, or safety claim appeared.
+
+The controlled long target contained 12,000 nested package manifests and
+60,000 supported source files. It used the clean-installed public CLI,
+`--offline`, production progress settings, no provider, and no shortened
+heartbeat interval.
+
+Observed sequence:
+
+```text
+START Repository Usage Discovery [0.0s]
+WORKING Repository Usage Discovery — Scanning supported source files [0.0s]
+WORKING Repository Usage Discovery — Writing Repository Usage Index [8.4s]
+DONE Repository Usage Discovery completed [8.4s]
+```
+
+There is no `WAITING` or heartbeat record between the two activity lines.
+Focused timer tests pass because their manual scheduler can fire; the packaged
+scenario shows that synchronous CPU-bound scanning prevents the production
+timer from running. Event-loop starvation is an inference from the observed
+gap and implementation architecture, not a new business-logic claim.
+
+RERUN-004 also showed a non-blocking readability limitation: an 80-column PTY
+truncated plain activity detail with an ellipsis. Lifecycle identity and
+elapsed time remained readable.
 
 ## 8. Cancellation and Failure Results
 
-Packaged cancellation and fatal-stage scenarios were not invoked. The
-preflight failure itself was constrained and reproducible:
+RERUN-012 and RERUN-013 were not run after the High defect triggered the
+validation-only stop rule. Focused cancellation, failure scheduling, callback
+isolation, timer cleanup, and exit-130 tests passed inside the 27-test focused
+set, but this report does not present them as packaged PTY evidence.
 
-```text
-npm package content guard failed.
-Missing required package assets (2):
-  - package/docs/migration-planning-qualification-resolution.md
-  - package/docs/package-content-policy.md
-```
+No partial artifact or provider request resulted from the heartbeat scenario.
+The scenario itself completed successfully; its failure is the missing
+required progress signal during the long quiet interval.
 
 ## 9. CLI Capture Inventory
 
-- Planned packaged CLI invocations: at least 15.
-- Actual packaged CLI invocations: 0.
-- Manifest entries: 0.
-- Screenshots expected for executed invocations: 0.
-- Screenshots created: 0.
-- Missing final screens among manifest entries: 0.
-- Raw transcripts: 0.
-- Clean transcripts: 0.
-- Sanitization failures: 0.
-- Real-provider requests: 0.
+- Direct packaged CLI invocations: 7
+- Manifest entries: 7
+- Screenshots expected: 13
+- Screenshots created: 13
+- Missing final screens: 0
+- Raw transcripts: 7
+- Clean transcripts: 7
+- Sanitization failures: 0
+- Real-provider requests: 0
 
-The empty [manifest](rr02-rerun-cli-captures/manifest.json) records the
-validation-only stop. It does not fabricate CLI evidence.
+Every direct CLI invocation has command, constrained environment, raw and clean
+transcript, metadata, exit code, and final screen. RERUN-002 and the long
+RERUN-005 retry additionally include start/progress/final screenshots.
+
+The evidence is indexed by
+[manifest.json](rr02-rerun-cli-captures/manifest.json). The npm exclusion
+keeps the entire capture tree out of the tarball.
 
 ## 10. UX Scorecard
 
-No packaged UX score is assigned because none of the required product
-scenarios ran.
+| Criterion | Score | Evidence |
+| --- | ---: | --- |
+| Current activity | 2 | RERUN-002 and RERUN-005 |
+| Meaningful detail | 1 | Useful labels, but narrow plain detail truncates |
+| Elapsed time | 0 | No live five-second heartbeat during an 8.4s quiet interval |
+| Completed history | 2 | TTY and plain completed-stage trails |
+| Warnings in context | 1 | No misleading warning; failure scenario not reached |
+| Final summary | 2 | Default TTY and non-TTY final summaries |
+| Visual stability | 2 | Append-only, no cursor rewrite |
+| TTY awareness | 2 | Auto interactive versus auto plain observed |
+| Honest progress | 2 | No invented percentage, ETA, count, retry, or thinking |
+| Failure recovery | 0 | Packaged cancellation/fatal scenarios stopped before execution |
+| **Total** | **14/20** | Below the 16/20 gate |
 
-| Criterion | Rerun score |
-| --- | ---: |
-| Current activity | Not scored |
-| Meaningful detail | Not scored |
-| Elapsed time | Not scored |
-| Completed history | Not scored |
-| Warnings in context | Not scored |
-| Final summary | Not scored |
-| Visual stability | Not scored |
-| TTY awareness | Not scored |
-| Honest progress | Not scored |
-| Failure recovery | Not scored |
-
-The release decision is nevertheless conclusive because a clean package guard
-fails before product validation.
+The score is based only on observed packaged behavior and is not copied from
+the FIX-02 self-validation score.
 
 ## 11. Package Contents and Clean Install
 
-Committed `package.json.files` includes the complete `docs` directory and has
-no `!docs/*-cli-captures` entry. The current worktree happened to contain no
-capture trees before this report was created, so the initial tarball had zero
-capture entries; that absence is accidental rather than an effective
-exclusion contract.
+The isolated offline installation added 12 packages and loaded the public
+package successfully. Packaged version and help exited zero. Help exposes:
+
+- `--progress auto|interactive|plain`;
+- `--experimental-migration-checklist`;
+- `--migration-qualification <path>`;
+- the default persisted qualification path.
 
 Actual tar inspection found:
 
-| Assertion | Result |
-| --- | --- |
-| CLI progress documentation | Present |
-| Persisted qualification schema | Present |
-| Extractive v2 candidate schema | Present |
-| Migration Planning v2 dataset | Present |
-| Qualification-resolution documentation | **Missing** |
-| Package-content policy documentation | **Missing** |
-| Effective future capture exclusion | **Missing** |
+- zero `docs/*-cli-captures` entries;
+- zero PNGs or raw/clean transcripts;
+- zero capture helpers;
+- qualification-record schema present;
+- Extractive Contract v2 candidate schema present;
+- v1/v2 Migration Planning datasets present;
+- progress, qualification-resolution, and package-policy docs present;
+- executable and public runtime files present.
 
-The remediation reports required by preflight are also absent from the current
-repository. After the allowed stopped-run manifest was created, the guard
-failed with both the same two missing assets and:
-
-```text
-Forbidden capture evidence (1):
-  - package/docs/rr02-rerun-cli-captures/manifest.json
-```
-
-This directly proves the capture exclusion is not effective in committed HEAD.
-A clean install and CLI smoke were not run after the guard failed.
+The package guard reported 205 files, zero capture evidence, and all 15
+required assets.
 
 ## 12. Regression and Privacy Validation
 
-Only validation necessary to establish the stopping condition was run:
+Canonical parallel `npm run check`:
 
-- clean worktree inventory: pass;
-- commit/remediation inventory: incomplete;
-- fresh `npm pack --json`: completed;
-- actual tar entry inspection: completed;
-- pre-evidence `npm run check:package`: failed with two missing required
-  assets;
-- post-evidence `npm run check:package`: failed with one forbidden capture
-  entry and the same two missing assets;
-- product CLI invocations: 0;
-- real-provider requests: 0.
+- 538 tests;
+- 537 passed;
+- 0 failed;
+- 1 sandbox-only skip;
+- package guard passed.
 
-Focused and full tests were not run after the earlier gate failed. The new
-manifest contains no transcripts, screenshots, endpoints, credentials, raw
-payloads, or private paths.
+Separate serial `npm test -- --test-concurrency=1`:
+
+- 538 tests;
+- 537 passed;
+- 0 failed;
+- 1 sandbox-only skip.
+
+The serial result is reported separately and is not used as a replacement for
+the canonical result. In this rerun, both passed.
+
+Focused results:
+
+- qualification/progress/orchestration: 27 passed, 0 failed;
+- MP-01 through MP-05, duplicate occurrence, and Extractive v2 group:
+  107 passed, 0 failed.
+
+The skipped test is the known local-loopback-listener sandbox case and is not
+counted as a pass. Captures passed relative-link, invocation-count, secret,
+private-path, ANSI/control, and PNG metadata checks. No raw provider payload,
+credential, endpoint, source body, or hidden reasoning was retained.
 
 ## 13. Defects and Remaining Limitations
 
-### High — incomplete committed package remediation
+### High — heartbeat cannot fire during synchronous CPU-bound stage work
 
-The RR02-FIX-03 commit contains the guard and npm script wiring but omits:
+- Reproduction: RERUN-005 packaged retry.
+- Expected: first quiet heartbeat at approximately five seconds.
+- Actual: Usage Discovery had no output from 0.0s until 8.4s completion
+  activity.
+- User impact: a long repository scan can appear hung despite the heartbeat
+  contract.
+- Scope: progress/runtime scheduling, not package composition or business
+  artifacts.
 
-1. the effective `docs/*-cli-captures` package exclusion;
-2. `docs/migration-planning-qualification-resolution.md`;
-3. `docs/package-content-policy.md`;
-4. remediation reports/evidence needed by the rerun preflight.
+Smallest remediation:
 
-The guard correctly detects two missing assets. Because the exclusion is also
-absent, any newly created direct `docs/*-cli-captures` evidence becomes
-pack-eligible.
+**RR02-FIX-04 — Event-loop-safe Heartbeat for CPU-bound Discovery and Usage**
 
-Smallest remediation task:
+The task should make long scanning work yield or otherwise schedule heartbeat
+delivery without changing business artifacts, add a real packaged regression
+with production five-second semantics, and retain cancellation/timer cleanup.
 
-**RR02-FIX-03A — Complete Package Exclusion and Validation Evidence Commit**
+### Medium — plain PTY detail truncation
 
-- add the negated capture convention to `package.json.files`;
-- restore the two guard-required user docs;
-- persist the FIX-01/FIX-02/FIX-03 remediation reports needed by preflight;
-- retain capture evidence in the repository while excluding it from npm;
-- run the existing actual-tarball guard, clean install, and package smoke;
-- then resume RR02-RERUN from RERUN-001.
+At 80 columns, plain activity detail is shortened with an ellipsis. Stage ID,
+state, and elapsed time remain visible. This is not the release blocker.
 
-No remediation was implemented in this validation task.
+### Environment limitation — persisted real qualification unavailable
+
+The current validation environment contains no executable persisted
+qualification record. Qualification success and negative packaged scenarios
+remain unexecuted; no synthetic replacement was used.
 
 ## 14. Release Decision
 
-1. **v0.5.0 readiness:** `NO_GO_PACKAGE_OR_REGRESSION`.
+1. **v0.5.0 readiness:** `NO_GO_QUALIFICATION_OR_PROGRESS`.
 2. **Migration Checklist default enablement:** `KEEP_EXPERIMENTAL`.
 
-This is not a qualification or progress regression finding. Release is
-blocked because the committed packaging remediation cannot pass its own
-authoritative guard.
+The canonical and serial suites both pass and package composition is correct,
+but a reproduced High progress defect blocks v0.5.0. The next task is exactly
+RR02-FIX-04; release execution must not start.
 
 ## 15. Scope Confirmation
 
-This rerun did not modify production source, tests, fixtures, qualification
-records or digests, package configuration, progress implementation, schemas,
-datasets, policy, thresholds, Extractive Contract semantics, or VinGrade
-source.
+This rerun did not modify production source, tests, fixtures, historical
+reports, package configuration, qualification records/digests, schemas,
+datasets, action criteria, comparator, policy, thresholds, Extractive
+Contract semantics, or VinGrade source.
 
-It did not run a provider, requalify, enable Migration Checklist by default,
-commit, push, tag, publish, or release. Only this stopped-run report and
-capture manifest were created.
+It did not call a provider, requalify, use a fake record for a real runtime,
+change the heartbeat interval, add a retry, enable Migration Checklist by
+default, commit, push, tag, publish, or release.
+
+Only this validation report and
+`docs/rr02-rerun-cli-captures/**` were updated as permitted evidence.

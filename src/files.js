@@ -45,10 +45,12 @@ export async function readJson(filePath) {
 
 export async function collectCandidateFiles(root, options = {}) {
   const maxDepth = options.maxDepth ?? Number.POSITIVE_INFINITY;
+  const cooperativeScheduler = options.cooperativeScheduler;
   const files = [];
   const warnings = [];
 
   async function visit(directory, depth) {
+    cooperativeScheduler?.checkpoint();
     let entries;
     try {
       entries = await readdir(directory, { withFileTypes: true });
@@ -65,16 +67,20 @@ export async function collectCandidateFiles(root, options = {}) {
 
     for (const entry of entries) {
       const entryPath = path.join(directory, entry.name);
-      if (entry.isSymbolicLink()) continue;
+      try {
+        if (entry.isSymbolicLink()) continue;
 
-      if (entry.isDirectory()) {
-        if (depth < maxDepth && !DEFAULT_IGNORED_DIRECTORIES.has(entry.name)) {
-          await visit(entryPath, depth + 1);
+        if (entry.isDirectory()) {
+          if (depth < maxDepth && !DEFAULT_IGNORED_DIRECTORIES.has(entry.name)) {
+            await visit(entryPath, depth + 1);
+          }
+          continue;
         }
-        continue;
-      }
 
-      if (entry.isFile() && isCandidate(entry.name)) files.push(entryPath);
+        if (entry.isFile() && isCandidate(entry.name)) files.push(entryPath);
+      } finally {
+        await cooperativeScheduler?.boundary();
+      }
     }
   }
 
