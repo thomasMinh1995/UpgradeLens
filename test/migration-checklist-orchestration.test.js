@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { AiRuntimeError } from '../src/ai-runtime-error.js';
 import {
   assembleMigrationChecklist,
   buildMigrationChecklistViewModel,
@@ -22,6 +23,18 @@ import {
   validateMigrationChecklist,
   writeMigrationChecklist
 } from '../src/index.js';
+import {
+  loadMigrationEvaluationDatasetV2
+} from '../src/migration-checklist/evaluation/dataset-v2.js';
+import {
+  resolveMigrationExtractiveEvaluationV2Case
+} from '../src/migration-checklist/evaluation/extractive-fixtures-v2.js';
+import {
+  runMigrationExtractiveEvaluationV2
+} from '../src/migration-checklist/evaluation/runner-v2.js';
+import {
+  MIGRATION_EXTRACTIVE_PLANNING_TASK
+} from '../src/migration-checklist/extractive-prompt.js';
 
 const generatedAt = '2026-07-17T00:00:00.000Z';
 const temporaryDirectories = [];
@@ -39,6 +52,54 @@ function coreDataset(dataset) {
     datasetId: dataset.datasetId,
     task: dataset.task,
     cases: structuredClone(dataset.cases)
+  };
+}
+
+function extractiveCandidate(candidate, unsafeSecondItem = false) {
+  if (candidate.status === 'ABSTAIN') {
+    return {
+      status: 'ABSTAIN',
+      actions: [],
+      abstentionReason: candidate.abstentionReason
+    };
+  }
+  return {
+    status: 'ACTIONABLE',
+    actions: candidate.items.map((item, index) => ({
+      evidenceRef: item.evidenceRefs[0],
+      actionExcerpt: unsafeSecondItem && index > 0
+        ? item.instruction
+        : item.supportingExcerpts[0].text
+    })),
+    abstentionReason: null
+  };
+}
+
+function createExtractiveFixtureRuntime(cases) {
+  const responseByContext = new Map(cases.map((goldenCase) => [
+    buildMigrationEvaluationContext(goldenCase).contextId,
+    { response: goldenCase.response, id: goldenCase.id }
+  ]));
+  return {
+    async generateStructured(request) {
+      assert.equal(request.task, MIGRATION_EXTRACTIVE_PLANNING_TASK);
+      const value = responseByContext.get(request.contextId);
+      if (!value) throw new TypeError('Unknown extractive fixture context.');
+      if (value.response.kind === 'runtimeError') {
+        throw new AiRuntimeError(value.response.code, 'Fixture runtime failure.');
+      }
+      return {
+        output: value.response.kind === 'candidate'
+          ? extractiveCandidate(
+            value.response.candidate,
+            value.id === 'node/whole-candidate-rejection'
+          )
+          : value.response.output,
+        provider: 'fixture',
+        model: 'fixture',
+        latencyMs: 0
+      };
+    }
   };
 }
 
@@ -63,7 +124,13 @@ async function fixture(ids = ['generic/ambiguous-evidence', 'node/multi-action']
       conflictedEvidence: 0
     }
   };
-  return { dataset, cases, prepared, runtime: createMigrationGoldenFakeRuntime(dataset) };
+  return {
+    dataset,
+    cases,
+    prepared,
+    runtime: createMigrationGoldenFakeRuntime(dataset),
+    extractiveRuntime: createExtractiveFixtureRuntime(cases)
+  };
 }
 
 async function assembled(ids) {
@@ -188,10 +255,6 @@ test('qualification guard never promotes missing, fake, mismatched, or criticall
     item.code === 'MIGRATION_QUALIFICATION_IDENTITY_MISMATCH'
   )));
 
-  await assert.rejects(evaluateMigrationQualification({
-    qualification: { verdict: 'NOT_QUALIFIED' }, runtimeMetadata, allowExperimental: true
-  }), (error) => error.code === 'MIGRATION_RUNTIME_NOT_QUALIFIED');
-
   const loaded = await loadMigrationEvaluationDataset();
   const dataset = coreDataset(loaded);
   const delegate = createMigrationGoldenFakeRuntime(dataset);
@@ -207,13 +270,92 @@ test('qualification guard never promotes missing, fake, mismatched, or criticall
     runtimeMetadata,
     generatedAt
   })).qualification;
-  const accepted = await evaluateMigrationQualification({
+  const legacy = await evaluateMigrationQualification({
     qualification: matchingQualification,
+    runtimeMetadata,
+    allowExperimental: true
+  });
+  assert.equal(legacy.state, 'EXPERIMENTAL');
+  assert.ok(legacy.limitations.some((item) => (
+    item.code === 'MIGRATION_QUALIFICATION_IDENTITY_MISMATCH'
+  )));
+
+  const extractiveDataset = await loadMigrationEvaluationDatasetV2();
+  const extractiveQualification = (await runMigrationExtractiveEvaluationV2({
+    dataset: extractiveDataset,
+    mode: 'real',
+    runtime: {
+      async generateStructured(request) {
+        const item = extractiveDataset.cases.find((candidate) => (
+          candidate.role === 'LIVE_QUALITY'
+          && buildMigrationEvaluationContext(
+            extractiveDataset.legacyDataset.cases.find(
+              (baseCase) => baseCase.id === candidate.baseCaseId
+            )
+          ).contextId === request.contextId
+        ));
+        const resolved = resolveMigrationExtractiveEvaluationV2Case(extractiveDataset, item);
+        return {
+          output: resolved.fixedOutput,
+          provider: 'provider-a',
+          model: 'model-a'
+        };
+      }
+    },
+    runtimeMetadata,
+    generatedAt
+  })).qualification;
+  const accepted = await evaluateMigrationQualification({
+    qualification: extractiveQualification,
     runtimeMetadata,
     allowExperimental: false
   });
-  assert.equal(accepted.state, 'QUALIFIED_WITH_LIMITATIONS');
-  assert.equal(accepted.qualificationId, matchingQualification.qualificationId);
+  assert.equal(accepted.state, 'QUALIFIED');
+  assert.equal(accepted.qualificationId, extractiveQualification.qualificationId);
+
+  for (const mutate of [
+    (identity) => { identity.promptDigest = `sha256:${'0'.repeat(64)}`; },
+    (identity) => { identity.candidateSchemaDigest = `sha256:${'0'.repeat(64)}`; },
+    (identity) => {
+      identity.generatorTrustSourceIdentity.trustPolicy = 'changed-trust-policy';
+    },
+    (identity) => {
+      identity.deterministicPresentationIdentity = 'changed-presentation';
+    }
+  ]) {
+    const changed = structuredClone(extractiveQualification);
+    mutate(changed.identity);
+    const guarded = await evaluateMigrationQualification({
+      qualification: changed,
+      runtimeMetadata,
+      allowExperimental: true
+    });
+    assert.equal(guarded.state, 'EXPERIMENTAL');
+    assert.ok(guarded.limitations.some((item) => (
+      item.code === 'MIGRATION_QUALIFICATION_IDENTITY_MISMATCH'
+    )));
+  }
+  const providerMismatch = await evaluateMigrationQualification({
+    qualification: extractiveQualification,
+    runtimeMetadata: { ...runtimeMetadata, model: 'different-model' },
+    allowExperimental: true
+  });
+  assert.equal(providerMismatch.state, 'EXPERIMENTAL');
+
+  await assert.rejects(evaluateMigrationQualification({
+    qualification: {
+      ...extractiveQualification,
+      qualificationId: `sha256:${'0'.repeat(64)}`
+    },
+    runtimeMetadata,
+    allowExperimental: true
+  }), (error) => error.code === 'MIGRATION_QUALIFICATION_IDENTITY_CORRUPT');
+
+  await assert.rejects(evaluateMigrationQualification({
+    qualification: { ...extractiveQualification, verdict: 'NOT_QUALIFIED' },
+    runtimeMetadata,
+    allowExperimental: true
+  }), (error) => error.code === 'MIGRATION_RUNTIME_NOT_QUALIFIED');
 });
 
 test('experimental stage runs offline end to end, isolates fallback outcomes, validates before write, and emits safe events', async () => {
@@ -226,7 +368,7 @@ test('experimental stage runs offline end to end, isolates fallback outcomes, va
   try {
     const result = await runMigrationChecklistStage({
       repositoryRoot: root,
-      aiRuntime: value.runtime,
+      aiRuntime: value.extractiveRuntime,
       runtimeMetadata: { provider: 'fixture', model: 'fixture', adapter: 'fixture' },
       allowExperimental: true,
       generatedAt,
@@ -276,7 +418,7 @@ test('provider failure and whole-candidate trust rejection remain package-local'
   const events = [];
   const result = await runMigrationChecklistStage({
     repositoryRoot: root,
-    aiRuntime: value.runtime,
+    aiRuntime: value.extractiveRuntime,
     runtimeMetadata: { provider: 'fixture', model: 'fixture', adapter: 'fixture' },
     allowExperimental: true,
     generatedAt,
@@ -337,7 +479,7 @@ test('stage remains correct without a listener and fatal preparation failure wri
   temporaryDirectories.push(root);
   const result = await runMigrationChecklistStage({
     repositoryRoot: root,
-    aiRuntime: value.runtime,
+    aiRuntime: value.extractiveRuntime,
     runtimeMetadata: { provider: 'fixture', model: 'fixture', adapter: 'fixture' },
     allowExperimental: true,
     generatedAt,
@@ -380,7 +522,7 @@ test('presentation is deterministic, truth-preserving, and handles unknown/regis
   assert.deepEqual(checklist, before);
   assert.match(consoleOutput, /Provider qualification: NOT_AVAILABLE/);
   assert.match(consoleOutput, /Human review required: YES/);
-  assert.match(markdown, /AI-authored draft — requires human review/);
+  assert.match(markdown, /AI-selected official guidance — requires human review/);
   assert.match(markdown, /unknown current version/);
   assert.match(markdown, /registry latest fact/);
   assert.match(markdown, /does not mean the upgrade is safe or the migration is complete/);

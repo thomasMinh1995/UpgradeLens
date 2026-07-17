@@ -3,7 +3,21 @@ import { createHash } from 'node:crypto';
 import { canonicalJsonBytes } from '../../canonical-json.js';
 import { compareText } from '../../portable.js';
 import { MIGRATION_CHECKLIST_CANDIDATE_SCHEMA } from '../ai-candidate.js';
-import { MIGRATION_GENERATION_RESULT_VERSION } from '../generator.js';
+import {
+  MIGRATION_EXTRACTIVE_CANDIDATE_SCHEMA,
+  MIGRATION_EXTRACTIVE_CANDIDATE_CONTRACT,
+  MIGRATION_EXTRACTIVE_PRESENTATION,
+  MIGRATION_EXTRACTIVE_TRUST_POLICY
+} from '../extractive-candidate.js';
+import {
+  MIGRATION_EXTRACTIVE_GENERATION_RESULT_VERSION,
+  MIGRATION_GENERATION_RESULT_VERSION
+} from '../generator.js';
+import {
+  MIGRATION_EXTRACTIVE_PLANNING_TASK,
+  MIGRATION_EXTRACTIVE_PROMPT_VERSION,
+  migrationExtractivePromptDigest
+} from '../extractive-prompt.js';
 import { MIGRATION_PLANNING_PROMPT_VERSION, MIGRATION_PLANNING_TASK } from '../prompt.js';
 import {
   migrationActionEvaluationCriteriaDigest,
@@ -11,6 +25,7 @@ import {
 } from './action-criteria.js';
 
 export const MIGRATION_QUALIFICATION_POLICY_V2_VERSION = '2.0.0';
+export const MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2_VERSION = '3.0.0';
 
 export const MIGRATION_QUALIFICATION_POLICY_V2 = deepFreeze({
   policyVersion: MIGRATION_QUALIFICATION_POLICY_V2_VERSION,
@@ -63,11 +78,25 @@ export const MIGRATION_QUALIFICATION_POLICY_V2 = deepFreeze({
   ]
 });
 
+export const MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2 = deepFreeze({
+  ...structuredClone(MIGRATION_QUALIFICATION_POLICY_V2),
+  policyVersion: MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2_VERSION,
+  task: MIGRATION_EXTRACTIVE_PLANNING_TASK
+});
+
 const GENERATOR_TRUST_IDENTITY = deepFreeze({
   candidateContract: 'migration-checklist-candidate.v1',
   generatorResultVersion: MIGRATION_GENERATION_RESULT_VERSION,
   promptVersion: MIGRATION_PLANNING_PROMPT_VERSION,
   trustPolicy: 'migration-checklist-trust.mp-03.v1'
+});
+
+export const MIGRATION_EXTRACTIVE_GENERATOR_TRUST_SOURCE_IDENTITY = deepFreeze({
+  candidateContract: MIGRATION_EXTRACTIVE_CANDIDATE_CONTRACT,
+  generatorResultVersion: MIGRATION_EXTRACTIVE_GENERATION_RESULT_VERSION,
+  promptVersion: MIGRATION_EXTRACTIVE_PROMPT_VERSION,
+  trustPolicy: MIGRATION_EXTRACTIVE_TRUST_POLICY,
+  deterministicPresentation: MIGRATION_EXTRACTIVE_PRESENTATION
 });
 
 function deepFreeze(value) {
@@ -144,7 +173,12 @@ export function qualifyMigrationPlanningRuntimeV2({
   promptVersion = MIGRATION_PLANNING_PROMPT_VERSION,
   policy = MIGRATION_QUALIFICATION_POLICY_V2,
   criteriaIdentity = migrationActionEvaluationCriteriaIdentity(),
-  criteriaDigest = migrationActionEvaluationCriteriaDigest()
+  criteriaDigest = migrationActionEvaluationCriteriaDigest(),
+  task = MIGRATION_PLANNING_TASK,
+  candidateSchema = MIGRATION_CHECKLIST_CANDIDATE_SCHEMA,
+  generatorTrustSourceIdentity = GENERATOR_TRUST_IDENTITY,
+  promptDigest = null,
+  deterministicPresentationIdentity = null
 }) {
   if (typeof generatedAt !== 'string' || !Number.isFinite(Date.parse(generatedAt))) {
     throw new TypeError('Migration qualification v2 generatedAt must be an injected ISO timestamp.');
@@ -224,7 +258,7 @@ export function qualifyMigrationPlanningRuntimeV2({
     verdict = 'QUALIFIED';
   }
   const identity = {
-    task: MIGRATION_PLANNING_TASK,
+    task,
     datasetId: dataset.datasetId,
     datasetVersion: dataset.schemaVersion,
     datasetDigest: dataset.datasetDigest,
@@ -236,10 +270,14 @@ export function qualifyMigrationPlanningRuntimeV2({
     policyVersion: policy.policyVersion,
     policyDigest: migrationQualificationPolicyV2Digest(policy),
     promptVersion,
-    candidateSchemaDigest: digest(MIGRATION_CHECKLIST_CANDIDATE_SCHEMA),
-    generatorTrustSourceIdentity: GENERATOR_TRUST_IDENTITY,
+    candidateSchemaDigest: digest(candidateSchema),
+    generatorTrustSourceIdentity,
     runtime: sanitizedRuntime
   };
+  if (promptDigest !== null) identity.promptDigest = promptDigest;
+  if (deterministicPresentationIdentity !== null) {
+    identity.deterministicPresentationIdentity = deterministicPresentationIdentity;
+  }
   return deepFreeze({
     schemaVersion: '2.0.0',
     qualificationId: digest(identity),
@@ -250,5 +288,34 @@ export function qualifyMigrationPlanningRuntimeV2({
     limitations: limitations.sort((left, right) => compareText(left.code, right.code)
       || compareText(left.message, right.message)),
     verdict
+  });
+}
+
+export function migrationExtractiveQualificationPolicyV2Digest(
+  policy = MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2
+) {
+  return digest(policy);
+}
+
+export function qualifyMigrationExtractiveRuntimeV2({
+  dataset,
+  metrics,
+  runtime,
+  generatedAt,
+  promptVersion = MIGRATION_EXTRACTIVE_PROMPT_VERSION,
+  policy = MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2
+}) {
+  return qualifyMigrationPlanningRuntimeV2({
+    dataset,
+    metrics,
+    runtime,
+    generatedAt,
+    promptVersion,
+    policy,
+    task: MIGRATION_EXTRACTIVE_PLANNING_TASK,
+    candidateSchema: MIGRATION_EXTRACTIVE_CANDIDATE_SCHEMA,
+    generatorTrustSourceIdentity: MIGRATION_EXTRACTIVE_GENERATOR_TRUST_SOURCE_IDENTITY,
+    promptDigest: migrationExtractivePromptDigest(),
+    deterministicPresentationIdentity: MIGRATION_EXTRACTIVE_PRESENTATION
   });
 }

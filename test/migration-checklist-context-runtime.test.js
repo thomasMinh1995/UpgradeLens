@@ -326,6 +326,206 @@ async function fixture({
   return { artifacts, sources: sourcesFor(artifacts), actionEvidence, facts };
 }
 
+function analysisInputFromResult(result) {
+  return {
+    resultVersion: '1',
+    status: result.status,
+    contextId: result.contextId,
+    dependency: structuredClone(result.dependency),
+    versions: structuredClone(result.versions),
+    summary: result.summary,
+    summaryEvidenceRefs: [...result.summaryEvidenceRefs],
+    riskLevel: result.riskLevel,
+    riskEvidenceRefs: [...result.riskEvidenceRefs],
+    findings: structuredClone(result.findings),
+    evidenceCoverage: result.evidenceCoverage,
+    validation: structuredClone(result.validation),
+    requiresHumanReview: result.requiresHumanReview,
+    humanReviewReasons: [...result.humanReviewReasons],
+    nextAction: result.nextAction,
+    limitations: structuredClone(result.limitations)
+  };
+}
+
+function versionContextFromResult(result, evidence) {
+  return {
+    contextVersion: '1',
+    contextId: result.contextId,
+    dependency: structuredClone(result.dependency),
+    versions: structuredClone(result.versions),
+    knowledge: { evidence: structuredClone(evidence) }
+  };
+}
+
+function compareKnowledgeOccurrences(left, right) {
+  for (const field of ['projectId', 'manifest', 'dependencyType', 'declaredName']) {
+    const compared = left[field].localeCompare(right[field]);
+    if (compared !== 0) return compared;
+  }
+  return (left.declaredVersion ?? '').localeCompare(right.declaredVersion ?? '');
+}
+
+async function duplicateOccurrenceFixture({
+  secondStatus = 'skipped',
+  reverseVersionInputs = false
+} = {}) {
+  const chain = await fixture({
+    uncertainBaseline: secondStatus === 'skipped',
+    evidenceContents: ['First occurrence instruction.', 'Second occurrence instruction.']
+  });
+  const artifacts = chain.artifacts;
+  const project = artifacts.project.projects[0];
+  const firstDependency = project.dependencies[0];
+  const secondDeclaredVersion = secondStatus === 'analyzed' ? '17.0.0' : null;
+  project.dependencies.push({
+    ...structuredClone(firstDependency),
+    declaredVersion: secondDeclaredVersion
+  });
+  project.dependencySummary.declarationCount = 2;
+  project.dependencySummary.uniqueCount = 1;
+  project.dependencySummary.duplicateCount = 1;
+  project.dependencySummary.byType.dependencies = 2;
+
+  const packageRecord = artifacts.knowledge.packages[0];
+  packageRecord.occurrences.push({
+    ...structuredClone(packageRecord.occurrences[0]),
+    declaredVersion: secondDeclaredVersion
+  });
+  packageRecord.occurrences.sort(compareKnowledgeOccurrences);
+  artifacts.knowledge.summary.inputOccurrenceCount = 2;
+  artifacts.knowledge.research.inputOccurrenceCount = 2;
+
+  const projectBytes = bytes(artifacts.project);
+  artifacts.knowledge.input.projectManifest = projectLineage(artifacts.project, projectBytes);
+  const knowledgeBytes = bytes(artifacts.knowledge);
+  artifacts.bundle.input.knowledgeManifest = {
+    schemaVersion: '1.0.0',
+    artifact: '.upgradelens/knowledge-manifest.json',
+    artifactDigest: digest(knowledgeBytes),
+    researchId: artifacts.knowledge.research.researchId
+  };
+
+  const firstResult = structuredClone(artifacts.version.results[0]);
+  const resultEvidence = structuredClone(firstResult.evidence);
+  const firstEvidence = [
+    resultEvidence.find((item) => item.id === chain.actionEvidence[0].id)
+  ];
+  const firstFinding = firstResult.findings[0];
+  firstFinding.evidenceRefs = [firstEvidence[0].id];
+  firstResult.summaryEvidenceRefs = [firstEvidence[0].id];
+  firstResult.riskEvidenceRefs = [firstEvidence[0].id];
+  const firstAnalysis = analysisInputFromResult(firstResult);
+  const firstContext = versionContextFromResult(firstResult, firstEvidence);
+
+  const secondResult = structuredClone(firstResult);
+  secondResult.contextId = digest(`duplicate-occurrence:${secondStatus}`);
+  secondResult.versions = secondStatus === 'analyzed'
+    ? {
+        ...structuredClone(firstResult.versions),
+        declaredVersion: secondDeclaredVersion,
+        currentVersion: secondDeclaredVersion
+      }
+    : {
+        ...structuredClone(firstResult.versions),
+        analysisMode: 'unsupportedBaseline',
+        declaredVersion: null,
+        currentVersion: null,
+        currentVersionSource: null,
+        delta: { direction: 'unknown', classification: 'unknown' }
+      };
+  const secondEvidence = secondStatus === 'analyzed'
+    ? [resultEvidence.find((item) => item.id === chain.actionEvidence[1].id)]
+    : [];
+  const secondAnalysis = analysisInputFromResult(secondResult);
+  secondAnalysis.contextId = secondResult.contextId;
+  secondAnalysis.versions = structuredClone(secondResult.versions);
+  if (secondStatus === 'analyzed') {
+    const finding = {
+      id: 'legacyRoot-changed',
+      kind: 'breakingChange',
+      summary: 'legacyRoot changed in the target release.',
+      appliesToVersions: [secondResult.versions.targetVersion],
+      evidenceRefs: [secondEvidence[0].id]
+    };
+    secondAnalysis.findings = [finding];
+    secondAnalysis.summary = finding.summary;
+    secondAnalysis.summaryEvidenceRefs = [...finding.evidenceRefs];
+    secondAnalysis.riskEvidenceRefs = [...finding.evidenceRefs];
+  } else {
+    secondAnalysis.status = 'skipped';
+    secondAnalysis.summary = 'Analysis was skipped because the baseline is unsupported.';
+    secondAnalysis.summaryEvidenceRefs = [];
+    secondAnalysis.riskLevel = 'unknown';
+    secondAnalysis.riskEvidenceRefs = [];
+    secondAnalysis.findings = [];
+    secondAnalysis.evidenceCoverage = 'none';
+    secondAnalysis.validation = {
+      status: 'validWithWarnings',
+      warningCodes: ['BASELINE_UNSUPPORTED']
+    };
+    secondAnalysis.humanReviewReasons = ['BASELINE_UNSUPPORTED'];
+    secondAnalysis.nextAction = 'resolveCurrentVersion';
+    secondAnalysis.limitations = [{
+      code: 'BASELINE_UNSUPPORTED',
+      message: 'The dependency declaration has no supported exact baseline.'
+    }];
+  }
+  const secondContext = versionContextFromResult(secondResult, secondEvidence);
+  const contexts = [firstContext, secondContext];
+  const results = [firstAnalysis, secondAnalysis];
+  if (reverseVersionInputs) {
+    contexts.reverse();
+    results.reverse();
+  }
+
+  artifacts.version = buildVersionAnalysisManifest({
+    input: {
+      projectManifest: projectLineage(artifacts.project, projectBytes),
+      knowledgeManifest: structuredClone(artifacts.bundle.input.knowledgeManifest),
+      evidenceArtifact: artifactLineage(
+        '.upgradelens/knowledge-evidence-bundle.json',
+        artifacts.bundle
+      )
+    },
+    contexts,
+    results,
+    generatedAt
+  });
+  artifacts.usage.input.projectManifest = projectLineage(artifacts.project, projectBytes);
+  artifacts.usage.input.versionAnalysis = artifactLineage(
+    '.upgradelens/version-analysis.json',
+    artifacts.version
+  );
+  artifacts.impact = analyzeRepositoryImpact({
+    versionAnalysis: artifacts.version,
+    usageIndex: artifacts.usage,
+    input: {
+      projectManifest: projectLineage(artifacts.project, projectBytes),
+      versionAnalysis: artifactLineage('.upgradelens/version-analysis.json', artifacts.version),
+      usageIndex: artifactLineage('.upgradelens/usage-index.json', artifacts.usage)
+    },
+    clock: () => new Date(generatedAt)
+  });
+  artifacts.impactEvidence = buildRepositoryImpactEvidence({
+    input: {
+      projectManifest: projectLineage(artifacts.project, projectBytes),
+      versionAnalysis: artifactLineage('.upgradelens/version-analysis.json', artifacts.version),
+      usageIndex: artifactLineage('.upgradelens/usage-index.json', artifacts.usage),
+      repositoryImpact: artifactLineage('.upgradelens/repository-impact.json', artifacts.impact)
+    },
+    repositoryImpact: artifacts.impact,
+    usageIndex: artifacts.usage,
+    generatedAt
+  });
+  rechain(artifacts);
+  return {
+    artifacts,
+    sources: sourcesFor(artifacts),
+    actionEvidence: chain.actionEvidence,
+    facts: chain.facts
+  };
+}
+
 function sourcesFor({ project, knowledge, bundle, version, usage, impact, impactEvidence }) {
   return {
     projectManifest: { bytes: bytes(project), artifact: '.upgradelens/project-manifest.json' },
@@ -531,6 +731,132 @@ test('skipped analysis yields NOT_ANALYZED fallback and no eligible context', as
   assert.equal(prepared.fallbackRecords[0].analysisStatus, 'skipped');
   assert.deepEqual(prepared.fallbackRecords[0].findings, []);
   assert.ok(prepared.fallbackRecords[0].limitations.some((item) => item.code === 'NOT_ANALYZED'));
+});
+
+test('reconciles analyzed and skipped occurrences of one package without dropping either result', async () => {
+  const chain = await duplicateOccurrenceFixture({ secondStatus: 'skipped' });
+  const loaded = await loadMigrationChecklistInputs({ sources: chain.sources });
+  const prepared = await prepareMigrationChecklistContexts({ sources: chain.sources });
+
+  assert.equal(loaded.versionAnalysis.results.length, 2);
+  assert.equal(prepared.summary.eligible, 1);
+  assert.equal(prepared.summary.notAnalyzed, 1);
+  assert.equal(prepared.eligibleContexts.length, 1);
+  assert.equal(prepared.fallbackRecords.length, 1);
+  assert.notEqual(
+    prepared.eligibleContexts[0].analysisResultId,
+    prepared.fallbackRecords[0].analysisResultId
+  );
+  assert.equal(prepared.fallbackRecords[0].analysisStatus, 'skipped');
+  assert.ok(
+    prepared.fallbackRecords[0].limitations.some((item) => item.code === 'NOT_ANALYZED')
+  );
+});
+
+test('preserves two analyzed occurrences and isolates findings, evidence, and locations by result', async () => {
+  const chain = await duplicateOccurrenceFixture({ secondStatus: 'analyzed' });
+  const prepared = await prepareMigrationChecklistContexts({ sources: chain.sources });
+  const contexts = new Map(prepared.eligibleContexts.map((context) => [context.finding.id, context]));
+  const createRoot = contexts.get('createRoot-changed');
+  const legacyRoot = contexts.get('legacyRoot-changed');
+
+  assert.equal(prepared.eligibleContexts.length, 2);
+  assert.equal(new Set(prepared.eligibleContexts.map((item) => item.analysisResultId)).size, 2);
+  assert.ok(createRoot);
+  assert.ok(legacyRoot);
+  assert.deepEqual(createRoot.evidenceAllowlist, [chain.actionEvidence[0].id]);
+  assert.deepEqual(legacyRoot.evidenceAllowlist, [chain.actionEvidence[1].id]);
+  assert.deepEqual(createRoot.positiveCandidateLocations, [{
+    impactEvidenceId: chain.artifacts.impactEvidence.dependencies
+      .find((item) => item.analysisResultId === createRoot.analysisResultId)
+      .findings[0].id,
+    symbol: 'createRoot',
+    file: 'src/App.tsx'
+  }]);
+  assert.deepEqual(legacyRoot.positiveCandidateLocations, []);
+
+  const impactByResult = new Map(
+    chain.artifacts.impact.dependencies.map((item) => [item.analysisResultId, item])
+  );
+  const evidenceByResult = new Map(
+    chain.artifacts.impactEvidence.dependencies.map((item) => [item.analysisResultId, item])
+  );
+  assert.equal(impactByResult.get(createRoot.analysisResultId).findings[0].impacted, true);
+  assert.equal(impactByResult.get(legacyRoot.analysisResultId).findings[0].impacted, false);
+  assert.equal(
+    evidenceByResult.get(createRoot.analysisResultId).findings[0].findingId,
+    'createRoot-changed'
+  );
+  assert.equal(
+    evidenceByResult.get(legacyRoot.analysisResultId).findings[0].findingId,
+    'legacyRoot-changed'
+  );
+});
+
+test('duplicate-occurrence reconciliation is deterministic under Version input permutation', async () => {
+  const forward = await duplicateOccurrenceFixture({ secondStatus: 'analyzed' });
+  const reverse = await duplicateOccurrenceFixture({
+    secondStatus: 'analyzed',
+    reverseVersionInputs: true
+  });
+  const forwardPrepared = await prepareMigrationChecklistContexts({ sources: forward.sources });
+  const reversePrepared = await prepareMigrationChecklistContexts({ sources: reverse.sources });
+
+  assert.deepEqual(reverse.artifacts.version, forward.artifacts.version);
+  assert.deepEqual(reversePrepared, forwardPrepared);
+});
+
+test('retains fatal handling for truly ambiguous duplicate occurrence identity', async () => {
+  const chain = await fixture();
+  const project = chain.artifacts.project.projects[0];
+  project.dependencies.push(structuredClone(project.dependencies[0]));
+  project.dependencySummary.declarationCount = 2;
+  project.dependencySummary.uniqueCount = 1;
+  project.dependencySummary.duplicateCount = 1;
+  project.dependencySummary.byType.dependencies = 2;
+  const packageRecord = chain.artifacts.knowledge.packages[0];
+  packageRecord.occurrences.push(structuredClone(packageRecord.occurrences[0]));
+  packageRecord.occurrences.sort(compareKnowledgeOccurrences);
+  chain.artifacts.knowledge.summary.inputOccurrenceCount = 2;
+  chain.artifacts.knowledge.research.inputOccurrenceCount = 2;
+  rechain(chain.artifacts);
+
+  await assert.rejects(
+    () => prepareMigrationChecklistContexts({ sources: sourcesFor(chain.artifacts) }),
+    (error) => error.code === 'REFERENCE_MISMATCH'
+      && /does not match one exact Project Manifest dependency occurrence/.test(error.message)
+  );
+});
+
+test('keeps cross-project and cross-package downstream references fatal', async () => {
+  for (const [field, value] of [
+    ['projectId', 'node:other-project'],
+    ['packageId', 'npm:zzzz-other-package']
+  ]) {
+    const chain = await duplicateOccurrenceFixture({ secondStatus: 'analyzed' });
+    chain.artifacts.impact.dependencies[1][field] = value;
+    rechain(chain.artifacts);
+    await assert.rejects(
+      () => prepareMigrationChecklistContexts({ sources: sourcesFor(chain.artifacts) }),
+      (error) => error.code === 'REFERENCE_MISMATCH'
+        && /Repository Impact identity differs/.test(error.message),
+      field
+    );
+  }
+});
+
+test('single-occurrence loading and context output remain unchanged', async () => {
+  const chain = await fixture();
+  const loaded = await loadMigrationChecklistInputs({ sources: chain.sources });
+  const prepared = await prepareMigrationChecklistContexts({ sources: chain.sources });
+
+  assert.equal(loaded.versionAnalysis.results.length, 1);
+  assert.equal(prepared.eligibleContexts.length, 1);
+  assert.equal(prepared.fallbackRecords.length, 0);
+  assert.equal(
+    prepared.eligibleContexts[0].analysisResultId,
+    chain.artifacts.version.results[0].id
+  );
 });
 
 test('missing action evidence yields deterministic NO_GROUNDED_ACTION fallback', async () => {

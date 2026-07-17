@@ -130,4 +130,6 @@ The v2 qualification identity includes the criteria ID/version/digest plus compa
 
 The deterministic v2 run currently returns `NOT_QUALIFIED`, intentionally: the unchanged production trust validator accepts two recorded unsafe candidates already documented as known lexical/semantic gaps. The criteria now place those fixtures in the containment denominator, so the qualification boundary fails closed. The recorded safe `npm package` candidate is rejected by the unchanged command regex and is reported separately as a quality limitation, not as an unsafe leak.
 
+That result is the historical free-form v1 baseline. GR-04 adds a separate `migration-planning.v2` extractive production identity. Its offline run contains all `17/17` recorded unsafe candidates, accepts the recorded safe candidate `1/1`, publishes no unsupported or ambiguous actions, passes every critical gate, and remains `QUALIFIED_WITH_LIMITATIONS` under fake mode. The production trust validator uses exact-span provenance and structural safety only; fixture action criteria remain evaluation-only. See [`GR-04-Versioned-Production-Extractive-Contract.md`](./GR-04-Versioned-Production-Extractive-Contract.md).
+
 See [`GR-02-Versioned-Action-Evaluation-Criteria.md`](./GR-02-Versioned-Action-Evaluation-Criteria.md) for the full role, metric, compatibility, and requalification contract.

@@ -370,7 +370,7 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
     dependencies: [],
     limitations: [{
       code: 'MIGRATION_PROVIDER_NOT_QUALIFIED',
-      message: 'The configured provider/model has not been qualified for migration-planning.v1.'
+      message: 'The configured provider/model has not been qualified for migration-planning.v2.'
     }]
   };
   const stdout = capture();
@@ -403,7 +403,7 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
   assert.match(stdout.value(), /Migration checklist contains no grounded action/);
   const report = await readFile(path.join(root, '.upgradelens/repository-impact.md'), 'utf8');
   assert.match(report, /## Migration Checklist/);
-  assert.match(report, /Every AI-authored draft requires human review/);
+  assert.match(report, /Every AI-selected official guidance item requires human review/);
 });
 
 test('analyze CLI writes a clean failure log and does not run later stages', async () => {

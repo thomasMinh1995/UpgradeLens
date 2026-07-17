@@ -2,7 +2,7 @@
 
 ## Scope and runtime boundary
 
-MP-03 turns only MP-02 `eligibleContexts` into human-review migration checklist drafts. Its AI task identity is `migration-planning.v1`, and it calls the existing provider-neutral `AiRuntime.generateStructured()` contract once per eligible context. It does not read artifacts or source files, access the network directly, scan a repository, write the final checklist, or invoke CLI/orchestration code.
+MP-03 turns only MP-02 `eligibleContexts` into human-review migration checklist drafts. New experimental application runs use the extractive task identity `migration-planning.v2` and call the existing provider-neutral `AiRuntime.generateStructured()` contract once per eligible context. The historical free-form `migration-planning.v1` path remains only for evaluation reproducibility. The generator does not read artifacts or source files, access the network directly, scan a repository, write the final checklist, or invoke CLI/orchestration code.
 
 The public multi-context API is `generateMigrationChecklistDrafts(prepared, { aiRuntime })`. The lower-level APIs expose prompt construction, candidate validation, trust validation, and one-context generation for MP-04 evaluation and MP-05 assembly.
 
@@ -29,7 +29,7 @@ The strict JSON Schema has no additional properties and contains only:
 - up to four bounded items, each with a bounded instruction, one to six unique selected evidence refs, and one exact bounded excerpt per ref;
 - `abstentionReason`: null for `ACTIONABLE`, or one constrained reason for `ABSTAIN`.
 
-The model cannot emit item IDs, package/finding/result identity, kind, basis, status/eligibility ownership, review state, URL, location, code, command, patch, prerequisite graph, ordering, rollback, effort, confidence, or completion/approval state. MP-03 intentionally omits a review-question field to keep the model-owned contract small.
+In v2 the model emits only `status`, exact `(evidenceRef, actionExcerpt)` selections, and a constrained abstention reason. It cannot emit the final instruction, item IDs, package/finding/result identity, kind, basis, status/eligibility ownership, review state, URL, location, code, command, patch, prerequisite graph, ordering, rollback, effort, confidence, or completion/approval state.
 
 ## Evidence and excerpt validation
 
@@ -69,7 +69,7 @@ For identical normalized context and candidate output, parsing, trust checks, re
 
 A valid `ABSTAIN` candidate becomes a deterministic `NO_GROUNDED_ACTION` manual-review fallback with its constrained reason recorded as a limitation. It contains no AI-authored action.
 
-Invalid JSON/schema/semantics, trust rejection, and provider/runtime failure become `MANUAL_REVIEW_REQUIRED` deterministic fallbacks with constrained, sanitized warnings. Raw provider messages are not copied. A failure is package-local: other eligible contexts continue and all MP-02 fallback records remain available. Invalid context shape, duplicate identity, missing runtime, and programming invariants remain fatal.
+Invalid JSON/schema/semantics, non-exact spans, trust rejection, and provider/runtime failure become `MANUAL_REVIEW_REQUIRED` deterministic fallbacks with constrained, sanitized warnings. Raw provider messages are not copied. A failure is package-local: other eligible contexts continue and all MP-02 fallback records remain available. Invalid context shape, duplicate identity, missing runtime, and programming invariants remain fatal. See [`GR-04-Versioned-Production-Extractive-Contract.md`](./GR-04-Versioned-Production-Extractive-Contract.md).
 
 ## Deferred work
 

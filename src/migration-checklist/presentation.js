@@ -56,7 +56,7 @@ export function buildMigrationChecklistViewModel(checklist) {
         kind: item.kind,
         basis: item.basis,
         label: item.basis === 'AI_AUTHORED'
-          ? 'AI-authored draft'
+          ? 'AI-selected official guidance'
           : item.kind === 'REVIEW_CANDIDATE_USAGE'
             ? 'Candidate review location'
             : 'Manual-review item',
@@ -95,7 +95,7 @@ export function renderMigrationChecklistConsole({ viewModel, artifactPath }) {
     heading,
     '',
     `  ${summary.findingCount} breaking findings represented`,
-    `  ${summary.aiAuthoredItemCount} evidence-grounded AI-authored draft actions`,
+    `  ${summary.aiAuthoredItemCount} AI-selected official guidance items`,
     `  ${summary.candidateLocationCount} candidate review locations`,
     `  ${summary.requiresHumanReviewItemCount} checklist items require human review`,
     `  Provider qualification: ${viewModel.qualificationState}`,
@@ -161,14 +161,14 @@ export function renderMigrationChecklistMarkdownSection({ viewModel }) {
   const lines = [
     '## Migration Checklist',
     '',
-    '> Experimental evidence-grounded checklist. Every AI-authored draft requires human review.',
+    '> Experimental evidence-grounded checklist. Every AI-selected official guidance item requires human review.',
     '>',
     '> Checklist coverage marked COMPLETE applies only to the grounded records represented here. It does not mean the upgrade is safe or the migration is complete.',
     '',
     `- Checklist status: ${inlineCode(viewModel.status)}`,
     `- Provider qualification: ${inlineCode(viewModel.qualificationState)}`,
     '- Human review required: **YES**',
-    `- Evidence-grounded AI-authored drafts: ${viewModel.summary.aiAuthoredItemCount}`,
+    `- AI-selected official guidance items: ${viewModel.summary.aiAuthoredItemCount}`,
     `- Candidate review locations: ${viewModel.summary.candidateLocationCount}`,
     ''
   ];

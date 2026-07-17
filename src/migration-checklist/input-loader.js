@@ -251,14 +251,32 @@ function occurrenceKey(dependency) {
   ].join('\0');
 }
 
+function usageIdentityKey(value) {
+  return `${value.projectId}\0${value.packageId}`;
+}
+
+function versionResultsByUsageIdentity(results) {
+  const indexed = new Map();
+  for (const result of results) {
+    const key = usageIdentityKey(result.dependency);
+    if (!indexed.has(key)) indexed.set(key, []);
+    indexed.get(key).push(result);
+  }
+  return indexed;
+}
+
 function validateDependencyIdentities(artifacts) {
   const projects = new Map(artifacts.projectManifest.projects.map((project) => [project.id, project]));
   const packages = new Map(artifacts.knowledgeManifest.packages.map((item) => [item.id, item]));
   const occurrenceOwners = new Set();
-  const occurrenceCounts = new Map();
+  const resultIds = new Set();
 
   for (const result of artifacts.versionAnalysis.results) {
     const dependency = result.dependency;
+    if (resultIds.has(result.id)) {
+      fail(`Version Analysis result ${result.id} is duplicated.`, 'AMBIGUOUS_REFERENCE');
+    }
+    resultIds.add(result.id);
     const project = projects.get(dependency.projectId);
     if (!project) fail(`Version Analysis result ${result.id} references unknown project ${dependency.projectId}.`, 'REFERENCE_MISMATCH');
     const declared = project.dependencies.filter((item) => (
@@ -294,14 +312,6 @@ function validateDependencyIdentities(artifacts) {
       fail(`Version Analysis occurrence for ${dependency.projectId}/${dependency.packageId} is ambiguous.`, 'AMBIGUOUS_REFERENCE');
     }
     occurrenceOwners.add(key);
-    const usageKey = `${dependency.projectId}\0${dependency.packageId}`;
-    occurrenceCounts.set(usageKey, (occurrenceCounts.get(usageKey) ?? 0) + 1);
-  }
-  for (const [key, count] of occurrenceCounts) {
-    if (count > 1) {
-      const [projectId, packageId] = key.split('\0');
-      fail(`Usage identity ${projectId}/${packageId} maps to ${count} Version Analysis occurrences.`, 'AMBIGUOUS_REFERENCE');
-    }
   }
 }
 
@@ -358,12 +368,11 @@ function validateEvidenceReferences(artifacts) {
 }
 
 function validateUsageReferences(artifacts) {
-  const results = new Map(artifacts.versionAnalysis.results.map((result) => (
-    [`${result.dependency.projectId}\0${result.dependency.packageId}`, result]
-  )));
+  const results = versionResultsByUsageIdentity(artifacts.versionAnalysis.results);
   for (const usage of artifacts.usageIndex.dependencies) {
-    const result = results.get(`${usage.projectId}\0${usage.packageId}`);
-    if (!result || result.dependency.declaredName !== usage.name) {
+    const matching = results.get(usageIdentityKey(usage)) ?? [];
+    if (matching.length === 0
+        || matching.some((result) => result.dependency.declaredName !== usage.name)) {
       fail(`Usage Index dependency ${usage.projectId}/${usage.packageId} has no exact Version Analysis identity.`, 'REFERENCE_MISMATCH');
     }
   }

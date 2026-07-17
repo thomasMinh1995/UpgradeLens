@@ -205,7 +205,7 @@ function trustError(code, message, detailCode) {
   return new MigrationChecklistTrustError(code, message, { detailCode });
 }
 
-function validateInstruction(instruction, verifiedText) {
+export function validateMigrationChecklistInstructionTrust(instruction, verifiedText) {
   const inheritedViolations = validateMigrationChecklistInstructionContent(instruction);
   if (inheritedViolations.length > 0) {
     const violation = inheritedViolations[0];
@@ -295,7 +295,7 @@ export function trustValidateMigrationChecklistCandidate(candidate, context) {
     }
 
     const verifiedText = excerpts.map((excerpt) => normalizeLineEndings(excerpt.text)).join('\n');
-    validateInstruction(item.instruction, verifiedText);
+    validateMigrationChecklistInstructionTrust(item.instruction, verifiedText);
     normalizedItems.push({
       instruction: item.instruction,
       evidenceRefs: refs,

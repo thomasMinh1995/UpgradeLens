@@ -5,7 +5,7 @@ function inputError(message) {
   return new TypeError(`Migration Checklist assembly error: ${message}`);
 }
 
-/** Assemble MP-02 + MP-03 application output strictly through the MP-01 builder. */
+/** Assemble normalized contexts plus versioned generator output through the MP-01 builder. */
 export function assembleMigrationChecklist({
   prepared,
   generation,

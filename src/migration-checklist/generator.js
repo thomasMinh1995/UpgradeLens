@@ -10,6 +10,18 @@ import {
   validateMigrationChecklistCandidate
 } from './ai-candidate.js';
 import {
+  isMigrationExtractiveCandidateError,
+  MIGRATION_EXTRACTIVE_CANDIDATE_SCHEMA,
+  trustValidateMigrationExtractiveCandidate,
+  validateMigrationExtractiveCandidate
+} from './extractive-candidate.js';
+import {
+  buildMigrationExtractivePrompt,
+  MIGRATION_EXTRACTIVE_PLANNING_TASK,
+  MIGRATION_EXTRACTIVE_PROMPT_VERSION,
+  MIGRATION_EXTRACTIVE_SCHEMA_NAME
+} from './extractive-prompt.js';
+import {
   MIGRATION_LOCATION_REASON_CODES,
   MIGRATION_TASK_CONTEXT_VERSION
 } from './context-runtime.js';
@@ -22,6 +34,7 @@ import {
 } from './prompt.js';
 
 export const MIGRATION_GENERATION_RESULT_VERSION = '1';
+export const MIGRATION_EXTRACTIVE_GENERATION_RESULT_VERSION = '2';
 export const MIGRATION_GENERATION_WARNING_CODES = Object.freeze([
   'MODEL_ABSTAINED',
   'OUTPUT_JSON_INVALID',
@@ -313,7 +326,7 @@ function runtimeFailure(context, error) {
 }
 
 function candidateFailure(context, error) {
-  if (isMigrationChecklistCandidateError(error)) {
+  if (isMigrationChecklistCandidateError(error) || isMigrationExtractiveCandidateError(error)) {
     return {
       outcome: 'rejected',
       record: fallbackRecord(context, 'MANUAL_REVIEW_REQUIRED', error.code),
@@ -340,17 +353,16 @@ function candidateFailure(context, error) {
   throw error;
 }
 
-/** Generate and trust-validate one MP-02 eligible context. */
-export async function generateMigrationChecklistForContext(context, {
+async function generateMigrationChecklistForContextWithContract(context, {
   aiRuntime,
-  runId = `migration:${context.contextId}`,
-  promptVersion = MIGRATION_PLANNING_PROMPT_VERSION
-} = {}) {
+  runId,
+  promptVersion
+}, contract) {
   validateEligibleContext(context);
   validateAiRuntime(aiRuntime);
-  const prompt = buildMigrationChecklistPrompt({
+  const prompt = contract.buildPrompt({
     context,
-    outputSchema: MIGRATION_CHECKLIST_CANDIDATE_SCHEMA,
+    outputSchema: contract.candidateSchema,
     promptVersion
   });
   let runtimeResult;
@@ -359,14 +371,14 @@ export async function generateMigrationChecklistForContext(context, {
       contractVersion: AI_RUNTIME_CONTRACT_VERSION,
       runId,
       contextId: context.contextId,
-      task: MIGRATION_PLANNING_TASK,
+      task: contract.task,
       promptVersion,
       systemPrompt: prompt.system,
       userPrompt: prompt.user,
       structuredOutput: {
         mode: 'jsonSchema',
-        name: MIGRATION_PLANNING_SCHEMA_NAME,
-        schema: MIGRATION_CHECKLIST_CANDIDATE_SCHEMA
+        name: contract.schemaName,
+        schema: contract.candidateSchema
       }
     });
   } catch (error) {
@@ -374,7 +386,7 @@ export async function generateMigrationChecklistForContext(context, {
   }
 
   try {
-    const candidate = validateMigrationChecklistCandidate(runtimeResult?.output);
+    const candidate = contract.validateCandidate(runtimeResult?.output);
     if (candidate.status === 'ABSTAIN') {
       return deepFreeze({
         outcome: 'abstained',
@@ -392,7 +404,7 @@ export async function generateMigrationChecklistForContext(context, {
         )
       });
     }
-    const trusted = trustValidateMigrationChecklistCandidate(candidate, context);
+    const trusted = contract.trustCandidate(candidate, context);
     return deepFreeze({
       outcome: 'generated',
       record: actionableRecord(context, trusted),
@@ -401,6 +413,46 @@ export async function generateMigrationChecklistForContext(context, {
   } catch (error) {
     return deepFreeze(candidateFailure(context, error));
   }
+}
+
+const FREE_FORM_CONTRACT = Object.freeze({
+  task: MIGRATION_PLANNING_TASK,
+  candidateSchema: MIGRATION_CHECKLIST_CANDIDATE_SCHEMA,
+  schemaName: MIGRATION_PLANNING_SCHEMA_NAME,
+  buildPrompt: buildMigrationChecklistPrompt,
+  validateCandidate: validateMigrationChecklistCandidate,
+  trustCandidate: trustValidateMigrationChecklistCandidate
+});
+
+const EXTRACTIVE_CONTRACT = Object.freeze({
+  task: MIGRATION_EXTRACTIVE_PLANNING_TASK,
+  candidateSchema: MIGRATION_EXTRACTIVE_CANDIDATE_SCHEMA,
+  schemaName: MIGRATION_EXTRACTIVE_SCHEMA_NAME,
+  buildPrompt: buildMigrationExtractivePrompt,
+  validateCandidate: validateMigrationExtractiveCandidate,
+  trustCandidate: trustValidateMigrationExtractiveCandidate
+});
+
+/** Historical free-form v1 generation retained for evaluation reproducibility. */
+export async function generateMigrationChecklistForContext(context, {
+  aiRuntime,
+  runId = `migration:${context.contextId}`,
+  promptVersion = MIGRATION_PLANNING_PROMPT_VERSION
+} = {}) {
+  return generateMigrationChecklistForContextWithContract(context, {
+    aiRuntime, runId, promptVersion
+  }, FREE_FORM_CONTRACT);
+}
+
+/** Production extractive v2 generation for new experimental checklist runs. */
+export async function generateMigrationExtractiveChecklistForContext(context, {
+  aiRuntime,
+  runId = `migration-extractive:${context.contextId}`,
+  promptVersion = MIGRATION_EXTRACTIVE_PROMPT_VERSION
+} = {}) {
+  return generateMigrationChecklistForContextWithContract(context, {
+    aiRuntime, runId, promptVersion
+  }, EXTRACTIVE_CONTRACT);
 }
 
 function validatePrepared(prepared) {
@@ -498,13 +550,15 @@ function mergeRecord(records, incoming) {
   ]);
 }
 
-/** Generate all eligible contexts while preserving and merging every MP-02 fallback. */
-export async function generateMigrationChecklistDrafts(prepared, {
+async function generateMigrationChecklistDraftsWithContract(prepared, {
   aiRuntime,
   runIdPrefix = 'migration',
-  promptVersion = MIGRATION_PLANNING_PROMPT_VERSION,
+  promptVersion,
   onContextEvent
-} = {}) {
+}, {
+  generateContext,
+  resultVersion
+}) {
   validatePrepared(prepared);
   validateAiRuntime(aiRuntime);
   assertString(runIdPrefix, 'runIdPrefix');
@@ -537,7 +591,7 @@ export async function generateMigrationChecklistDrafts(prepared, {
       findingId: context.finding.id,
       packageName: context.dependency.declaredName
     });
-    const result = await generateMigrationChecklistForContext(context, {
+    const result = await generateContext(context, {
       aiRuntime,
       runId: `${runIdPrefix}:${context.contextId}`,
       promptVersion
@@ -560,11 +614,34 @@ export async function generateMigrationChecklistDrafts(prepared, {
   const normalizedRecords = [...records.values()].sort(compareRecords);
   summary.recordCount = normalizedRecords.length;
   const output = {
-    resultVersion: MIGRATION_GENERATION_RESULT_VERSION,
+    resultVersion,
     input: structuredClone(prepared.input),
     records: normalizedRecords,
     warnings: warnings.sort(compareWarnings),
     summary
   };
   return deepFreeze(structuredClone(output));
+}
+
+/** Historical free-form v1 multi-context generation. */
+export async function generateMigrationChecklistDrafts(prepared, options = {}) {
+  return generateMigrationChecklistDraftsWithContract(prepared, {
+    ...options,
+    promptVersion: options.promptVersion ?? MIGRATION_PLANNING_PROMPT_VERSION
+  }, {
+    generateContext: generateMigrationChecklistForContext,
+    resultVersion: MIGRATION_GENERATION_RESULT_VERSION
+  });
+}
+
+/** Production extractive v2 multi-context generation. */
+export async function generateMigrationExtractiveChecklistDrafts(prepared, options = {}) {
+  return generateMigrationChecklistDraftsWithContract(prepared, {
+    ...options,
+    runIdPrefix: options.runIdPrefix ?? 'migration-extractive',
+    promptVersion: options.promptVersion ?? MIGRATION_EXTRACTIVE_PROMPT_VERSION
+  }, {
+    generateContext: generateMigrationExtractiveChecklistForContext,
+    resultVersion: MIGRATION_EXTRACTIVE_GENERATION_RESULT_VERSION
+  });
 }

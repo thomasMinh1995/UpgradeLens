@@ -41,7 +41,7 @@ Only lineage fields that exist in the current schemas are compared. A mismatch i
 Before any context is built, MP-02 verifies:
 
 - exact Project and Knowledge dependency occurrence identity;
-- one unambiguous Version Analysis occurrence per `projectId + packageId` Usage identity;
+- package-level Usage identity (`projectId + packageId`) against one or more exact Version Analysis occurrences;
 - package/ecosystem/registry identity across Project, Knowledge, and Version Analysis;
 - unique finding identity within each analysis result;
 - Version finding evidence refs against Version evidence metadata, bundle content, Knowledge source metadata, and package provenance;
@@ -50,6 +50,16 @@ Before any context is built, MP-02 verifies:
 - Repository Impact Evidence identity, reason, symbol, and file records against Repository Impact and Usage.
 
 Unknown, cross-package, cross-project, or ambiguous references are fatal. Corruption is not converted into a package-local fallback.
+
+### Duplicate declaration reconciliation
+
+Usage coverage is package-level: one Usage Index dependency records the symbols and files observed for a package in a project. Version Analysis is occurrence-level: repeated declarations of that package retain separate results, including separate analyzed, skipped, or failed states.
+
+MP-02 therefore permits one package-level Usage identity to map to multiple valid Version Analysis occurrences. It validates every occurrence against its exact Project and Knowledge declaration facts, then processes every Version result independently. It does not merge declarations, choose a preferred result, upgrade a skipped result from a sibling analyzed result, or infer that duplicate declarations represent duplicate source-code usage.
+
+Repository Impact and Repository Impact Evidence remain isolated by `analysisResultId`, then by exact finding and evidence identity. Positive locations are copied only from the matching `analysisResultId + findingId` record and retain their `impactEvidenceId + symbol + file` identity. A location or finding from one occurrence is never broadcast to another occurrence merely because both share a package.
+
+An exact duplicate occurrence that cannot be distinguished by the existing canonical declaration facts remains fatal. Duplicate result IDs, duplicate findings within one result, unknown or cross-project/package identities, inconsistent downstream identities, and non-exact locations also remain fatal. These states are corruption, not manual-review fallbacks.
 
 ## Eligibility precedence
 

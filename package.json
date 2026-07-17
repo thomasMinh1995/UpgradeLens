@@ -12,7 +12,11 @@
   "files": [
     "bin",
     "docs",
-    "eval",
+    "eval/README.md",
+    "eval/datasets",
+    "eval/migration-planning/golden-dataset.json",
+    "eval/migration-planning/golden-dataset-v2.json",
+    "eval/schemas",
     "schemas",
     "src",
     "LICENSE",

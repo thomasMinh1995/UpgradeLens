@@ -155,12 +155,24 @@ function rawSignals(raw, goldenCase, baseCase, context) {
   };
 }
 
-function publishedSignals(generation, goldenCase, baseCase, context, rawMetrics) {
+function publishedSignals(
+  generation,
+  goldenCase,
+  baseCase,
+  context,
+  rawMetrics,
+  publishedEvaluationInstructions = null
+) {
   const finding = generation.record.findings.find((item) => item.id === context.finding.id);
   const items = finding?.items ?? [];
   const aiItems = items.filter((item) => item.basis === 'AI_AUTHORED');
   const locationItems = items.filter((item) => item.kind === 'REVIEW_CANDIDATE_USAGE');
-  const evaluations = aiItems.map((item) => evaluationFor(item, goldenCase));
+  const evaluations = aiItems.map((item, index) => evaluationFor(
+    publishedEvaluationInstructions?.[index]
+      ? { ...item, instruction: publishedEvaluationInstructions[index] }
+      : item,
+    goldenCase
+  ));
   const instructions = aiItems.map((item) => item.instruction);
   const expectedLocations = [...baseCase.expected.locations].sort((left, right) => (
     compareText(left.impactEvidenceId, right.impactEvidenceId)
@@ -230,12 +242,21 @@ export function compareMigrationEvaluationCaseV2(goldenCase, {
   generation,
   rawOutput,
   runtimeErrorCode = null,
+  rawClassification = null,
+  publishedEvaluationInstructions = null,
   deterministicReplayPassed,
   retainFailureDetails = true
 }) {
-  const raw = classifyRawOutput(rawOutput, context, runtimeErrorCode);
+  const raw = rawClassification ?? classifyRawOutput(rawOutput, context, runtimeErrorCode);
   const rawMetrics = rawSignals(raw, goldenCase, baseCase, context);
-  const published = publishedSignals(generation, goldenCase, baseCase, context, rawMetrics);
+  const published = publishedSignals(
+    generation,
+    goldenCase,
+    baseCase,
+    context,
+    rawMetrics,
+    publishedEvaluationInstructions
+  );
   const identityPreserved = generation.record.analysisResultId === context.analysisResultId
     && same(generation.record.dependency, context.dependency)
     && same(generation.record.versions, context.versions)

@@ -1,17 +1,28 @@
-import { canonicalJson } from '../canonical-json.js';
+import { createHash } from 'node:crypto';
+
+import { canonicalJson, canonicalJsonBytes } from '../canonical-json.js';
 import { compareText } from '../portable.js';
 import {
-  MIGRATION_EVALUATION_DATASET_ID,
-  MIGRATION_EVALUATION_DATASET_VERSION,
-  loadMigrationEvaluationDataset
-} from './evaluation/dataset.js';
+  loadMigrationEvaluationDatasetV2
+} from './evaluation/dataset-v2.js';
 import {
-  MIGRATION_GENERATOR_TRUST_SOURCE_IDENTITY,
-  MIGRATION_QUALIFICATION_POLICY_VERSION,
-  migrationCandidateSchemaDigest,
-  migrationQualificationPolicyDigest
-} from './evaluation/qualification.js';
-import { MIGRATION_PLANNING_PROMPT_VERSION, MIGRATION_PLANNING_TASK } from './prompt.js';
+  migrationActionEvaluationCriteriaDigest,
+  migrationActionEvaluationCriteriaIdentity
+} from './evaluation/action-criteria.js';
+import {
+  MIGRATION_EXTRACTIVE_GENERATOR_TRUST_SOURCE_IDENTITY,
+  MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2_VERSION,
+  migrationExtractiveQualificationPolicyV2Digest
+} from './evaluation/qualification-v2.js';
+import {
+  MIGRATION_EXTRACTIVE_PRESENTATION,
+  migrationExtractiveCandidateSchemaDigest
+} from './extractive-candidate.js';
+import {
+  MIGRATION_EXTRACTIVE_PLANNING_TASK,
+  MIGRATION_EXTRACTIVE_PROMPT_VERSION,
+  migrationExtractivePromptDigest
+} from './extractive-prompt.js';
 
 export const MIGRATION_QUALIFICATION_STATES = Object.freeze([
   'QUALIFIED',
@@ -59,8 +70,11 @@ function normalizedRuntimeMetadata(runtimeMetadata = {}) {
 function identityMatches(actual, expected) {
   if (!actual) return false;
   for (const field of [
-    'task', 'datasetId', 'datasetVersion', 'datasetDigest', 'policyVersion', 'policyDigest',
-    'promptVersion', 'candidateSchemaDigest'
+    'task', 'datasetId', 'datasetVersion', 'datasetDigest',
+    'evaluationCriteriaId', 'evaluationCriteriaVersion', 'evaluationCriteriaDigest',
+    'comparatorVersion', 'normalizationVersion',
+    'policyVersion', 'policyDigest', 'promptVersion', 'promptDigest',
+    'candidateSchemaDigest', 'deterministicPresentationIdentity'
   ]) {
     if (actual[field] !== expected[field]) return false;
   }
@@ -70,7 +84,15 @@ function identityMatches(actual, expected) {
   return actual.runtime?.mode === 'real'
     && actual.runtime.provider === expected.runtime.provider
     && actual.runtime.model === expected.runtime.model
-    && actual.runtime.adapter === expected.runtime.adapter;
+    && actual.runtime.adapter === expected.runtime.adapter
+    && canonicalJson(actual.runtime.observedProviders)
+      === canonicalJson(expected.runtime.observedProviders)
+    && canonicalJson(actual.runtime.observedModels)
+      === canonicalJson(expected.runtime.observedModels);
+}
+
+function qualificationIdentityDigest(identity) {
+  return `sha256:${createHash('sha256').update(canonicalJsonBytes(identity)).digest('hex')}`;
 }
 
 function experimentalBaseLimitations() {
@@ -80,8 +102,8 @@ function experimentalBaseLimitations() {
       'Migration Checklist is experimental and every generated instruction requires human review.'
     ),
     limitation(
-      'KNOWN_SEMANTIC_OR_LEXICAL_GAPS',
-      'Exact excerpts and lexical trust checks do not prove semantic entailment; known flag and plain-language gaps remain.'
+      'EXTRACTIVE_SEMANTIC_APPLICABILITY_NOT_VERIFIED',
+      'Exact selected guidance proves provenance and structural safety, not semantic applicability to this repository.'
     )
   ];
 }
@@ -96,28 +118,49 @@ export async function evaluateMigrationQualification({
   allowExperimental = false
 } = {}) {
   const runtime = normalizedRuntimeMetadata(runtimeMetadata);
-  const dataset = await loadMigrationEvaluationDataset();
+  const dataset = await loadMigrationEvaluationDatasetV2();
+  const criteria = migrationActionEvaluationCriteriaIdentity();
   const expectedIdentity = {
-    task: MIGRATION_PLANNING_TASK,
-    datasetId: MIGRATION_EVALUATION_DATASET_ID,
-    datasetVersion: MIGRATION_EVALUATION_DATASET_VERSION,
+    task: MIGRATION_EXTRACTIVE_PLANNING_TASK,
+    datasetId: dataset.datasetId,
+    datasetVersion: dataset.schemaVersion,
     datasetDigest: dataset.datasetDigest,
-    policyVersion: MIGRATION_QUALIFICATION_POLICY_VERSION,
-    policyDigest: migrationQualificationPolicyDigest(),
-    promptVersion: MIGRATION_PLANNING_PROMPT_VERSION,
-    candidateSchemaDigest: migrationCandidateSchemaDigest(),
-    generatorTrustSourceIdentity: MIGRATION_GENERATOR_TRUST_SOURCE_IDENTITY,
-    runtime: { mode: 'real', ...runtime }
+    evaluationCriteriaId: criteria.evaluationCriteriaId,
+    evaluationCriteriaVersion: criteria.evaluationCriteriaVersion,
+    evaluationCriteriaDigest: migrationActionEvaluationCriteriaDigest(),
+    comparatorVersion: criteria.comparatorVersion,
+    normalizationVersion: criteria.normalizationVersion,
+    policyVersion: MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2_VERSION,
+    policyDigest: migrationExtractiveQualificationPolicyV2Digest(),
+    promptVersion: MIGRATION_EXTRACTIVE_PROMPT_VERSION,
+    promptDigest: migrationExtractivePromptDigest(),
+    candidateSchemaDigest: migrationExtractiveCandidateSchemaDigest(),
+    generatorTrustSourceIdentity: MIGRATION_EXTRACTIVE_GENERATOR_TRUST_SOURCE_IDENTITY,
+    deterministicPresentationIdentity: MIGRATION_EXTRACTIVE_PRESENTATION,
+    runtime: {
+      mode: 'real',
+      ...runtime,
+      observedProviders: [runtime.provider],
+      observedModels: [runtime.model]
+    }
   };
 
-  if (qualification?.verdict === 'NOT_QUALIFIED') {
+  const matches = identityMatches(qualification?.identity, expectedIdentity);
+  if (matches && qualification.qualificationId !== qualificationIdentityDigest(
+    qualification.identity
+  )) {
+    throw new MigrationQualificationError(
+      'MIGRATION_QUALIFICATION_IDENTITY_CORRUPT',
+      'The matching migration-planning.v2 qualification identity digest is invalid.'
+    );
+  }
+  if (matches && qualification?.verdict === 'NOT_QUALIFIED') {
     throw new MigrationQualificationError(
       'MIGRATION_RUNTIME_NOT_QUALIFIED',
       'The configured provider/model failed a critical migration-planning qualification gate.'
     );
   }
 
-  const matches = identityMatches(qualification?.identity, expectedIdentity);
   const realQualified = matches && ['QUALIFIED', 'QUALIFIED_WITH_LIMITATIONS'].includes(
     qualification?.verdict
   );
@@ -136,7 +179,7 @@ export async function evaluateMigrationQualification({
   if (!allowExperimental) {
     throw new MigrationQualificationError(
       'MIGRATION_QUALIFICATION_REQUIRED',
-      'A matching real-provider qualification is required for migration-planning.v1.'
+      'A matching real-provider qualification is required for migration-planning.v2.'
     );
   }
 
@@ -144,7 +187,7 @@ export async function evaluateMigrationQualification({
   if (!qualification) {
     limitations.push(limitation(
       'MIGRATION_PROVIDER_NOT_QUALIFIED',
-      'The configured provider/model has not been qualified for migration-planning.v1.'
+      'The configured provider/model has not been qualified for migration-planning.v2.'
     ));
   } else if (qualification.identity?.runtime?.mode === 'fake') {
     limitations.push(limitation(

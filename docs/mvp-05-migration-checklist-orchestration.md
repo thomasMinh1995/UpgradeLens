@@ -21,7 +21,7 @@ MP-02 context preparation and deterministic fallbacks
         ↓
 Task/provider/model/adapter qualification guard
         ↓
-MP-03 provider-neutral generation and trust validation
+extractive v2 provider-neutral generation and trust validation
         ↓
 MP-01 final builder, schema and invariant validation
         ↓
@@ -36,7 +36,7 @@ The optional stage is inserted after Repository Impact Evidence and before Markd
 
 ## Qualification policy
 
-The guard binds qualification to `migration-planning.v1`, the bundled dataset digest, policy digest, prompt version, candidate schema digest, generator/trust identity, provider, model, and runtime adapter.
+The guard binds qualification to `migration-planning.v2`, dataset v2 and evaluation identities, policy digest, prompt identity/digest, candidate schema digest, generator/trust/presentation identities, provider, model, runtime adapter, and runtime mode.
 
 - A matching real-provider `QUALIFIED` or `QUALIFIED_WITH_LIMITATIONS` record is accepted for that exact identity.
 - `NOT_QUALIFIED` always blocks generation.
@@ -44,7 +44,7 @@ The guard binds qualification to `migration-planning.v1`, the bundled dataset di
 - Explicit experimental opt-in may proceed with visible artifact/report limitations.
 - Missing provider/model/adapter metadata adds a separate limitation.
 
-The conservative missing-record message is represented by `MIGRATION_PROVIDER_NOT_QUALIFIED`: the configured provider/model has not been qualified for `migration-planning.v1`, and every generated instruction requires human review. Version Analysis qualification is not consulted.
+The conservative missing-record message is represented by `MIGRATION_PROVIDER_NOT_QUALIFIED`: the configured provider/model has not been qualified for `migration-planning.v2`, and every generated instruction requires human review. Version Analysis and historical v1 qualification are not consulted.
 
 Real-provider migration generation remains disabled by default. Having an API key or endpoint does not enable this stage.
 
@@ -58,7 +58,7 @@ The writer validates before touching the target, serializes with the MP-01 seria
 
 Fatal artifact/schema/lineage/reference/programming/write errors fail the Migration Checklist stage and stop later stages. Provider errors, abstention, invalid candidate output, trust rejection, unsupported evidence, and unsupported usage coverage remain package-local deterministic fallbacks. One context cannot remove another context's safe result.
 
-All AI-authored items remain location-free and require human review. Candidate locations remain deterministic positive `impactEvidenceId + symbol + file` records.
+All AI-selected official-guidance items remain location-free and require human review. Candidate locations remain deterministic positive `impactEvidenceId + symbol + file` records.
 
 ## Progress
 
@@ -79,7 +79,7 @@ Console and Markdown use the same deterministic view model built solely from the
 
 Required wording distinguishes:
 
-- an “AI-authored draft” from an approved action;
+- “AI-selected official guidance” rendered deterministically from an accepted exact span;
 - a “candidate review location” from a proven affected call site;
 - unknown current versions from exact baselines;
 - a `registryLatest` fact from a recommendation;

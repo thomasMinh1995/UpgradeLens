@@ -1,7 +1,7 @@
 import { DEFAULT_MIGRATION_CHECKLIST_PATH } from '../constants.js';
 import { assembleMigrationChecklist } from './assembler.js';
 import { prepareMigrationChecklistContexts } from './context-runtime.js';
-import { generateMigrationChecklistDrafts } from './generator.js';
+import { generateMigrationExtractiveChecklistDrafts } from './generator.js';
 import { buildMigrationChecklistViewModel } from './presentation.js';
 import { evaluateMigrationQualification } from './qualification-guard.js';
 import { writeMigrationChecklist } from './writer.js';
@@ -40,7 +40,7 @@ function eventTypeForResult(event) {
 }
 
 /**
- * Experimental application stage: seven artifacts -> MP-02 -> guard -> MP-03 ->
+ * Experimental application stage: seven artifacts -> MP-02 -> v2 guard -> extractive generator ->
  * MP-01 assembly -> atomic artifact -> presentation view model.
  */
 export async function runMigrationChecklistStage({
@@ -54,7 +54,7 @@ export async function runMigrationChecklistStage({
   artifactPath = DEFAULT_MIGRATION_CHECKLIST_PATH,
   onEvent,
   prepareContexts = prepareMigrationChecklistContexts,
-  generateDrafts = generateMigrationChecklistDrafts,
+  generateDrafts = generateMigrationExtractiveChecklistDrafts,
   assemble = assembleMigrationChecklist,
   writeArtifact = writeMigrationChecklist
 }) {

@@ -41,7 +41,7 @@ Eligibility is not boolean. Each normalized context has a constrained `status` a
 
 | Reason code | Eligibility status | Checklist status | Policy |
 | --- | --- | --- | --- |
-| `ELIGIBLE` | `ELIGIBLE` | `COMPLETE` | May contain deterministic actionable items or future AI-authored migration-instruction drafts. |
+| `ELIGIBLE` | `ELIGIBLE` | `COMPLETE` | May contain deterministic items or AI-selected, deterministic-rendered migration guidance. |
 | `NOT_ANALYZED` | `INELIGIBLE` | `NOT_ANALYZED` | Skipped/failed Version Analysis; no generated finding/action. |
 | `NO_GROUNDED_ACTION` | `INELIGIBLE` | `NO_GROUNDED_ACTION` | Only deterministic `MANUAL_REVIEW_REQUIRED` fallback is permitted for a represented finding. |
 | `UNSUPPORTED_USAGE_COVERAGE` | `INELIGIBLE` | `INCOMPLETE` | Absence from the Usage Index is not interpreted as dependency non-use or safety. |
@@ -64,7 +64,7 @@ Item `basis` is either:
 - `DETERMINISTIC`; or
 - `AI_AUTHORED`.
 
-All items have `requiresHumanReview: true`. The artifact has no approved/completed state. An AI-authored item is valid only when it:
+All items have `requiresHumanReview: true`. The artifact has no approved/completed state. The legacy `AI_AUTHORED` wire value means AI-selected, deterministic-rendered guidance in extractive v2. Such an item is valid only when it:
 
 - belongs to an `ELIGIBLE` finding;
 - has kind `REVIEW_MIGRATION_INSTRUCTION`;
@@ -132,7 +132,7 @@ Implemented as a separate read-only runtime. It validates all seven exact-byte a
 
 ### MP-03 — generator and trust validation
 
-Implemented as a provider-neutral, package-local runtime. It uses a task-specific strict candidate schema, exact allowlisted excerpt verification, conservative prohibited-capability and identifier guards, whole-candidate fail-closed rejection, deterministic checklist construction, and safe abstention/failure fallbacks. Exact excerpts establish provenance, not full semantic entailment.
+Implemented as a provider-neutral, package-local runtime. New application runs use the versioned extractive v2 schema: the model selects an exact allowlisted evidence span and deterministic code renders the human-review text. Conservative prohibited-capability guards, whole-candidate fail-closed rejection, and safe abstention/failure fallbacks remain. Exact excerpts establish provenance, not repository applicability. Historical free-form v1 remains for evaluation reproducibility. See [`GR-04-Versioned-Production-Extractive-Contract.md`](./GR-04-Versioned-Production-Extractive-Contract.md).
 
 ### MP-04 — evaluation and qualification
 

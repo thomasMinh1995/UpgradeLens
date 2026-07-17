@@ -139,10 +139,33 @@ export {
 } from './migration-checklist/prompt.js';
 export {
   MIGRATION_GENERATION_RESULT_VERSION,
+  MIGRATION_EXTRACTIVE_GENERATION_RESULT_VERSION,
   MIGRATION_GENERATION_WARNING_CODES,
+  generateMigrationExtractiveChecklistDrafts,
+  generateMigrationExtractiveChecklistForContext,
   generateMigrationChecklistDrafts,
   generateMigrationChecklistForContext
 } from './migration-checklist/generator.js';
+export {
+  MIGRATION_EXTRACTIVE_CANDIDATE_CONTRACT,
+  MIGRATION_EXTRACTIVE_CANDIDATE_ERROR_CODES,
+  MIGRATION_EXTRACTIVE_CANDIDATE_SCHEMA,
+  MIGRATION_EXTRACTIVE_PRESENTATION,
+  MIGRATION_EXTRACTIVE_PRESENTATION_PREFIX,
+  MIGRATION_EXTRACTIVE_TRUST_POLICY,
+  MigrationExtractiveCandidateError,
+  isMigrationExtractiveCandidateError,
+  migrationExtractiveCandidateSchemaDigest,
+  trustValidateMigrationExtractiveCandidate,
+  validateMigrationExtractiveCandidate
+} from './migration-checklist/extractive-candidate.js';
+export {
+  MIGRATION_EXTRACTIVE_PLANNING_TASK,
+  MIGRATION_EXTRACTIVE_PROMPT_VERSION,
+  MIGRATION_EXTRACTIVE_SCHEMA_NAME,
+  buildMigrationExtractivePrompt,
+  migrationExtractivePromptDigest
+} from './migration-checklist/extractive-prompt.js';
 export { assembleMigrationChecklist } from './migration-checklist/assembler.js';
 export {
   MIGRATION_QUALIFICATION_STATES,
@@ -232,13 +255,20 @@ export {
   computeMigrationEvaluationMetricsV2
 } from './migration-checklist/evaluation/metrics-v2.js';
 export {
+  MIGRATION_EXTRACTIVE_GENERATOR_TRUST_SOURCE_IDENTITY,
+  MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2,
+  MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2_VERSION,
   MIGRATION_QUALIFICATION_POLICY_V2,
   MIGRATION_QUALIFICATION_POLICY_V2_VERSION,
+  migrationExtractiveQualificationPolicyV2Digest,
   migrationQualificationPolicyV2Digest,
+  qualifyMigrationExtractiveRuntimeV2,
   qualifyMigrationPlanningRuntimeV2
 } from './migration-checklist/evaluation/qualification-v2.js';
 export {
+  MIGRATION_EXTRACTIVE_EVALUATION_REPORT_V2_VERSION,
   MIGRATION_EVALUATION_REPORT_V2_VERSION,
+  runMigrationExtractiveEvaluationV2,
   runMigrationEvaluationV2
 } from './migration-checklist/evaluation/runner-v2.js';
 export {
