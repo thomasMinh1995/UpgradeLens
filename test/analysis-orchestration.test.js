@@ -188,10 +188,12 @@ test('analyze command parses repository orchestration options', () => {
     maxDepth: 6
   });
   const experimental = parseArguments([
-    'analyze', 'fixture', '--experimental-migration-checklist', '--progress', 'plain'
+    'analyze', 'fixture', '--experimental-migration-checklist', '--progress', 'plain',
+    '--migration-qualification', 'qualification/record.json'
   ]);
   assert.equal(experimental.experimentalMigrationChecklist, true);
   assert.equal(experimental.progress, 'plain');
+  assert.equal(experimental.migrationQualificationPath, 'qualification/record.json');
   assert.deepEqual(createAnalysisStages({ migrationChecklist: true }).map((item) => item.id), [
     'projectDiscovery',
     'knowledgeResearch',
@@ -204,7 +206,19 @@ test('analyze command parses repository orchestration options', () => {
   ]);
   assert.match(HELP, /--experimental-migration-checklist/);
   assert.match(HELP, /Experimental\. Requires human review\./);
+  assert.match(HELP, /--migration-qualification <path>/);
   assert.match(HELP, /--progress <mode>/);
+  assert.throws(
+    () => parseArguments(['analyze', '.', '--migration-qualification', 'record.json']),
+    /requires analyze with --experimental-migration-checklist/
+  );
+  assert.throws(
+    () => parseArguments([
+      'analyze', '.', '--experimental-migration-checklist',
+      '--migration-qualification', '..\/record.json'
+    ]),
+    /portable path relative to the repository root/
+  );
 });
 
 test('pipeline runs every stage in order and reports deterministic progress', async () => {
@@ -354,7 +368,19 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
     repositoryName: 'VinGrade',
     status: 'INCOMPLETE',
     experimental: true,
-    qualificationState: 'NOT_AVAILABLE',
+    qualification: {
+      status: 'MISSING',
+      qualificationId: null,
+      sourceKind: 'defaultPath',
+      sourcePath: '.upgradelens/migration-planning-qualification.json',
+      runtimeIdentity: { provider: 'unknown', model: 'unknown', adapter: 'unknown' },
+      experimentalOverrideUsed: true,
+      limitations: [{
+        code: 'MIGRATION_PROVIDER_NOT_QUALIFIED',
+        message: 'The configured provider/model has not been qualified for migration-planning.v2.'
+      }],
+      nextAction: 'INSTALL_QUALIFICATION_RECORD_OR_REVIEW_EXPERIMENTAL_OUTPUT'
+    },
     humanReviewRequired: true,
     summary: {
       dependencyCount: 0,

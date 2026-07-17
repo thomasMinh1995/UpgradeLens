@@ -21,6 +21,7 @@ import {
   DEFAULT_REPOSITORY_IMPACT_PATH,
   DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
   DEFAULT_MIGRATION_CHECKLIST_PATH,
+  DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH,
   DEFAULT_USAGE_INDEX_PATH,
   PRODUCT_NAME,
   VERSION
@@ -115,6 +116,7 @@ import { runUsageDiscovery } from './usage/runtime.js';
 import { writeUsageIndex } from './usage/writer.js';
 import { createMigrationProgressReporter } from './migration-checklist/progress.js';
 import { runMigrationChecklistStage } from './migration-checklist/runtime.js';
+import { resolveMigrationQualification } from './migration-checklist/qualification-resolution.js';
 
 const HELP = `${PRODUCT_NAME} ${VERSION}
 
@@ -138,6 +140,9 @@ Analyze options:
       --experimental-migration-checklist
                         Generate an evidence-grounded migration checklist.
                         Experimental. Requires human review.
+      --migration-qualification <path>
+                        Migration Planning v2 qualification record relative to the
+                        repository (default: ${DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH})
       --progress <mode> Control migration progress: auto, interactive, or plain
                         (default: auto)
 
@@ -259,6 +264,9 @@ export function parseArguments(argv) {
     } else if (argument === '--progress') {
       options.progress = takeValue(args, index, argument);
       index += 1;
+    } else if (argument === '--migration-qualification') {
+      options.migrationQualificationPath = takeValue(args, index, argument);
+      index += 1;
     }
     else if (argument === '--output' || argument === '-o') {
       options.output = takeValue(args, index, argument);
@@ -312,6 +320,14 @@ export function parseArguments(argv) {
   }
   if (command !== 'analyze' && options.experimentalMigrationChecklist) {
     throw new Error('--experimental-migration-checklist is only supported by analyze');
+  }
+  if (options.migrationQualificationPath !== undefined) {
+    if (command !== 'analyze' || !options.experimentalMigrationChecklist) {
+      throw new Error('--migration-qualification requires analyze with --experimental-migration-checklist');
+    }
+    if (!isPortableRelativePath(options.migrationQualificationPath)) {
+      throw new Error('--migration-qualification must be a portable path relative to the repository root');
+    }
   }
   if (command !== 'analyze' && options.progress !== 'auto') {
     throw new Error('--progress is only supported by analyze');
@@ -814,12 +830,24 @@ export function createCliAnalysisStageRunners(options, io) {
       return impactEvidence;
     },
     async migrationChecklist() {
+      const runtimeMetadata = migrationRuntimeMetadata(io);
+      const resolver = io.resolveMigrationQualification ?? resolveMigrationQualification;
+      const qualificationOptions = {
+        repositoryRoot: root,
+        runtimeMetadata,
+        allowExperimental: true,
+        qualificationPath: options.migrationQualificationPath
+      };
+      if (Object.hasOwn(io, 'migrationQualification')) {
+        qualificationOptions.qualification = io.migrationQualification;
+      }
+      const qualificationDecision = await resolver(qualificationOptions);
       return (io.runMigrationChecklistStage ?? runMigrationChecklistStage)({
         repositoryRoot: root,
         aiRuntime: io.migrationAiRuntime ?? io.aiRuntime ?? null,
         createAiRuntime: () => createDefaultAiRuntime(io),
-        runtimeMetadata: migrationRuntimeMetadata(io),
-        qualification: io.migrationQualification ?? null,
+        runtimeMetadata,
+        qualificationDecision,
         allowExperimental: true,
         generatedAt: io.clock ? io.clock() : new Date(),
         artifactPath: DEFAULT_MIGRATION_CHECKLIST_PATH,
@@ -877,7 +905,28 @@ export async function executeAnalyze(options, io) {
       return 1;
     }
     const displayLog = path.relative(root, logTarget).split(path.sep).join('/');
-    io.stderr.write(`\n${error.stage.label} failed.\n\nSee:\n${displayLog || DEFAULT_ANALYSIS_LOG_PATH}\n`);
+    const decision = error.cause?.decision;
+    if (decision) {
+      const lines = [
+        '',
+        `${error.stage.label} failed.`,
+        '',
+        `Qualification status: ${decision.status}`,
+        `Reason: ${decision.reasonCode}`,
+        `Qualification source: ${decision.sourceKind}`,
+        `Expected runtime: ${decision.runtimeIdentity.provider} / ${decision.runtimeIdentity.model} / ${decision.runtimeIdentity.adapter}`
+      ];
+      if (decision.sourcePath) lines.push(`Qualification path: ${decision.sourcePath}`);
+      if (decision.recordRuntimeIdentity) {
+        lines.push(
+          `Record runtime: ${decision.recordRuntimeIdentity.provider} / ${decision.recordRuntimeIdentity.model} / ${decision.recordRuntimeIdentity.adapter}`
+        );
+      }
+      lines.push(`Next action: ${decision.nextAction}`, '', 'See:', displayLog || DEFAULT_ANALYSIS_LOG_PATH);
+      io.stderr.write(`${lines.join('\n')}\n`);
+    } else {
+      io.stderr.write(`\n${error.stage.label} failed.\n\nSee:\n${displayLog || DEFAULT_ANALYSIS_LOG_PATH}\n`);
+    }
     return 1;
   }
 

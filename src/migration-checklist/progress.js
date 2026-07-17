@@ -25,7 +25,7 @@ function selectedMode(stream, mode) {
 
 function plainLine(event) {
   if (event.type === 'stage:start') {
-    return `[MIGRATION_CHECKLIST] START contexts=${event.total} qualification=${event.qualificationState.toLowerCase()}`;
+    return `[MIGRATION_CHECKLIST] START contexts=${event.total} qualification=${event.qualificationStatus} qualificationId=${event.qualificationId ?? 'none'} experimentalOverride=${event.experimentalOverrideUsed ? 'yes' : 'no'}`;
   }
   if (event.type === 'migration:context-start') {
     return `[MIGRATION_CHECKLIST] CONTEXT_START package=${event.packageName} processed=${event.processed}/${event.total}`;
@@ -37,27 +37,27 @@ function plainLine(event) {
     return `[MIGRATION_CHECKLIST] ARTIFACT path=${event.artifactPath}`;
   }
   if (event.type === 'stage:complete') {
-    return `[MIGRATION_CHECKLIST] COMPLETE generated=${event.generated} abstained=${event.abstained} rejected=${event.rejected} failed=${event.failed}`;
+    return `[MIGRATION_CHECKLIST] COMPLETE generated=${event.generated} abstained=${event.abstained} rejected=${event.rejected} failed=${event.failed} qualification=${event.qualificationStatus} qualificationId=${event.qualificationId ?? 'none'} experimentalOverride=${event.experimentalOverrideUsed ? 'yes' : 'no'}`;
   }
   if (event.type === 'stage:failed') {
-    return `[MIGRATION_CHECKLIST] FAILED reason=${event.reasonCode}`;
+    return `[MIGRATION_CHECKLIST] FAILED reason=${event.reasonCode} qualification=${event.qualificationStatus} qualificationId=${event.qualificationId ?? 'none'} experimentalOverride=${event.experimentalOverrideUsed ? 'yes' : 'no'}`;
   }
   return null;
 }
 
 function interactiveLine(event, startedAt, now) {
   if (event.type === 'stage:start') {
-    return `● Building migration checklist  ${elapsedSeconds(now - startedAt)}\n  0/${event.total} breaking findings processed\n  Provider qualification: ${event.qualificationState.toLowerCase()}`;
+    return `● Building migration checklist  ${elapsedSeconds(now - startedAt)}\n  0/${event.total} breaking findings processed\n  Provider qualification: ${event.qualificationStatus}\n  Qualification ID: ${event.qualificationId ?? 'none'}\n  Experimental override: ${event.experimentalOverrideUsed ? 'YES' : 'NO'}`;
   }
   if (['migration:context-complete', 'migration:abstained', 'migration:trust-rejected', 'migration:fallback'].includes(event.type)) {
     return `  ${event.processed}/${event.total} ${event.packageName}: ${event.outcome}`;
   }
   if (event.type === 'migration:artifact-written') return `  Checklist: ${event.artifactPath}`;
   if (event.type === 'stage:complete') {
-    return `✓ Migration checklist completed  ${elapsedSeconds(now - startedAt)}\n  ${event.processed}/${event.total} breaking findings processed\n  ${event.generated} grounded actions; ${event.abstained} abstained; ${event.rejected + event.failed} fallbacks`;
+    return `✓ Migration checklist completed  ${elapsedSeconds(now - startedAt)}\n  ${event.processed}/${event.total} breaking findings processed\n  ${event.generated} grounded actions; ${event.abstained} abstained; ${event.rejected + event.failed} fallbacks\n  Provider qualification: ${event.qualificationStatus}\n  Qualification ID: ${event.qualificationId ?? 'none'}\n  Experimental override: ${event.experimentalOverrideUsed ? 'YES' : 'NO'}`;
   }
   if (event.type === 'stage:failed') {
-    return `✗ Migration checklist failed  ${elapsedSeconds(now - startedAt)}\n  Reason: ${event.reasonCode}`;
+    return `✗ Migration checklist failed  ${elapsedSeconds(now - startedAt)}\n  Reason: ${event.reasonCode}\n  Provider qualification: ${event.qualificationStatus}\n  Qualification ID: ${event.qualificationId ?? 'none'}\n  Experimental override: ${event.experimentalOverrideUsed ? 'YES' : 'NO'}`;
   }
   return null;
 }

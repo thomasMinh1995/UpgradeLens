@@ -1,3 +1,4 @@
+import { canonicalJson } from '../canonical-json.js';
 import { compareText } from '../portable.js';
 import { validateMigrationChecklist } from './migration-checklist.js';
 
@@ -15,20 +16,32 @@ function headingText(value) {
   return String(value).replace(/[\r\n]+/g, ' ').replaceAll('\\', '\\\\').replaceAll('#', '\\#');
 }
 
-function qualificationState(checklist) {
-  const codes = new Set(checklist.limitations.map((item) => item.code));
-  if (codes.has('MIGRATION_PROVIDER_NOT_QUALIFIED')
-      || codes.has('FAKE_QUALIFICATION_NOT_REAL_PROVIDER')
-      || codes.has('MIGRATION_QUALIFICATION_IDENTITY_MISMATCH')
-      || codes.has('MIGRATION_QUALIFICATION_INSUFFICIENT')
-      || codes.has('MIGRATION_RUNTIME_IDENTITY_INCOMPLETE')) {
-    return 'NOT_AVAILABLE';
+function qualificationPresentation(decision, checklist) {
+  if (!decision || typeof decision.status !== 'string'
+      || typeof decision.executionAllowed !== 'boolean'
+      || !Array.isArray(decision.limitations)) {
+    throw new TypeError('Migration Checklist presentation requires a normalized qualification decision.');
   }
-  return 'AVAILABLE_WITH_LIMITATIONS';
+  if (!decision.executionAllowed) {
+    throw new TypeError('Migration Checklist presentation cannot render a blocked qualification decision.');
+  }
+  if (canonicalJson(decision.limitations) !== canonicalJson(checklist.limitations)) {
+    throw new TypeError('Migration Checklist qualification decision and artifact limitations do not match.');
+  }
+  return {
+    status: decision.status,
+    qualificationId: decision.qualificationId,
+    sourceKind: decision.sourceKind,
+    sourcePath: decision.sourcePath,
+    runtimeIdentity: structuredClone(decision.runtimeIdentity),
+    experimentalOverrideUsed: decision.experimentalOverrideUsed,
+    limitations: structuredClone(decision.limitations),
+    nextAction: decision.nextAction
+  };
 }
 
 /** Map only validated artifact fields into stable presentation data. */
-export function buildMigrationChecklistViewModel(checklist) {
+export function buildMigrationChecklistViewModel(checklist, { qualificationDecision } = {}) {
   validateMigrationChecklist(checklist);
   const dependencies = checklist.dependencies.map((record) => ({
     analysisResultId: record.analysisResultId,
@@ -76,7 +89,7 @@ export function buildMigrationChecklistViewModel(checklist) {
     repositoryName: checklist.repository.name,
     status: checklist.status,
     experimental: true,
-    qualificationState: qualificationState(checklist),
+    qualification: qualificationPresentation(qualificationDecision, checklist),
     humanReviewRequired: true,
     summary: structuredClone(checklist.summary),
     dependencies,
@@ -98,9 +111,19 @@ export function renderMigrationChecklistConsole({ viewModel, artifactPath }) {
     `  ${summary.aiAuthoredItemCount} AI-selected official guidance items`,
     `  ${summary.candidateLocationCount} candidate review locations`,
     `  ${summary.requiresHumanReviewItemCount} checklist items require human review`,
-    `  Provider qualification: ${viewModel.qualificationState}`,
+    `  Provider qualification: ${viewModel.qualification.status}`,
+    `  Qualification ID: ${viewModel.qualification.qualificationId ?? 'none'}`,
+    `  Qualification source: ${viewModel.qualification.sourceKind}`,
+    `  Experimental override: ${viewModel.qualification.experimentalOverrideUsed ? 'YES' : 'NO'}`,
+    `  Runtime identity: ${viewModel.qualification.runtimeIdentity.provider} / ${viewModel.qualification.runtimeIdentity.model} / ${viewModel.qualification.runtimeIdentity.adapter}`,
     '  Human review required: YES'
   ];
+  if (viewModel.qualification.sourcePath) {
+    lines.splice(9, 0, `  Qualification path: ${viewModel.qualification.sourcePath}`);
+  }
+  if (viewModel.qualification.nextAction !== 'NONE') {
+    lines.push(`  Next action: ${viewModel.qualification.nextAction}`);
+  }
   if (summary.groundedActionCount === 0) {
     lines.push(
       '',
@@ -166,12 +189,20 @@ export function renderMigrationChecklistMarkdownSection({ viewModel }) {
     '> Checklist coverage marked COMPLETE applies only to the grounded records represented here. It does not mean the upgrade is safe or the migration is complete.',
     '',
     `- Checklist status: ${inlineCode(viewModel.status)}`,
-    `- Provider qualification: ${inlineCode(viewModel.qualificationState)}`,
+    `- Provider qualification: ${inlineCode(viewModel.qualification.status)}`,
+    `- Qualification ID: ${inlineCode(viewModel.qualification.qualificationId ?? 'none')}`,
+    `- Qualification source: ${inlineCode(viewModel.qualification.sourceKind)}`,
+    `- Qualification path: ${inlineCode(viewModel.qualification.sourcePath ?? 'none')}`,
+    `- Experimental override: **${viewModel.qualification.experimentalOverrideUsed ? 'YES' : 'NO'}**`,
+    `- Runtime identity: ${inlineCode(`${viewModel.qualification.runtimeIdentity.provider} / ${viewModel.qualification.runtimeIdentity.model} / ${viewModel.qualification.runtimeIdentity.adapter}`)}`,
     '- Human review required: **YES**',
     `- AI-selected official guidance items: ${viewModel.summary.aiAuthoredItemCount}`,
     `- Candidate review locations: ${viewModel.summary.candidateLocationCount}`,
     ''
   ];
+  if (viewModel.qualification.nextAction !== 'NONE') {
+    lines.splice(11, 0, `- Next action: ${inlineCode(viewModel.qualification.nextAction)}`);
+  }
   if (viewModel.dependencies.length === 0) lines.push('No migration checklist dependency records.', '');
   else for (const dependency of viewModel.dependencies) lines.push(...renderDependency(dependency));
   if (viewModel.limitations.length > 0) {

@@ -23,18 +23,26 @@ import {
   MIGRATION_EXTRACTIVE_PROMPT_VERSION,
   migrationExtractivePromptDigest
 } from './extractive-prompt.js';
+import {
+  buildMigrationPlanningQualificationRecord
+} from './qualification-store.js';
 
 export const MIGRATION_QUALIFICATION_STATES = Object.freeze([
   'QUALIFIED',
   'QUALIFIED_WITH_LIMITATIONS',
-  'EXPERIMENTAL'
+  'NOT_QUALIFIED',
+  'MISSING',
+  'IDENTITY_MISMATCH',
+  'CORRUPTED',
+  'INSUFFICIENT_EVIDENCE'
 ]);
 
 export class MigrationQualificationError extends Error {
-  constructor(code, message) {
+  constructor(code, message, decision = null) {
     super(message);
     this.name = 'MigrationQualificationError';
     this.code = code;
+    this.decision = decision;
   }
 }
 
@@ -56,7 +64,7 @@ function sortedUniqueLimitations(values) {
   ));
 }
 
-function normalizedRuntimeMetadata(runtimeMetadata = {}) {
+export function normalizedMigrationRuntimeMetadata(runtimeMetadata = {}) {
   return {
     provider: typeof runtimeMetadata.provider === 'string' && runtimeMetadata.provider.length > 0
       ? runtimeMetadata.provider : 'unknown',
@@ -91,7 +99,7 @@ function identityMatches(actual, expected) {
       === canonicalJson(expected.runtime.observedModels);
 }
 
-function qualificationIdentityDigest(identity) {
+export function migrationQualificationIdentityDigest(identity) {
   return `sha256:${createHash('sha256').update(canonicalJsonBytes(identity)).digest('hex')}`;
 }
 
@@ -108,19 +116,11 @@ function experimentalBaseLimitations() {
   ];
 }
 
-/**
- * Bind a qualification to the exact migration task/runtime identity. Unknown or fake
- * qualification is never promoted; explicit experimental policy may allow a warned run.
- */
-export async function evaluateMigrationQualification({
-  qualification = null,
-  runtimeMetadata,
-  allowExperimental = false
-} = {}) {
-  const runtime = normalizedRuntimeMetadata(runtimeMetadata);
+async function expectedQualificationIdentity(runtimeMetadata) {
+  const runtime = normalizedMigrationRuntimeMetadata(runtimeMetadata);
   const dataset = await loadMigrationEvaluationDatasetV2();
   const criteria = migrationActionEvaluationCriteriaIdentity();
-  const expectedIdentity = {
+  return {
     task: MIGRATION_EXTRACTIVE_PLANNING_TASK,
     datasetId: dataset.datasetId,
     datasetVersion: dataset.schemaVersion,
@@ -144,43 +144,240 @@ export async function evaluateMigrationQualification({
       observedModels: [runtime.model]
     }
   };
+}
+
+function qualificationDecision({
+  status,
+  reasonCode,
+  executionAllowed,
+  experimentalOverrideUsed,
+  qualificationId,
+  identity,
+  runtimeIdentity,
+  recordRuntimeIdentity = null,
+  sourceKind,
+  sourcePath = null,
+  limitations,
+  nextAction
+}) {
+  return deepFreeze({
+    status,
+    state: status,
+    reasonCode,
+    executionAllowed,
+    experimentalOverrideUsed,
+    qualificationId,
+    task: MIGRATION_EXTRACTIVE_PLANNING_TASK,
+    identity,
+    runtimeIdentity: structuredClone(runtimeIdentity),
+    recordRuntimeIdentity: recordRuntimeIdentity
+      ? {
+          provider: recordRuntimeIdentity.provider,
+          model: recordRuntimeIdentity.model,
+          adapter: recordRuntimeIdentity.adapter
+        }
+      : null,
+    sourceKind,
+    sourcePath,
+    limitations: sortedUniqueLimitations(limitations),
+    nextAction
+  });
+}
+
+function blockedMessage(decision) {
+  if (decision.status === 'NOT_QUALIFIED') {
+    return 'The matching provider/model failed a critical migration-planning.v2 qualification gate.';
+  }
+  if (decision.status === 'IDENTITY_MISMATCH') {
+    return 'The persisted Migration Planning qualification does not match the current runtime identity.';
+  }
+  if (decision.status === 'CORRUPTED') {
+    return 'The selected Migration Planning qualification source failed schema or integrity validation.';
+  }
+  if (decision.status === 'INSUFFICIENT_EVIDENCE') {
+    return 'The matching Migration Planning qualification has insufficient evidence for execution.';
+  }
+  return 'A matching real-provider qualification is required for migration-planning.v2.';
+}
+
+export function migrationQualificationErrorForDecision(decision) {
+  return new MigrationQualificationError(
+    decision.reasonCode,
+    blockedMessage(decision),
+    decision
+  );
+}
+
+export async function createMigrationQualificationSourceFailureDecision({
+  status,
+  reasonCode,
+  runtimeMetadata,
+  sourceKind,
+  sourcePath = null,
+  limitationCode,
+  limitationMessage,
+  nextAction
+}) {
+  const identity = await expectedQualificationIdentity(runtimeMetadata);
+  return qualificationDecision({
+    status,
+    reasonCode,
+    executionAllowed: false,
+    experimentalOverrideUsed: false,
+    qualificationId: null,
+    identity,
+    runtimeIdentity: identity.runtime,
+    sourceKind,
+    sourcePath,
+    limitations: [
+      ...experimentalBaseLimitations(),
+      limitation(limitationCode, limitationMessage)
+    ],
+    nextAction
+  });
+}
+
+/**
+ * Produce one immutable source-of-truth decision for the exact migration task/runtime identity.
+ * Only a missing record may use the explicit experimental execution exception.
+ */
+export async function decideMigrationQualification({
+  qualification = null,
+  runtimeMetadata,
+  allowExperimental = false,
+  sourceKind = qualification ? 'injected' : 'none',
+  sourcePath = null
+} = {}) {
+  const expectedIdentity = await expectedQualificationIdentity(runtimeMetadata);
+  const runtime = expectedIdentity.runtime;
+
+  let identityDigestValid = !qualification;
+  if (qualification) {
+    try {
+      identityDigestValid = qualification.qualificationId
+        === migrationQualificationIdentityDigest(qualification.identity);
+    } catch {
+      identityDigestValid = false;
+    }
+  }
+  if (!identityDigestValid) {
+    return qualificationDecision({
+      status: 'CORRUPTED',
+      reasonCode: 'MIGRATION_QUALIFICATION_IDENTITY_CORRUPT',
+      executionAllowed: false,
+      experimentalOverrideUsed: false,
+      qualificationId: null,
+      identity: expectedIdentity,
+      runtimeIdentity: runtime,
+      recordRuntimeIdentity: qualification.identity?.runtime,
+      sourceKind,
+      sourcePath,
+      limitations: [
+        ...experimentalBaseLimitations(),
+        limitation(
+          'MIGRATION_QUALIFICATION_IDENTITY_CORRUPT',
+          'The Migration Planning qualification identity digest is invalid.'
+        )
+      ],
+      nextAction: 'REPLACE_QUALIFICATION_RECORD'
+    });
+  }
+  if (qualification) {
+    try {
+      qualification = buildMigrationPlanningQualificationRecord(qualification).qualification;
+    } catch (error) {
+      return qualificationDecision({
+        status: 'CORRUPTED',
+        reasonCode: error?.code ?? 'MIGRATION_QUALIFICATION_RECORD_INVALID',
+        executionAllowed: false,
+        experimentalOverrideUsed: false,
+        qualificationId: null,
+        identity: expectedIdentity,
+        runtimeIdentity: runtime,
+        recordRuntimeIdentity: qualification.identity?.runtime,
+        sourceKind,
+        sourcePath,
+        limitations: [
+          ...experimentalBaseLimitations(),
+          limitation(
+            error?.code ?? 'MIGRATION_QUALIFICATION_RECORD_INVALID',
+            'The Migration Planning qualification failed strict schema or invariant validation.'
+          )
+        ],
+        nextAction: 'REPLACE_QUALIFICATION_RECORD'
+      });
+    }
+  }
 
   const matches = identityMatches(qualification?.identity, expectedIdentity);
-  if (matches && qualification.qualificationId !== qualificationIdentityDigest(
-    qualification.identity
-  )) {
-    throw new MigrationQualificationError(
-      'MIGRATION_QUALIFICATION_IDENTITY_CORRUPT',
-      'The matching migration-planning.v2 qualification identity digest is invalid.'
-    );
-  }
   if (matches && qualification?.verdict === 'NOT_QUALIFIED') {
-    throw new MigrationQualificationError(
-      'MIGRATION_RUNTIME_NOT_QUALIFIED',
-      'The configured provider/model failed a critical migration-planning qualification gate.'
-    );
+    return qualificationDecision({
+      status: 'NOT_QUALIFIED',
+      reasonCode: 'MIGRATION_RUNTIME_NOT_QUALIFIED',
+      executionAllowed: false,
+      experimentalOverrideUsed: false,
+      qualificationId: qualification.qualificationId,
+      identity: expectedIdentity,
+      runtimeIdentity: runtime,
+      recordRuntimeIdentity: qualification.identity.runtime,
+      sourceKind,
+      sourcePath,
+      limitations: [
+        ...experimentalBaseLimitations(),
+        ...(qualification.limitations ?? []).map(({ code, message }) => ({ code, message })),
+        limitation(
+          'MIGRATION_RUNTIME_NOT_QUALIFIED',
+          'The matching provider/model failed a critical migration-planning.v2 qualification gate.'
+        )
+      ],
+      nextAction: 'REQUALIFY_RUNTIME'
+    });
+  }
+  if (matches && qualification?.verdict === 'INSUFFICIENT_EVIDENCE') {
+    return qualificationDecision({
+      status: 'INSUFFICIENT_EVIDENCE',
+      reasonCode: 'MIGRATION_QUALIFICATION_INSUFFICIENT',
+      executionAllowed: false,
+      experimentalOverrideUsed: false,
+      qualificationId: qualification.qualificationId,
+      identity: expectedIdentity,
+      runtimeIdentity: runtime,
+      recordRuntimeIdentity: qualification.identity.runtime,
+      sourceKind,
+      sourcePath,
+      limitations: [
+        ...experimentalBaseLimitations(),
+        ...(qualification.limitations ?? []).map(({ code, message }) => ({ code, message })),
+        limitation(
+          'MIGRATION_QUALIFICATION_INSUFFICIENT',
+          'The matching qualification has insufficient real-provider evidence.'
+        )
+      ],
+      nextAction: 'REQUALIFY_RUNTIME'
+    });
   }
 
   const realQualified = matches && ['QUALIFIED', 'QUALIFIED_WITH_LIMITATIONS'].includes(
     qualification?.verdict
   );
   if (realQualified) {
-    return deepFreeze({
-      state: qualification.verdict,
+    return qualificationDecision({
+      status: qualification.verdict,
+      reasonCode: 'MIGRATION_QUALIFICATION_MATCHED',
+      executionAllowed: true,
+      experimentalOverrideUsed: false,
       qualificationId: qualification.qualificationId,
       identity: expectedIdentity,
+      runtimeIdentity: runtime,
+      recordRuntimeIdentity: qualification.identity.runtime,
+      sourceKind,
+      sourcePath,
       limitations: sortedUniqueLimitations([
         ...experimentalBaseLimitations(),
         ...(qualification.limitations ?? []).map(({ code, message }) => ({ code, message }))
-      ])
+      ]),
+      nextAction: 'NONE'
     });
-  }
-
-  if (!allowExperimental) {
-    throw new MigrationQualificationError(
-      'MIGRATION_QUALIFICATION_REQUIRED',
-      'A matching real-provider qualification is required for migration-planning.v2.'
-    );
   }
 
   const limitations = experimentalBaseLimitations();
@@ -189,32 +386,77 @@ export async function evaluateMigrationQualification({
       'MIGRATION_PROVIDER_NOT_QUALIFIED',
       'The configured provider/model has not been qualified for migration-planning.v2.'
     ));
-  } else if (qualification.identity?.runtime?.mode === 'fake') {
+    if (Object.values(normalizedMigrationRuntimeMetadata(runtimeMetadata)).includes('unknown')) {
+      limitations.push(limitation(
+        'MIGRATION_RUNTIME_IDENTITY_INCOMPLETE',
+        'Provider, model, or runtime adapter metadata is incomplete; this run cannot establish qualification identity.'
+      ));
+    }
+    return qualificationDecision({
+      status: 'MISSING',
+      reasonCode: allowExperimental
+        ? 'MIGRATION_QUALIFICATION_MISSING_EXPERIMENTAL_OVERRIDE'
+        : 'MIGRATION_QUALIFICATION_REQUIRED',
+      executionAllowed: allowExperimental,
+      experimentalOverrideUsed: allowExperimental,
+      qualificationId: null,
+      identity: expectedIdentity,
+      runtimeIdentity: runtime,
+      sourceKind,
+      sourcePath,
+      limitations,
+      nextAction: allowExperimental
+        ? 'INSTALL_QUALIFICATION_RECORD_OR_REVIEW_EXPERIMENTAL_OUTPUT'
+        : 'INSTALL_QUALIFICATION_RECORD'
+    });
+  }
+
+  if (qualification.identity?.runtime?.mode === 'fake') {
     limitations.push(limitation(
       'FAKE_QUALIFICATION_NOT_REAL_PROVIDER',
       'Fake-runtime qualification does not qualify the configured real provider/model.'
     ));
-  } else if (!matches) {
-    limitations.push(limitation(
-      'MIGRATION_QUALIFICATION_IDENTITY_MISMATCH',
-      'Available qualification does not match the current task, provider, model, adapter, dataset, prompt, schema, or policy identity.'
-    ));
-  } else {
-    limitations.push(limitation(
-      'MIGRATION_QUALIFICATION_INSUFFICIENT',
-      'Available real-provider qualification evidence is incomplete.'
-    ));
+    return qualificationDecision({
+      status: 'IDENTITY_MISMATCH',
+      reasonCode: 'MIGRATION_FAKE_QUALIFICATION_FOR_REAL_RUNTIME',
+      executionAllowed: false,
+      experimentalOverrideUsed: false,
+      qualificationId: qualification.qualificationId ?? null,
+      identity: expectedIdentity,
+      runtimeIdentity: runtime,
+      recordRuntimeIdentity: qualification.identity.runtime,
+      sourceKind,
+      sourcePath,
+      limitations,
+      nextAction: 'INSTALL_MATCHING_REAL_QUALIFICATION_RECORD'
+    });
   }
-  if (Object.values(runtime).includes('unknown')) {
-    limitations.push(limitation(
-      'MIGRATION_RUNTIME_IDENTITY_INCOMPLETE',
-      'Provider, model, or runtime adapter metadata is incomplete; this run cannot establish qualification identity.'
-    ));
-  }
-  return deepFreeze({
-    state: 'EXPERIMENTAL',
-    qualificationId: null,
+
+  limitations.push(limitation(
+    'MIGRATION_QUALIFICATION_IDENTITY_MISMATCH',
+    'The qualification does not match the current task, provider, model, adapter, dataset, prompt, schema, or policy identity.'
+  ));
+  return qualificationDecision({
+    status: 'IDENTITY_MISMATCH',
+    reasonCode: 'MIGRATION_QUALIFICATION_IDENTITY_MISMATCH',
+    executionAllowed: false,
+    experimentalOverrideUsed: false,
+    qualificationId: qualification.qualificationId ?? null,
     identity: expectedIdentity,
-    limitations: sortedUniqueLimitations(limitations)
+    runtimeIdentity: runtime,
+    recordRuntimeIdentity: qualification.identity?.runtime,
+    sourceKind,
+    sourcePath,
+    limitations,
+    nextAction: 'INSTALL_MATCHING_QUALIFICATION_RECORD'
   });
+}
+
+/**
+ * Backward-compatible guard API: allowed decisions are returned; blocked decisions remain errors.
+ */
+export async function evaluateMigrationQualification(options = {}) {
+  const decision = await decideMigrationQualification(options);
+  if (!decision.executionAllowed) throw migrationQualificationErrorForDecision(decision);
+  return decision;
 }

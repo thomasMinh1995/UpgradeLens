@@ -23,6 +23,8 @@ export const REPOSITORY_IMPACT_EVIDENCE_SCHEMA_VERSION = '1.0.0';
 export const DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/repository-impact-evidence.json`;
 export const MIGRATION_CHECKLIST_SCHEMA_VERSION = '1.0.0';
 export const DEFAULT_MIGRATION_CHECKLIST_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/migration-checklist.json`;
+export const DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH =
+  `${DEFAULT_OUTPUT_DIRECTORY}/migration-planning-qualification.json`;
 export const DEFAULT_REPOSITORY_IMPACT_REPORT_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/repository-impact.md`;
 export const DEFAULT_ANALYSIS_LOG_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/logs/analyze.log`;
 export const DEFAULT_EVALUATION_REPORT_PATH = 'evaluation-report.json';

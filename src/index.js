@@ -22,6 +22,7 @@ export {
   DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
   DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
   DEFAULT_MIGRATION_CHECKLIST_PATH,
+  DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH,
   MANIFEST_SCHEMA_VERSION,
   MIGRATION_CHECKLIST_SCHEMA_VERSION,
   PACKAGE_NAME,
@@ -170,8 +171,26 @@ export { assembleMigrationChecklist } from './migration-checklist/assembler.js';
 export {
   MIGRATION_QUALIFICATION_STATES,
   MigrationQualificationError,
+  createMigrationQualificationSourceFailureDecision,
+  decideMigrationQualification,
+  migrationQualificationErrorForDecision,
+  migrationQualificationIdentityDigest,
+  normalizedMigrationRuntimeMetadata,
   evaluateMigrationQualification
 } from './migration-checklist/qualification-guard.js';
+export {
+  MIGRATION_PLANNING_QUALIFICATION_RECORD_SCHEMA_VERSION,
+  MigrationQualificationStoreError,
+  buildMigrationPlanningQualificationRecord,
+  loadMigrationPlanningQualificationRecord,
+  serializeMigrationPlanningQualificationRecord,
+  validateMigrationPlanningQualificationRecord,
+  validateMigrationPlanningQualificationRecordSchema,
+  writeMigrationPlanningQualificationRecord
+} from './migration-checklist/qualification-store.js';
+export {
+  resolveMigrationQualification
+} from './migration-checklist/qualification-resolution.js';
 export {
   MigrationChecklistWriterError,
   writeMigrationChecklist

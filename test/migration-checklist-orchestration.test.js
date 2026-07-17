@@ -12,9 +12,11 @@ import {
   buildMigrationEvaluationPrepared,
   createMigrationGoldenFakeRuntime,
   createMigrationProgressReporter,
+  decideMigrationQualification,
   evaluateMigrationQualification,
   generateMigrationChecklistDrafts,
   loadMigrationEvaluationDataset,
+  migrationQualificationIdentityDigest,
   renderMigrationChecklistConsole,
   renderMigrationChecklistMarkdownSection,
   runMigrationEvaluation,
@@ -232,28 +234,10 @@ test('qualification guard never promotes missing, fake, mismatched, or criticall
     error.code === 'MIGRATION_QUALIFICATION_REQUIRED'
   ));
   const missing = await evaluateMigrationQualification({ runtimeMetadata, allowExperimental: true });
-  assert.equal(missing.state, 'EXPERIMENTAL');
+  assert.equal(missing.status, 'MISSING');
+  assert.equal(missing.executionAllowed, true);
+  assert.equal(missing.experimentalOverrideUsed, true);
   assert.ok(missing.limitations.some((item) => item.code === 'MIGRATION_PROVIDER_NOT_QUALIFIED'));
-
-  const fakeQualification = {
-    verdict: 'QUALIFIED_WITH_LIMITATIONS',
-    identity: { runtime: { mode: 'fake' } },
-    limitations: []
-  };
-  const fake = await evaluateMigrationQualification({
-    qualification: fakeQualification, runtimeMetadata, allowExperimental: true
-  });
-  assert.equal(fake.state, 'EXPERIMENTAL');
-  assert.ok(fake.limitations.some((item) => item.code === 'FAKE_QUALIFICATION_NOT_REAL_PROVIDER'));
-
-  const mismatch = await evaluateMigrationQualification({
-    qualification: { verdict: 'QUALIFIED', identity: { runtime: { mode: 'real' } } },
-    runtimeMetadata,
-    allowExperimental: true
-  });
-  assert.ok(mismatch.limitations.some((item) => (
-    item.code === 'MIGRATION_QUALIFICATION_IDENTITY_MISMATCH'
-  )));
 
   const loaded = await loadMigrationEvaluationDataset();
   const dataset = coreDataset(loaded);
@@ -270,17 +254,32 @@ test('qualification guard never promotes missing, fake, mismatched, or criticall
     runtimeMetadata,
     generatedAt
   })).qualification;
-  const legacy = await evaluateMigrationQualification({
+  const legacy = await decideMigrationQualification({
     qualification: matchingQualification,
     runtimeMetadata,
     allowExperimental: true
   });
-  assert.equal(legacy.state, 'EXPERIMENTAL');
+  assert.equal(legacy.status, 'CORRUPTED');
+  assert.equal(legacy.executionAllowed, false);
   assert.ok(legacy.limitations.some((item) => (
-    item.code === 'MIGRATION_QUALIFICATION_IDENTITY_MISMATCH'
+    item.code === 'MIGRATION_QUALIFICATION_RECORD_SCHEMA_INVALID'
   )));
 
   const extractiveDataset = await loadMigrationEvaluationDatasetV2();
+  const fakeQualification = (await runMigrationExtractiveEvaluationV2({
+    dataset: extractiveDataset,
+    mode: 'fake',
+    generatedAt
+  })).qualification;
+  const fake = await decideMigrationQualification({
+    qualification: fakeQualification,
+    runtimeMetadata,
+    allowExperimental: true
+  });
+  assert.equal(fake.status, 'IDENTITY_MISMATCH');
+  assert.equal(fake.executionAllowed, false);
+  assert.ok(fake.limitations.some((item) => item.code === 'FAKE_QUALIFICATION_NOT_REAL_PROVIDER'));
+
   const extractiveQualification = (await runMigrationExtractiveEvaluationV2({
     dataset: extractiveDataset,
     mode: 'real',
@@ -310,7 +309,7 @@ test('qualification guard never promotes missing, fake, mismatched, or criticall
     runtimeMetadata,
     allowExperimental: false
   });
-  assert.equal(accepted.state, 'QUALIFIED');
+  assert.equal(accepted.status, 'QUALIFIED');
   assert.equal(accepted.qualificationId, extractiveQualification.qualificationId);
 
   for (const mutate of [
@@ -325,22 +324,25 @@ test('qualification guard never promotes missing, fake, mismatched, or criticall
   ]) {
     const changed = structuredClone(extractiveQualification);
     mutate(changed.identity);
-    const guarded = await evaluateMigrationQualification({
+    changed.qualificationId = migrationQualificationIdentityDigest(changed.identity);
+    const guarded = await decideMigrationQualification({
       qualification: changed,
       runtimeMetadata,
       allowExperimental: true
     });
-    assert.equal(guarded.state, 'EXPERIMENTAL');
+    assert.equal(guarded.status, 'IDENTITY_MISMATCH');
+    assert.equal(guarded.executionAllowed, false);
     assert.ok(guarded.limitations.some((item) => (
       item.code === 'MIGRATION_QUALIFICATION_IDENTITY_MISMATCH'
     )));
   }
-  const providerMismatch = await evaluateMigrationQualification({
+  const providerMismatch = await decideMigrationQualification({
     qualification: extractiveQualification,
     runtimeMetadata: { ...runtimeMetadata, model: 'different-model' },
     allowExperimental: true
   });
-  assert.equal(providerMismatch.state, 'EXPERIMENTAL');
+  assert.equal(providerMismatch.status, 'IDENTITY_MISMATCH');
+  assert.equal(providerMismatch.executionAllowed, false);
 
   await assert.rejects(evaluateMigrationQualification({
     qualification: {
@@ -352,7 +354,15 @@ test('qualification guard never promotes missing, fake, mismatched, or criticall
   }), (error) => error.code === 'MIGRATION_QUALIFICATION_IDENTITY_CORRUPT');
 
   await assert.rejects(evaluateMigrationQualification({
-    qualification: { ...extractiveQualification, verdict: 'NOT_QUALIFIED' },
+    qualification: {
+      ...extractiveQualification,
+      criticalGates: extractiveQualification.criticalGates.map((gate, index) => (
+        index === 0
+          ? { ...gate, passed: false, violations: ['controlled-critical-failure'] }
+          : gate
+      )),
+      verdict: 'NOT_QUALIFIED'
+    },
     runtimeMetadata,
     allowExperimental: true
   }), (error) => error.code === 'MIGRATION_RUNTIME_NOT_QUALIFIED');
@@ -506,9 +516,11 @@ test('stage remains correct without a listener and fatal preparation failure wri
 });
 
 test('presentation is deterministic, truth-preserving, and handles unknown/registry-latest facts', async () => {
-  const { checklist } = await assembled(['python/unknown-registry-action']);
+  const { checklist, qualification } = await assembled(['python/unknown-registry-action']);
   const before = structuredClone(checklist);
-  const viewModel = buildMigrationChecklistViewModel(checklist);
+  const viewModel = buildMigrationChecklistViewModel(checklist, {
+    qualificationDecision: qualification
+  });
   const consoleOutput = renderMigrationChecklistConsole({
     viewModel,
     artifactPath: '.upgradelens/migration-checklist.json'
@@ -520,7 +532,8 @@ test('presentation is deterministic, truth-preserving, and handles unknown/regis
   }));
   assert.equal(markdown, renderMigrationChecklistMarkdownSection({ viewModel }));
   assert.deepEqual(checklist, before);
-  assert.match(consoleOutput, /Provider qualification: NOT_AVAILABLE/);
+  assert.match(consoleOutput, /Provider qualification: MISSING/);
+  assert.match(consoleOutput, /Experimental override: YES/);
   assert.match(consoleOutput, /Human review required: YES/);
   assert.match(markdown, /AI-selected official guidance — requires human review/);
   assert.match(markdown, /unknown current version/);
@@ -541,7 +554,8 @@ test('plain and interactive progress are stable, TTY-aware, and contain no curso
   const plainReporter = createMigrationProgressReporter(plain.stream, { mode: 'auto' });
   assert.equal(plainReporter.mode, 'plain');
   plainReporter.handle({
-    type: 'stage:start', total: 2, qualificationState: 'EXPERIMENTAL'
+    type: 'stage:start', total: 2, qualificationStatus: 'MISSING',
+    qualificationId: null, experimentalOverrideUsed: true
   });
   plainReporter.handle({
     type: 'migration:context-complete', packageName: 'react', outcome: 'generated',
@@ -549,10 +563,12 @@ test('plain and interactive progress are stable, TTY-aware, and contain no curso
   });
   plainReporter.handle({
     type: 'stage:complete', processed: 2, total: 2, generated: 1, abstained: 1,
-    rejected: 0, failed: 0
+    rejected: 0, failed: 0, qualificationStatus: 'MISSING',
+    qualificationId: null, experimentalOverrideUsed: true
   });
   assert.match(plain.value(), /^\[MIGRATION_CHECKLIST\] START/m);
   assert.match(plain.value(), /CONTEXT package=react status=generated/);
+  assert.match(plain.value(), /COMPLETE .* qualification=MISSING .* experimentalOverride=yes/);
   assert.doesNotMatch(plain.value(), /\u001b\[/);
 
   const interactive = capture(true);
@@ -562,13 +578,16 @@ test('plain and interactive progress are stable, TTY-aware, and contain no curso
   });
   assert.equal(interactiveReporter.mode, 'interactive');
   interactiveReporter.handle({
-    type: 'stage:start', total: 2, qualificationState: 'EXPERIMENTAL'
+    type: 'stage:start', total: 2, qualificationStatus: 'MISSING',
+    qualificationId: null, experimentalOverrideUsed: true
   });
   interactiveReporter.handle({
     type: 'stage:complete', processed: 2, total: 2, generated: 1, abstained: 1,
-    rejected: 0, failed: 0
+    rejected: 0, failed: 0, qualificationStatus: 'MISSING',
+    qualificationId: null, experimentalOverrideUsed: true
   });
   assert.match(interactive.value(), /● Building migration checklist/);
   assert.match(interactive.value(), /✓ Migration checklist completed  12\.4s/);
+  assert.match(interactive.value(), /Provider qualification: MISSING/);
   assert.doesNotMatch(interactive.value(), /\u001b\[/);
 });

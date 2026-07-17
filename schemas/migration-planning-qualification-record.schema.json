@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/migration-planning-qualification-record.schema.json",
+  "title": "UpgradeLens Migration Planning Qualification Record",
+  "description": "Integrity-protected persisted qualification for one exact migration-planning.v2 runtime identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "recordDigest", "qualification"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "recordDigest": { "$ref": "#/$defs/digest" },
+    "qualification": { "$ref": "#/$defs/qualification" }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "boundedString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._@/-]*$"
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "provider",
+        "model",
+        "adapter",
+        "observedProviders",
+        "observedModels"
+      ],
+      "properties": {
+        "mode": { "enum": ["fake", "real"] },
+        "provider": { "$ref": "#/$defs/identifier" },
+        "model": { "$ref": "#/$defs/identifier" },
+        "adapter": { "$ref": "#/$defs/identifier" },
+        "observedProviders": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "observedModels": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        }
+      }
+    },
+    "generatorTrustSourceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateContract",
+        "generatorResultVersion",
+        "promptVersion",
+        "trustPolicy",
+        "deterministicPresentation"
+      ],
+      "properties": {
+        "candidateContract": { "$ref": "#/$defs/identifier" },
+        "generatorResultVersion": { "$ref": "#/$defs/identifier" },
+        "promptVersion": { "$ref": "#/$defs/identifier" },
+        "trustPolicy": { "$ref": "#/$defs/identifier" },
+        "deterministicPresentation": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task",
+        "datasetId",
+        "datasetVersion",
+        "datasetDigest",
+        "evaluationCriteriaId",
+        "evaluationCriteriaVersion",
+        "evaluationCriteriaDigest",
+        "comparatorVersion",
+        "normalizationVersion",
+        "policyVersion",
+        "policyDigest",
+        "promptVersion",
+        "promptDigest",
+        "candidateSchemaDigest",
+        "generatorTrustSourceIdentity",
+        "deterministicPresentationIdentity",
+        "runtime"
+      ],
+      "properties": {
+        "task": { "const": "migration-planning.v2" },
+        "datasetId": { "$ref": "#/$defs/identifier" },
+        "datasetVersion": { "$ref": "#/$defs/identifier" },
+        "datasetDigest": { "$ref": "#/$defs/digest" },
+        "evaluationCriteriaId": { "$ref": "#/$defs/identifier" },
+        "evaluationCriteriaVersion": { "$ref": "#/$defs/identifier" },
+        "evaluationCriteriaDigest": { "$ref": "#/$defs/digest" },
+        "comparatorVersion": { "$ref": "#/$defs/identifier" },
+        "normalizationVersion": { "$ref": "#/$defs/identifier" },
+        "policyVersion": { "$ref": "#/$defs/identifier" },
+        "policyDigest": { "$ref": "#/$defs/digest" },
+        "promptVersion": { "$ref": "#/$defs/identifier" },
+        "promptDigest": { "$ref": "#/$defs/digest" },
+        "candidateSchemaDigest": { "$ref": "#/$defs/digest" },
+        "generatorTrustSourceIdentity": {
+          "$ref": "#/$defs/generatorTrustSourceIdentity"
+        },
+        "deterministicPresentationIdentity": { "$ref": "#/$defs/identifier" },
+        "runtime": { "$ref": "#/$defs/runtime" }
+      }
+    },
+    "thresholdResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "operator",
+        "threshold",
+        "actual",
+        "numerator",
+        "denominator",
+        "caseRole",
+        "applicableCaseCount",
+        "critical",
+        "passed"
+      ],
+      "properties": {
+        "metric": { "$ref": "#/$defs/identifier" },
+        "operator": { "enum": ["min", "max"] },
+        "threshold": { "type": "number" },
+        "actual": { "type": ["number", "null"] },
+        "numerator": { "type": "integer", "minimum": 0 },
+        "denominator": { "type": "integer", "minimum": 0 },
+        "caseRole": { "type": ["string", "null"], "maxLength": 64 },
+        "applicableCaseCount": { "type": "integer", "minimum": 0 },
+        "critical": { "type": "boolean" },
+        "passed": { "type": "boolean" }
+      }
+    },
+    "criticalGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "passed", "violations"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "maxLength": 128
+        },
+        "passed": { "type": "boolean" },
+        "violations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/boundedString" }
+        }
+      }
+    },
+    "limitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "maxLength": 128
+        },
+        "message": { "$ref": "#/$defs/boundedString" },
+        "caseCount": { "type": "integer", "minimum": 0 },
+        "metric": { "$ref": "#/$defs/identifier" },
+        "actual": { "type": ["number", "null"] },
+        "threshold": { "type": "number" },
+        "failures": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/boundedString" }
+        }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "qualificationId",
+        "generatedAt",
+        "identity",
+        "thresholdResults",
+        "criticalGates",
+        "limitations",
+        "verdict"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "2.0.0" },
+        "qualificationId": { "$ref": "#/$defs/digest" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "identity": { "$ref": "#/$defs/identity" },
+        "thresholdResults": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/thresholdResult" }
+        },
+        "criticalGates": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/criticalGate" }
+        },
+        "limitations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/limitation" }
+        },
+        "verdict": {
+          "enum": [
+            "QUALIFIED",
+            "QUALIFIED_WITH_LIMITATIONS",
+            "NOT_QUALIFIED",
+            "INSUFFICIENT_EVIDENCE"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -3,7 +3,10 @@ import { assembleMigrationChecklist } from './assembler.js';
 import { prepareMigrationChecklistContexts } from './context-runtime.js';
 import { generateMigrationExtractiveChecklistDrafts } from './generator.js';
 import { buildMigrationChecklistViewModel } from './presentation.js';
-import { evaluateMigrationQualification } from './qualification-guard.js';
+import {
+  decideMigrationQualification,
+  migrationQualificationErrorForDecision
+} from './qualification-guard.js';
 import { writeMigrationChecklist } from './writer.js';
 
 export const MIGRATION_CHECKLIST_STAGE_ID = 'migrationChecklist';
@@ -49,6 +52,7 @@ export async function runMigrationChecklistStage({
   createAiRuntime,
   runtimeMetadata,
   qualification = null,
+  qualificationDecision = null,
   allowExperimental = false,
   generatedAt,
   artifactPath = DEFAULT_MIGRATION_CHECKLIST_PATH,
@@ -62,25 +66,33 @@ export async function runMigrationChecklistStage({
   let processed = 0;
   let qualificationResult;
   try {
-    const prepared = await prepareContexts(repositoryRoot);
-    total = prepared.eligibleContexts.length;
-    qualificationResult = await evaluateMigrationQualification({
+    qualificationResult = qualificationDecision ?? await decideMigrationQualification({
       qualification,
       runtimeMetadata,
-      allowExperimental
+      allowExperimental,
+      sourceKind: qualification ? 'injected' : 'none'
     });
+    if (!qualificationResult.executionAllowed) {
+      throw migrationQualificationErrorForDecision(qualificationResult);
+    }
+    const prepared = await prepareContexts(repositoryRoot);
+    total = prepared.eligibleContexts.length;
     emit(onEvent, {
       type: 'stage:start',
       stageId: MIGRATION_CHECKLIST_STAGE_ID,
       total,
-      qualificationState: qualificationResult.state
+      qualificationStatus: qualificationResult.status,
+      qualificationId: qualificationResult.qualificationId,
+      experimentalOverrideUsed: qualificationResult.experimentalOverrideUsed
     });
     emit(onEvent, {
       type: 'stage:progress',
       stageId: MIGRATION_CHECKLIST_STAGE_ID,
       processed,
       total,
-      qualificationState: qualificationResult.state
+      qualificationStatus: qualificationResult.status,
+      qualificationId: qualificationResult.qualificationId,
+      experimentalOverrideUsed: qualificationResult.experimentalOverrideUsed
     });
     const activeRuntime = aiRuntime ?? (total > 0 ? createAiRuntime?.() : {
       async generateStructured() {
@@ -116,7 +128,9 @@ export async function runMigrationChecklistStage({
           stageId: MIGRATION_CHECKLIST_STAGE_ID,
           processed,
           total,
-          qualificationState: qualificationResult.state
+          qualificationStatus: qualificationResult.status,
+          qualificationId: qualificationResult.qualificationId,
+          experimentalOverrideUsed: qualificationResult.experimentalOverrideUsed
         });
       }
     });
@@ -132,7 +146,9 @@ export async function runMigrationChecklistStage({
       stageId: MIGRATION_CHECKLIST_STAGE_ID,
       artifactPath: outputPath
     });
-    const viewModel = buildMigrationChecklistViewModel(checklist);
+    const viewModel = buildMigrationChecklistViewModel(checklist, {
+      qualificationDecision: qualificationResult
+    });
     emit(onEvent, {
       type: 'stage:complete',
       stageId: MIGRATION_CHECKLIST_STAGE_ID,
@@ -143,7 +159,9 @@ export async function runMigrationChecklistStage({
       rejected: generation.summary.rejected,
       failed: generation.summary.failed,
       limitationCount: checklist.summary.limitationCount,
-      qualificationState: qualificationResult.state
+      qualificationStatus: qualificationResult.status,
+      qualificationId: qualificationResult.qualificationId,
+      experimentalOverrideUsed: qualificationResult.experimentalOverrideUsed
     });
     return deepFreeze({
       artifactPath: outputPath,
@@ -154,13 +172,16 @@ export async function runMigrationChecklistStage({
       qualification: qualificationResult
     });
   } catch (error) {
+    qualificationResult ??= error?.decision ?? null;
     emit(onEvent, {
       type: 'stage:failed',
       stageId: MIGRATION_CHECKLIST_STAGE_ID,
       processed,
       total,
       reasonCode: failureCode(error),
-      qualificationState: qualificationResult?.state ?? 'UNKNOWN'
+      qualificationStatus: qualificationResult?.status ?? 'UNKNOWN',
+      qualificationId: qualificationResult?.qualificationId ?? null,
+      experimentalOverrideUsed: qualificationResult?.experimentalOverrideUsed ?? false
     });
     throw error;
   }

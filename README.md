@@ -216,11 +216,37 @@ This adds the Migration Checklist stage after Repository Impact Evidence and wri
 
 The capability is provider-neutral and reuses the configured UpgradeLens `AiRuntime`. Fake-runtime qualification does not qualify a real provider/model. Until a matching task-specific real-provider qualification exists, the artifact and report identify the output as experimental and require human review for every generated instruction.
 
+The public CLI resolves a persisted Migration Planning v2 qualification from the target repository at:
+
+```text
+.upgradelens/migration-planning-qualification.json
+```
+
+An explicit repository-relative record can be selected with
+`--migration-qualification <path>`. Resolution precedence is programmatic
+injection, explicit CLI path, the default project-local path, then a missing
+decision. The selected source is validated as one complete record; an invalid
+explicit source never falls back. Only a missing default record may use the
+existing experimental override. A corrupted, identity-mismatched, fake, or
+matching `NOT_QUALIFIED` record blocks before provider use.
+
+Persist a completed v2 evaluation qualification through the validated public
+writer rather than copying a partial report:
+
+```js
+import { writeMigrationPlanningQualificationRecord } from 'upgradelens';
+
+await writeMigrationPlanningQualificationRecord(
+  '/path/to/project',
+  evaluationReport.report.qualification
+);
+```
+
 Optional progress rendering is controlled with `--progress auto|interactive|plain`; `auto` uses a basic TTY view and stable plain lines in CI.
 
 Migration Checklist does not generate source edits, code, patches, package-manager commands, dependency ordering, inferred prerequisites, rollback plans, effort estimates, numeric confidence, or upgrade-safety claims. `COMPLETE` means only that represented grounded checklist records have actionable review items. Unknown current versions remain unknown, and registry latest remains a registry fact rather than a recommendation.
 
-See [Migration Checklist orchestration](docs/mvp-05-migration-checklist-orchestration.md), [contract](docs/mvp-05-migration-checklist-contract.md), and [evaluation/qualification](docs/mvp-05-migration-evaluation-and-qualification.md).
+See [Migration Checklist orchestration](docs/mvp-05-migration-checklist-orchestration.md), [contract](docs/mvp-05-migration-checklist-contract.md), [evaluation/qualification](docs/mvp-05-migration-evaluation-and-qualification.md), and [persisted qualification resolution](docs/migration-planning-qualification-resolution.md).
 
 ## JavaScript API
 
