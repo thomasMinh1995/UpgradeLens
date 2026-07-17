@@ -242,11 +242,40 @@ await writeMigrationPlanningQualificationRecord(
 );
 ```
 
-Optional progress rendering is controlled with `--progress auto|interactive|plain`; `auto` uses a basic TTY view and stable plain lines in CI.
+Full-pipeline progress rendering is controlled with
+`--progress auto|interactive|plain`. `auto` selects an append-only interactive
+view for TTYs and stable line-oriented events for non-TTY/CI output. Explicit
+`interactive` remains append-only when redirected, while explicit `plain`
+always stays plain. Every active stage shows its current activity and real
+elapsed time; quiet work emits a rate-limited heartbeat after five seconds.
+Counts appear only when the total is known deterministically. UpgradeLens does
+not infer percentages, ETA, token streaming, or provider “thinking”.
+
+```text
+● Version Analysis [0.0s]
+  ↳ Version Analysis — Waiting for analysis response: react (2/7) [0.1s]
+  … Version Analysis — Waiting for analysis response: react (2/7) [5.1s]
+✓ Version Analysis completed [8.4s]
+```
+
+Plain/CI output uses complete grep-friendly lines:
+
+```text
+[5.1s] STAGE HEARTBEAT id=versionAnalysis detail="Waiting for analysis response: react (2/7)"
+```
+
+The first `SIGINT` requests controlled cancellation, stops heartbeat timers,
+does not start another stage, omits the success summary, and returns exit code
+130. A second interrupt uses the platform's normal immediate-interrupt
+behavior. Activity labels are sanitized and bounded; they never contain raw
+prompts, evidence bodies, repository snippets, request headers, or provider
+error payloads.
 
 Migration Checklist does not generate source edits, code, patches, package-manager commands, dependency ordering, inferred prerequisites, rollback plans, effort estimates, numeric confidence, or upgrade-safety claims. `COMPLETE` means only that represented grounded checklist records have actionable review items. Unknown current versions remain unknown, and registry latest remains a registry fact rather than a recommendation.
 
 See [Migration Checklist orchestration](docs/mvp-05-migration-checklist-orchestration.md), [contract](docs/mvp-05-migration-checklist-contract.md), [evaluation/qualification](docs/mvp-05-migration-evaluation-and-qualification.md), and [persisted qualification resolution](docs/migration-planning-qualification-resolution.md).
+The full lifecycle, heartbeat, rendering, privacy, and cancellation behavior is
+documented in the [CLI progress contract](docs/cli-progress.md).
 
 ## JavaScript API
 

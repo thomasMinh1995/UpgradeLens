@@ -3,6 +3,7 @@ export const MIGRATION_PROGRESS_EVENTS = Object.freeze([
   'stage:progress',
   'stage:complete',
   'stage:failed',
+  'stage:cancelled',
   'migration:context-start',
   'migration:context-complete',
   'migration:abstained',
@@ -42,6 +43,9 @@ function plainLine(event) {
   if (event.type === 'stage:failed') {
     return `[MIGRATION_CHECKLIST] FAILED reason=${event.reasonCode} qualification=${event.qualificationStatus} qualificationId=${event.qualificationId ?? 'none'} experimentalOverride=${event.experimentalOverrideUsed ? 'yes' : 'no'}`;
   }
+  if (event.type === 'stage:cancelled') {
+    return `[MIGRATION_CHECKLIST] CANCELLED reason=${event.reasonCode}`;
+  }
   return null;
 }
 
@@ -58,6 +62,9 @@ function interactiveLine(event, startedAt, now) {
   }
   if (event.type === 'stage:failed') {
     return `✗ Migration checklist failed  ${elapsedSeconds(now - startedAt)}\n  Reason: ${event.reasonCode}\n  Provider qualification: ${event.qualificationStatus}\n  Qualification ID: ${event.qualificationId ?? 'none'}\n  Experimental override: ${event.experimentalOverrideUsed ? 'YES' : 'NO'}`;
+  }
+  if (event.type === 'stage:cancelled') {
+    return `■ Migration checklist cancelled  ${elapsedSeconds(now - startedAt)}`;
   }
   return null;
 }

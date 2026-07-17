@@ -91,6 +91,7 @@ import { writeRepositoryImpactEvidence } from './impact-evidence/writer.js';
 import { runImpactAnalysis } from './impact/runtime.js';
 import { writeRepositoryImpact } from './impact/writer.js';
 import {
+  PipelineCancellationError,
   PipelineStageError,
   createAnalysisStages,
   runAnalysisPipeline
@@ -114,7 +115,6 @@ import { buildVersionAnalysisManifest } from './version-analysis-manifest.js';
 import { serializeVersionAnalysisManifest, writeVersionAnalysisManifest } from './version-analysis-writer.js';
 import { runUsageDiscovery } from './usage/runtime.js';
 import { writeUsageIndex } from './usage/writer.js';
-import { createMigrationProgressReporter } from './migration-checklist/progress.js';
 import { runMigrationChecklistStage } from './migration-checklist/runtime.js';
 import { resolveMigrationQualification } from './migration-checklist/qualification-resolution.js';
 
@@ -143,8 +143,10 @@ Analyze options:
       --migration-qualification <path>
                         Migration Planning v2 qualification record relative to the
                         repository (default: ${DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH})
-      --progress <mode> Control migration progress: auto, interactive, or plain
-                        (default: auto)
+      --progress <mode> Control analysis progress: auto, interactive, or plain
+                        auto uses interactive output on a TTY and stable plain
+                        lines otherwise. Heartbeats show real elapsed time;
+                        no percentage or ETA is inferred. (default: auto)
 
 Discover options:
   -o, --output <path>   Project Manifest path relative to the project root
@@ -443,6 +445,7 @@ async function executeResearch(options, io) {
     concurrency: io.concurrency ?? 4
   });
   const result = await orchestrator.run(plan);
+  if (io.signal?.aborted) throw new PipelineCancellationError(null, io.signal.reason);
   const manifest = (io.buildKnowledgeManifest ?? buildKnowledgeManifest)(result, {
     policy: {
       mode: options.offline ? 'offline' : 'online',
@@ -461,6 +464,7 @@ async function executeResearch(options, io) {
     generatedAt: manifest.generatedAt,
     enrichedEvidence: result.evidence
   });
+  if (io.signal?.aborted) throw new PipelineCancellationError(null, io.signal.reason);
   const target = await (io.writeKnowledgeManifest ?? writeKnowledgeManifest)(outputPath(root, options.output), manifest);
   const evidenceTarget = await (io.writeKnowledgeEvidenceBundle ?? writeKnowledgeEvidenceBundle)(
     outputPath(root, DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH),
@@ -550,8 +554,24 @@ async function executeAnalyzeVersion(options, io) {
     && context.versions.targetVersion !== null);
   const runtime = io.aiRuntime ?? (needsRuntime ? createDefaultAiRuntime(io) : null);
   const results = [];
-  for (const context of contexts) {
-    results.push(await analyzeDependencyAiContext(context, { runtime }));
+  for (let index = 0; index < contexts.length; index += 1) {
+    const context = contexts[index];
+    if (io.signal?.aborted) throw new PipelineCancellationError(null, io.signal.reason);
+    try {
+      io.onProgress?.({
+        activityKind: 'WAIT_FOR_ANALYSIS_RESPONSE',
+        subject: `Waiting for analysis response: ${context.dependency.declaredName}`,
+        completed: index,
+        total: contexts.length
+      });
+    } catch {
+      // Progress callbacks are presentation-only.
+    }
+    results.push(await analyzeDependencyAiContext(context, {
+      runtime,
+      signal: io.signal
+    }));
+    if (io.signal?.aborted) throw new PipelineCancellationError(null, io.signal.reason);
   }
   const manifest = (io.buildVersionAnalysisManifest ?? buildVersionAnalysisManifest)({
     input: artifacts.input,
@@ -748,16 +768,50 @@ function migrationRuntimeMetadata(io) {
   };
 }
 
-function migrationEventListener(options, io) {
+function migrationEventListener(options, io, progress) {
   if (!options.experimentalMigrationChecklist) return undefined;
-  const clock = io.progressClock ?? (() => Date.now());
-  const reporter = io.migrationProgressReporter ?? createMigrationProgressReporter(io.stderr, {
-    mode: options.progress,
-    clock
-  });
   return (event) => {
-    reporter.handle?.(event);
-    if (typeof io.migrationProgressListener === 'function') io.migrationProgressListener(event);
+    try {
+      if (event.type === 'stage:start') {
+        progress?.({
+          activityKind: 'PREPARE_MIGRATION_CONTEXTS',
+          subject: 'Prepared eligible Migration Checklist contexts',
+          completed: 0,
+          total: event.total
+        });
+      } else if (event.type === 'migration:context-start') {
+        progress?.({
+          activityKind: 'WAIT_FOR_MIGRATION_RESPONSE',
+          subject: `Waiting for migration response: ${event.packageName}`,
+          completed: event.processed,
+          total: event.total
+        });
+      } else if ([
+        'migration:context-complete',
+        'migration:abstained',
+        'migration:trust-rejected',
+        'migration:fallback'
+      ].includes(event.type)) {
+        progress?.({
+          activityKind: 'SELECT_OFFICIAL_GUIDANCE',
+          subject: `Processed migration guidance: ${event.packageName}`,
+          completed: event.processed,
+          total: event.total
+        });
+      } else if (event.type === 'migration:artifact-written') {
+        progress?.({
+          activityKind: 'WRITE_MIGRATION_ARTIFACT',
+          subject: 'Validated and wrote Migration Checklist artifact'
+        });
+      }
+    } catch {
+      // Pipeline progress remains isolated from Migration Checklist semantics.
+    }
+    try {
+      if (typeof io.migrationProgressListener === 'function') io.migrationProgressListener(event);
+    } catch {
+      // External progress observation is presentation-only.
+    }
   };
 }
 
@@ -765,24 +819,34 @@ export function createCliAnalysisStageRunners(options, io) {
   const root = path.resolve(options.root);
   const quiet = silentStream();
   const clockOptions = io.clock ? { clock: io.clock } : {};
-  const onMigrationEvent = migrationEventListener(options, io);
   return {
-    async projectDiscovery() {
+    async projectDiscovery({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const manifest = await discoverProject(root, { maxDepth: options.maxDepth });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_PROJECT_MANIFEST',
+        subject: 'Writing Project Manifest'
+      });
       await writeProjectManifest(root, DEFAULT_MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
       return manifest;
     },
-    async knowledgeResearch() {
+    async knowledgeResearch({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       await runResearch({
         ...options,
         command: 'research',
         root,
         output: DEFAULT_KNOWLEDGE_MANIFEST_PATH,
         stdout: false
-      }, { ...io, stdout: quiet, stderr: quiet });
+      }, { ...io, stdout: quiet, stderr: quiet, signal });
+      progress?.({
+        activityKind: 'WRITE_KNOWLEDGE_ARTIFACTS',
+        subject: 'Validated Knowledge Research artifacts'
+      });
       return DEFAULT_KNOWLEDGE_MANIFEST_PATH;
     },
-    async versionAnalysis() {
+    async versionAnalysis({ progress, signal } = {}) {
       return executeAnalyzeVersion({
         ...options,
         command: 'analyze-version',
@@ -790,18 +854,25 @@ export function createCliAnalysisStageRunners(options, io) {
         output: DEFAULT_VERSION_ANALYSIS_PATH,
         stdout: false,
         packageId: undefined
-      }, { ...io, stdout: quiet, stderr: quiet });
+      }, { ...io, stdout: quiet, stderr: quiet, signal, onProgress: progress });
     },
-    async usageDiscovery() {
+    async usageDiscovery({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const usageIndex = await runUsageDiscovery({
         repositoryRoot: root,
         maxDepth: options.maxDepth,
         ...clockOptions
       });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_USAGE_INDEX',
+        subject: 'Writing Repository Usage Index'
+      });
       await writeUsageIndex(path.join(root, DEFAULT_USAGE_INDEX_PATH), usageIndex);
       return usageIndex;
     },
-    async impactAnalysis() {
+    async impactAnalysis({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const repositoryImpact = await runImpactAnalysis({
         sources: {
           projectManifest: path.join(root, DEFAULT_MANIFEST_PATH),
@@ -810,10 +881,16 @@ export function createCliAnalysisStageRunners(options, io) {
         },
         ...clockOptions
       });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_REPOSITORY_IMPACT',
+        subject: 'Writing Repository Impact artifact'
+      });
       await writeRepositoryImpact(path.join(root, DEFAULT_REPOSITORY_IMPACT_PATH), repositoryImpact);
       return repositoryImpact;
     },
-    async impactEvidence() {
+    async impactEvidence({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const impactEvidence = await runImpactEvidenceGeneration({
         sources: {
           projectManifest: path.join(root, DEFAULT_MANIFEST_PATH),
@@ -823,13 +900,20 @@ export function createCliAnalysisStageRunners(options, io) {
         },
         ...clockOptions
       });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_IMPACT_EVIDENCE',
+        subject: 'Writing Repository Impact Evidence artifact'
+      });
       await writeRepositoryImpactEvidence(
         path.join(root, DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH),
         impactEvidence
       );
       return impactEvidence;
     },
-    async migrationChecklist() {
+    async migrationChecklist({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      const onMigrationEvent = migrationEventListener(options, io, progress);
       const runtimeMetadata = migrationRuntimeMetadata(io);
       const resolver = io.resolveMigrationQualification ?? resolveMigrationQualification;
       const qualificationOptions = {
@@ -851,10 +935,12 @@ export function createCliAnalysisStageRunners(options, io) {
         allowExperimental: true,
         generatedAt: io.clock ? io.clock() : new Date(),
         artifactPath: DEFAULT_MIGRATION_CHECKLIST_PATH,
-        onEvent: onMigrationEvent
+        onEvent: onMigrationEvent,
+        signal
       });
     },
-    async markdownReport({ artifacts }) {
+    async markdownReport({ artifacts, progress, signal }) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const viewModel = buildImpactPresentationViewModel({
         projectManifest: artifacts.projectDiscovery,
         versionAnalysis: artifacts.versionAnalysis,
@@ -864,6 +950,11 @@ export function createCliAnalysisStageRunners(options, io) {
       const contents = renderMarkdownReport({
         viewModel,
         migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel
+      });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_MARKDOWN_REPORT',
+        subject: 'Writing Markdown report'
       });
       const target = await (io.writeMarkdownReport ?? writeTextArtifact)(
         outputPath(root, options.output),
@@ -884,18 +975,46 @@ export async function executeAnalyze(options, io) {
     ...createCliAnalysisStageRunners(options, io),
     ...io.analysisStageRunners
   };
-  const progressReporter = io.progressReporter ?? createProgressReporter(io.stderr);
+  const env = io.env ?? process.env;
+  const progressReporter = io.progressReporter ?? createProgressReporter(io.stderr, {
+    mode: options.progress,
+    noColor: Object.hasOwn(env, 'NO_COLOR')
+  });
+  const abortController = io.signal ? null : (io.abortController ?? new AbortController());
+  const signal = io.signal ?? abortController.signal;
+  const signalHost = io.signalHost ?? process;
+  const installSignalHandler = !io.signal && io.handleSignals !== false
+    && typeof signalHost?.once === 'function';
+  const onSigint = () => {
+    if (!abortController.signal.aborted) {
+      abortController.abort(new Error('User requested cancellation.'));
+    }
+  };
+  if (installSignalHandler) signalHost.once('SIGINT', onSigint);
+  const progressOptions = {};
+  if (io.progressMonotonicClock) progressOptions.monotonicClock = io.progressMonotonicClock;
+  if (io.progressWallClock) progressOptions.wallClock = io.progressWallClock;
+  if (io.progressScheduler) progressOptions.scheduler = io.progressScheduler;
+  if (io.heartbeatIntervalMs !== undefined) {
+    progressOptions.heartbeatIntervalMs = io.heartbeatIntervalMs;
+  }
   let result;
   try {
     result = await (io.runAnalysisPipeline ?? runAnalysisPipeline)({
       repositoryRoot: root,
       runners,
       progressReporter,
+      progressListener: io.progressListener,
+      progressOptions,
+      signal,
       stages: createAnalysisStages({
         migrationChecklist: options.experimentalMigrationChecklist
       })
     });
   } catch (error) {
+    if (error instanceof PipelineCancellationError || signal.aborted) {
+      return 130;
+    }
     if (!(error instanceof PipelineStageError)) throw error;
     let logTarget;
     try {
@@ -928,6 +1047,8 @@ export async function executeAnalyze(options, io) {
       io.stderr.write(`\n${error.stage.label} failed.\n\nSee:\n${displayLog || DEFAULT_ANALYSIS_LOG_PATH}\n`);
     }
     return 1;
+  } finally {
+    if (installSignalHandler) signalHost.removeListener?.('SIGINT', onSigint);
   }
 
   io.stdout.write(renderConsoleSummary({

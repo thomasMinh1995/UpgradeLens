@@ -295,13 +295,24 @@ export {
   renderMigrationEvaluationScorecardV2
 } from './migration-checklist/evaluation/scorecard-v2.js';
 export {
+  ANALYSIS_STAGE_INITIAL_ACTIVITIES,
   ANALYSIS_STAGES,
   MIGRATION_CHECKLIST_ANALYSIS_STAGE,
+  PipelineCancellationError,
   PipelineStageError,
   createAnalysisStages,
   runAnalysisPipeline
 } from './orchestration/pipeline.js';
-export { createProgressReporter } from './orchestration/progress-reporter.js';
+export {
+  DEFAULT_HEARTBEAT_INTERVAL_MS,
+  MAX_PROGRESS_SUBJECT_LENGTH,
+  PROGRESS_EVENT_TYPES,
+  PROGRESS_EVENT_VERSION,
+  PROGRESS_STAGE_STATUSES,
+  createProgressEventRuntime,
+  sanitizeProgressSubject
+} from './orchestration/progress-events.js';
+export { createProgressReporter, selectProgressMode } from './orchestration/progress-reporter.js';
 export { renderAnalysisFailureLog, writeAnalysisFailureLog } from './orchestration/failure-log.js';
 export { writeTextArtifact } from './orchestration/text-writer.js';
 export { renderConsoleSummary } from './renderers/console.js';

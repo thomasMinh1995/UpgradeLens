@@ -42,6 +42,13 @@ function eventTypeForResult(event) {
   return 'migration:fallback';
 }
 
+function throwIfCancelled(signal) {
+  if (!signal?.aborted) return;
+  const error = new Error('Migration Checklist stage was cancelled.', { cause: signal.reason });
+  error.code = 'ANALYSIS_CANCELLED';
+  throw error;
+}
+
 /**
  * Experimental application stage: seven artifacts -> MP-02 -> v2 guard -> extractive generator ->
  * MP-01 assembly -> atomic artifact -> presentation view model.
@@ -57,6 +64,7 @@ export async function runMigrationChecklistStage({
   generatedAt,
   artifactPath = DEFAULT_MIGRATION_CHECKLIST_PATH,
   onEvent,
+  signal,
   prepareContexts = prepareMigrationChecklistContexts,
   generateDrafts = generateMigrationExtractiveChecklistDrafts,
   assemble = assembleMigrationChecklist,
@@ -66,6 +74,7 @@ export async function runMigrationChecklistStage({
   let processed = 0;
   let qualificationResult;
   try {
+    throwIfCancelled(signal);
     qualificationResult = qualificationDecision ?? await decideMigrationQualification({
       qualification,
       runtimeMetadata,
@@ -75,7 +84,9 @@ export async function runMigrationChecklistStage({
     if (!qualificationResult.executionAllowed) {
       throw migrationQualificationErrorForDecision(qualificationResult);
     }
+    throwIfCancelled(signal);
     const prepared = await prepareContexts(repositoryRoot);
+    throwIfCancelled(signal);
     total = prepared.eligibleContexts.length;
     emit(onEvent, {
       type: 'stage:start',
@@ -101,6 +112,7 @@ export async function runMigrationChecklistStage({
     });
     const generation = await generateDrafts(prepared, {
       aiRuntime: activeRuntime,
+      signal,
       onContextEvent(event) {
         if (event.phase === 'start') {
           emit(onEvent, {
@@ -134,12 +146,14 @@ export async function runMigrationChecklistStage({
         });
       }
     });
+    throwIfCancelled(signal);
     const checklist = assemble({
       prepared,
       generation,
       qualification: qualificationResult,
       generatedAt
     });
+    throwIfCancelled(signal);
     const outputPath = await writeArtifact(repositoryRoot, checklist, { artifactPath });
     emit(onEvent, {
       type: 'migration:artifact-written',
@@ -174,11 +188,11 @@ export async function runMigrationChecklistStage({
   } catch (error) {
     qualificationResult ??= error?.decision ?? null;
     emit(onEvent, {
-      type: 'stage:failed',
+      type: signal?.aborted ? 'stage:cancelled' : 'stage:failed',
       stageId: MIGRATION_CHECKLIST_STAGE_ID,
       processed,
       total,
-      reasonCode: failureCode(error),
+      reasonCode: signal?.aborted ? 'USER_CANCELLED' : failureCode(error),
       qualificationStatus: qualificationResult?.status ?? 'UNKNOWN',
       qualificationId: qualificationResult?.qualificationId ?? null,
       experimentalOverrideUsed: qualificationResult?.experimentalOverrideUsed ?? false

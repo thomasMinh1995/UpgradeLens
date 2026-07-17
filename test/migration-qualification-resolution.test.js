@@ -451,15 +451,11 @@ test('experimental public CLI auto-loads a persisted QUALIFIED record and stays 
   });
   assert.equal(result.exitCode, 0);
   assert.equal(resolutions, 1);
-  assert.match(result.stderr, new RegExp(
-    `START contexts=0 qualification=QUALIFIED qualificationId=${qualified.qualificationId}`
-  ));
-  assert.match(result.stderr, new RegExp(
-    `COMPLETE .* qualification=QUALIFIED qualificationId=${qualified.qualificationId}`
-  ));
+  assert.match(result.stderr, /STAGE START id=migrationChecklist label="Migration Checklist"/);
+  assert.match(result.stderr, /STAGE COMPLETE id=migrationChecklist label="Migration Checklist"/);
   assert.match(result.stdout, /Provider qualification: QUALIFIED/);
   assert.match(result.stdout, new RegExp(`Qualification ID: ${qualified.qualificationId}`));
-  assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /NOT_AVAILABLE|qualification=MISSING/);
+  assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /NOT_AVAILABLE|Provider qualification: MISSING/);
   const markdown = await readFile(
     path.join(root, '.upgradelens/repository-impact.md'),
     'utf8'
@@ -473,7 +469,7 @@ test('experimental public CLI surfaces missing qualification without calling it 
   const root = await cliRoot('qualification-missing-cli');
   const result = await runExperimentalCli(root);
   assert.equal(result.exitCode, 0);
-  assert.match(result.stderr, /qualification=MISSING qualificationId=none experimentalOverride=yes/);
+  assert.match(result.stderr, /STAGE COMPLETE id=migrationChecklist label="Migration Checklist"/);
   assert.match(result.stdout, /Provider qualification: MISSING/);
   assert.match(result.stdout, /Experimental override: YES/);
   assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /Provider qualification: QUALIFIED/);
@@ -533,7 +529,7 @@ test('identity mismatch, corrupted, and matching NOT_QUALIFIED records block bef
     });
     assert.equal(result.exitCode, 1);
     assert.equal(providerCalls, 0);
-    assert.match(result.stderr, new RegExp(`qualification=${scenario.expectedStatus}`));
+    assert.match(result.stderr, /STAGE FAILED id=migrationChecklist reason=/);
     assert.match(result.stderr, new RegExp(`Qualification status: ${scenario.expectedStatus}`));
     assert.match(result.stderr, new RegExp(`Reason: ${scenario.expectedReason}`));
     assert.doesNotMatch(result.stdout, /Migration checklist created/);

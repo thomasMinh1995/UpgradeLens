@@ -235,20 +235,21 @@ test('pipeline runs every stage in order and reports deterministic progress', as
   const result = await runAnalysisPipeline({
     repositoryRoot: '/repository',
     runners,
-    progressReporter: createProgressReporter(output.stream)
+    progressReporter: createProgressReporter(output.stream),
+    progressOptions: {
+      monotonicClock: () => 0,
+      wallClock: () => new Date('2026-01-01T00:00:00.000Z')
+    }
   });
 
   assert.deepEqual(calls, ANALYSIS_STAGES.map((stage) => stage.id));
   assert.equal(result.artifacts.markdownReport, 'markdownReport');
-  assert.equal(output.value(), [
-    'Running UpgradeLens Analysis...',
-    '',
-    ...ANALYSIS_STAGES.map((stage) => `✓ ${stage.label}`),
-    '',
-    'Analysis completed.',
-    '',
-    ''
-  ].join('\n'));
+  assert.match(output.value(), /^\[0\.0s\] RUN START stages=7\n/);
+  for (const stage of ANALYSIS_STAGES) {
+    assert.match(output.value(), new RegExp(`STAGE START id=${stage.id} `));
+    assert.match(output.value(), new RegExp(`STAGE COMPLETE id=${stage.id} `));
+  }
+  assert.match(output.value(), /\[0\.0s\] RUN COMPLETE completed=7\/7 failed=0 skipped=0\n$/);
 });
 
 test('pipeline stops at the first failed stage', async () => {
@@ -274,7 +275,8 @@ test('pipeline stops at the first failed stage', async () => {
       && error.cause.message === 'fixture parse failure'
   );
   assert.deepEqual(calls, ['projectDiscovery', 'knowledgeResearch', 'versionAnalysis', 'usageDiscovery']);
-  assert.match(output.value(), /✗ Repository Usage Discovery\n$/);
+  assert.match(output.value(), /STAGE FAILED id=usageDiscovery reason=STAGE_FAILED/);
+  assert.match(output.value(), /RUN FAILED completed=3\/7 next=REVIEW_FAILURE_DETAILS\n$/);
   assert.doesNotMatch(output.value(), /Repository Impact Analysis|Analysis completed/);
 });
 
@@ -344,7 +346,8 @@ test('analyze CLI runs the full scheduler and writes the Markdown report', async
     'impactAnalysis',
     'impactEvidence'
   ]);
-  assert.match(stderr.value(), /✓ Markdown Report\n\nAnalysis completed\./);
+  assert.match(stderr.value(), /STAGE COMPLETE id=markdownReport label="Markdown Report"/);
+  assert.match(stderr.value(), /RUN COMPLETE completed=7\/7 failed=0 skipped=0/);
   const viewModel = presentationViewModel(artifacts);
   assert.equal(stdout.value(), renderConsoleSummary({
     viewModel,
@@ -425,7 +428,7 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
     'projectDiscovery', 'knowledgeResearch', 'versionAnalysis', 'usageDiscovery',
     'impactAnalysis', 'impactEvidence', 'migrationChecklist'
   ]);
-  assert.match(stderr.value(), /✓ Migration Checklist\n✓ Markdown Report/);
+  assert.match(stderr.value(), /STAGE COMPLETE id=migrationChecklist label="Migration Checklist"[\s\S]*STAGE START id=markdownReport/);
   assert.match(stdout.value(), /Migration checklist contains no grounded action/);
   const report = await readFile(path.join(root, '.upgradelens/repository-impact.md'), 'utf8');
   assert.match(report, /## Migration Checklist/);

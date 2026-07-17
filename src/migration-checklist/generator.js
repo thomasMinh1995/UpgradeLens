@@ -85,6 +85,13 @@ function notifyContext(listener, event) {
   }
 }
 
+function throwIfCancelled(signal) {
+  if (!signal?.aborted) return;
+  const error = new Error('Migration Checklist generation was cancelled.', { cause: signal.reason });
+  error.code = 'ANALYSIS_CANCELLED';
+  throw error;
+}
+
 function sortedUniqueText(values = []) {
   return [...new Set(values)].sort(compareText);
 }
@@ -356,8 +363,10 @@ function candidateFailure(context, error) {
 async function generateMigrationChecklistForContextWithContract(context, {
   aiRuntime,
   runId,
-  promptVersion
+  promptVersion,
+  signal
 }, contract) {
+  throwIfCancelled(signal);
   validateEligibleContext(context);
   validateAiRuntime(aiRuntime);
   const prompt = contract.buildPrompt({
@@ -379,7 +388,8 @@ async function generateMigrationChecklistForContextWithContract(context, {
         mode: 'jsonSchema',
         name: contract.schemaName,
         schema: contract.candidateSchema
-      }
+      },
+      ...(signal ? { signal } : {})
     });
   } catch (error) {
     return deepFreeze(runtimeFailure(context, error));
@@ -436,22 +446,24 @@ const EXTRACTIVE_CONTRACT = Object.freeze({
 /** Historical free-form v1 generation retained for evaluation reproducibility. */
 export async function generateMigrationChecklistForContext(context, {
   aiRuntime,
+  signal,
   runId = `migration:${context.contextId}`,
   promptVersion = MIGRATION_PLANNING_PROMPT_VERSION
 } = {}) {
   return generateMigrationChecklistForContextWithContract(context, {
-    aiRuntime, runId, promptVersion
+    aiRuntime, runId, promptVersion, signal
   }, FREE_FORM_CONTRACT);
 }
 
 /** Production extractive v2 generation for new experimental checklist runs. */
 export async function generateMigrationExtractiveChecklistForContext(context, {
   aiRuntime,
+  signal,
   runId = `migration-extractive:${context.contextId}`,
   promptVersion = MIGRATION_EXTRACTIVE_PROMPT_VERSION
 } = {}) {
   return generateMigrationChecklistForContextWithContract(context, {
-    aiRuntime, runId, promptVersion
+    aiRuntime, runId, promptVersion, signal
   }, EXTRACTIVE_CONTRACT);
 }
 
@@ -554,7 +566,8 @@ async function generateMigrationChecklistDraftsWithContract(prepared, {
   aiRuntime,
   runIdPrefix = 'migration',
   promptVersion,
-  onContextEvent
+  onContextEvent,
+  signal
 }, {
   generateContext,
   resultVersion
@@ -584,6 +597,7 @@ async function generateMigrationChecklistDraftsWithContract(prepared, {
     || compareText(left.contextId, right.contextId)
   ));
   for (const context of contexts) {
+    throwIfCancelled(signal);
     notifyContext(onContextEvent, {
       phase: 'start',
       contextId: context.contextId,
@@ -594,8 +608,10 @@ async function generateMigrationChecklistDraftsWithContract(prepared, {
     const result = await generateContext(context, {
       aiRuntime,
       runId: `${runIdPrefix}:${context.contextId}`,
-      promptVersion
+      promptVersion,
+      signal
     });
+    throwIfCancelled(signal);
     summary[result.outcome] += 1;
     mergeRecord(records, result.record);
     if (result.warning) warnings.push(structuredClone(result.warning));
