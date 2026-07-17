@@ -20,6 +20,7 @@ import {
   DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
   DEFAULT_REPOSITORY_IMPACT_PATH,
   DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
+  DEFAULT_MIGRATION_CHECKLIST_PATH,
   DEFAULT_USAGE_INDEX_PATH,
   PRODUCT_NAME,
   VERSION
@@ -88,7 +89,11 @@ import { runImpactEvidenceGeneration } from './impact-evidence/runtime.js';
 import { writeRepositoryImpactEvidence } from './impact-evidence/writer.js';
 import { runImpactAnalysis } from './impact/runtime.js';
 import { writeRepositoryImpact } from './impact/writer.js';
-import { PipelineStageError, runAnalysisPipeline } from './orchestration/pipeline.js';
+import {
+  PipelineStageError,
+  createAnalysisStages,
+  runAnalysisPipeline
+} from './orchestration/pipeline.js';
 import { writeAnalysisFailureLog } from './orchestration/failure-log.js';
 import { createProgressReporter } from './orchestration/progress-reporter.js';
 import { writeTextArtifact } from './orchestration/text-writer.js';
@@ -108,6 +113,8 @@ import { buildVersionAnalysisManifest } from './version-analysis-manifest.js';
 import { serializeVersionAnalysisManifest, writeVersionAnalysisManifest } from './version-analysis-writer.js';
 import { runUsageDiscovery } from './usage/runtime.js';
 import { writeUsageIndex } from './usage/writer.js';
+import { createMigrationProgressReporter } from './migration-checklist/progress.js';
+import { runMigrationChecklistStage } from './migration-checklist/runtime.js';
 
 const HELP = `${PRODUCT_NAME} ${VERSION}
 
@@ -128,6 +135,11 @@ Usage:
 Analyze options:
       --offline         Use fresh research cache entries only; never request registries
       --max-depth <n>   Maximum directory depth for discovery and usage scanning
+      --experimental-migration-checklist
+                        Generate an evidence-grounded migration checklist.
+                        Experimental. Requires human review.
+      --progress <mode> Control migration progress: auto, interactive, or plain
+                        (default: auto)
 
 Discover options:
   -o, --output <path>   Project Manifest path relative to the project root
@@ -229,7 +241,9 @@ export function parseArguments(argv) {
     pretty: true,
     stdout: false,
     failOnWarning: false,
-    offline: false
+    offline: false,
+    experimentalMigrationChecklist: false,
+    progress: 'auto'
   };
   let rootSet = false;
   for (let index = 0; index < args.length; index += 1) {
@@ -240,6 +254,12 @@ export function parseArguments(argv) {
     else if (argument === '--no-pretty') options.pretty = false;
     else if (argument === '--fail-on-warning') options.failOnWarning = true;
     else if (argument === '--offline') options.offline = true;
+    else if (argument === '--experimental-migration-checklist') {
+      options.experimentalMigrationChecklist = true;
+    } else if (argument === '--progress') {
+      options.progress = takeValue(args, index, argument);
+      index += 1;
+    }
     else if (argument === '--output' || argument === '-o') {
       options.output = takeValue(args, index, argument);
       index += 1;
@@ -289,6 +309,15 @@ export function parseArguments(argv) {
   }
   if (!['research', 'analyze'].includes(command) && options.offline) {
     throw new Error('--offline is only supported by research and analyze');
+  }
+  if (command !== 'analyze' && options.experimentalMigrationChecklist) {
+    throw new Error('--experimental-migration-checklist is only supported by analyze');
+  }
+  if (command !== 'analyze' && options.progress !== 'auto') {
+    throw new Error('--progress is only supported by analyze');
+  }
+  if (!['auto', 'interactive', 'plain'].includes(options.progress)) {
+    throw new Error('--progress must be auto, interactive, or plain');
   }
   if (!['discover', 'analyze'].includes(command) && options.maxDepth !== undefined) {
     throw new Error('--max-depth is only supported by discover and analyze');
@@ -692,10 +721,35 @@ function silentStream() {
   return Object.freeze({ write: () => true });
 }
 
+function migrationRuntimeMetadata(io) {
+  if (io.migrationRuntimeMetadata) return io.migrationRuntimeMetadata;
+  const env = io.env ?? process.env;
+  const provider = env.UPGRADELENS_AI_PROVIDER ?? 'unknown';
+  return {
+    provider,
+    model: env.UPGRADELENS_AI_MODEL ?? 'unknown',
+    adapter: provider === 'openai-compatible' ? 'openai-compatible' : provider
+  };
+}
+
+function migrationEventListener(options, io) {
+  if (!options.experimentalMigrationChecklist) return undefined;
+  const clock = io.progressClock ?? (() => Date.now());
+  const reporter = io.migrationProgressReporter ?? createMigrationProgressReporter(io.stderr, {
+    mode: options.progress,
+    clock
+  });
+  return (event) => {
+    reporter.handle?.(event);
+    if (typeof io.migrationProgressListener === 'function') io.migrationProgressListener(event);
+  };
+}
+
 export function createCliAnalysisStageRunners(options, io) {
   const root = path.resolve(options.root);
   const quiet = silentStream();
   const clockOptions = io.clock ? { clock: io.clock } : {};
+  const onMigrationEvent = migrationEventListener(options, io);
   return {
     async projectDiscovery() {
       const manifest = await discoverProject(root, { maxDepth: options.maxDepth });
@@ -759,6 +813,19 @@ export function createCliAnalysisStageRunners(options, io) {
       );
       return impactEvidence;
     },
+    async migrationChecklist() {
+      return (io.runMigrationChecklistStage ?? runMigrationChecklistStage)({
+        repositoryRoot: root,
+        aiRuntime: io.migrationAiRuntime ?? io.aiRuntime ?? null,
+        createAiRuntime: () => createDefaultAiRuntime(io),
+        runtimeMetadata: migrationRuntimeMetadata(io),
+        qualification: io.migrationQualification ?? null,
+        allowExperimental: true,
+        generatedAt: io.clock ? io.clock() : new Date(),
+        artifactPath: DEFAULT_MIGRATION_CHECKLIST_PATH,
+        onEvent: onMigrationEvent
+      });
+    },
     async markdownReport({ artifacts }) {
       const viewModel = buildImpactPresentationViewModel({
         projectManifest: artifacts.projectDiscovery,
@@ -766,12 +833,19 @@ export function createCliAnalysisStageRunners(options, io) {
         repositoryImpact: artifacts.impactAnalysis,
         impactEvidence: artifacts.impactEvidence
       });
-      const contents = renderMarkdownReport({ viewModel });
+      const contents = renderMarkdownReport({
+        viewModel,
+        migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel
+      });
       const target = await (io.writeMarkdownReport ?? writeTextArtifact)(
         outputPath(root, options.output),
         contents
       );
-      return Object.freeze({ target, viewModel });
+      return Object.freeze({
+        target,
+        viewModel,
+        migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel ?? null
+      });
     }
   };
 }
@@ -788,7 +862,10 @@ export async function executeAnalyze(options, io) {
     result = await (io.runAnalysisPipeline ?? runAnalysisPipeline)({
       repositoryRoot: root,
       runners,
-      progressReporter
+      progressReporter,
+      stages: createAnalysisStages({
+        migrationChecklist: options.experimentalMigrationChecklist
+      })
     });
   } catch (error) {
     if (!(error instanceof PipelineStageError)) throw error;
@@ -806,7 +883,9 @@ export async function executeAnalyze(options, io) {
 
   io.stdout.write(renderConsoleSummary({
     viewModel: result.artifacts.markdownReport.viewModel,
-    reportPath: options.output
+    reportPath: options.output,
+    migrationChecklistViewModel: result.artifacts.migrationChecklist?.viewModel,
+    migrationChecklistPath: result.artifacts.migrationChecklist?.artifactPath
   }));
   return 0;
 }

@@ -8,6 +8,20 @@ export const ANALYSIS_STAGES = Object.freeze([
   Object.freeze({ id: 'markdownReport', label: 'Markdown Report' })
 ]);
 
+export const MIGRATION_CHECKLIST_ANALYSIS_STAGE = Object.freeze({
+  id: 'migrationChecklist',
+  label: 'Migration Checklist'
+});
+
+export function createAnalysisStages({ migrationChecklist = false } = {}) {
+  if (!migrationChecklist) return ANALYSIS_STAGES;
+  return Object.freeze([
+    ...ANALYSIS_STAGES.slice(0, -1),
+    MIGRATION_CHECKLIST_ANALYSIS_STAGE,
+    ANALYSIS_STAGES.at(-1)
+  ]);
+}
+
 export class PipelineStageError extends Error {
   constructor(stage, cause) {
     super(`${stage.label} failed: ${cause?.message ?? String(cause)}`, { cause });
@@ -16,20 +30,25 @@ export class PipelineStageError extends Error {
   }
 }
 
-function validateRunners(runners) {
-  for (const stage of ANALYSIS_STAGES) {
+function validateRunners(runners, stages) {
+  for (const stage of stages) {
     if (typeof runners?.[stage.id] !== 'function') {
       throw new Error(`Analysis pipeline requires a ${stage.id} stage runner.`);
     }
   }
 }
 
-export async function runAnalysisPipeline({ repositoryRoot, runners, progressReporter }) {
-  validateRunners(runners);
+export async function runAnalysisPipeline({
+  repositoryRoot,
+  runners,
+  progressReporter,
+  stages = ANALYSIS_STAGES
+}) {
+  validateRunners(runners, stages);
   const artifacts = {};
   progressReporter?.start();
 
-  for (const stage of ANALYSIS_STAGES) {
+  for (const stage of stages) {
     try {
       artifacts[stage.id] = await runners[stage.id]({
         repositoryRoot,

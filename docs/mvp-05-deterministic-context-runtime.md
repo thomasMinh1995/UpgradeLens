@@ -4,7 +4,7 @@
 
 MP-02 prepares trusted, immutable input for the later migration-checklist generator. It performs no AI call, provider/network access, source scan, artifact write, CLI integration, or migration instruction generation.
 
-The public orchestration API is `prepareMigrationChecklistContexts(input, options)`. `input` may be a repository root or an explicit `sources` object. The lower-level APIs are `loadMigrationChecklistInputs` and `buildMigrationTaskContexts`.
+The public orchestration API is `prepareMigrationChecklistContexts(input, options)`. `input` may be a repository root or an explicit `sources` object. The lower-level APIs are `loadMigrationChecklistInputs` and `buildMigrationTaskContexts`. The MP-03 consumer of this output is documented in [`mvp-05-provider-neutral-generator.md`](./mvp-05-provider-neutral-generator.md).
 
 ## Seven input artifacts and lineage
 
@@ -110,8 +110,8 @@ Returned loaded artifacts, contexts, fallbacks, lineage, and summary are deep-cl
 
 ## Deferred work
 
-- MP-03 owns prompt construction, structured AI output, semantic grounding checks, and generated migration-instruction drafts.
-- MP-04 owns task-specific evaluation, adversarial cases, and provider qualification.
-- MP-05 owns final checklist assembly/writer, CLI orchestration, and presentation renderers.
+- MP-03 implements prompt construction, structured AI output, exact excerpt and conservative trust checks, and generated migration-instruction drafts.
+- MP-04 implements task-specific evaluation, adversarial cases, and provider qualification; see [`mvp-05-migration-evaluation-and-qualification.md`](./mvp-05-migration-evaluation-and-qualification.md).
+- MP-05 implements final checklist assembly/writer, experimental CLI orchestration, and presentation renderers; see [`mvp-05-migration-checklist-orchestration.md`](./mvp-05-migration-checklist-orchestration.md).
 
 The current Usage Index exposes analyzer coverage globally rather than per project. MP-02 therefore treats multi-project, non-JS/TS, warning-bearing, or otherwise unprovable negative coverage conservatively. A future analyzer-coverage schema can improve location eligibility without changing action eligibility.

@@ -117,7 +117,141 @@ export {
   classifyMigrationEligibility,
   prepareMigrationChecklistContexts
 } from './migration-checklist/context-runtime.js';
-export { ANALYSIS_STAGES, PipelineStageError, runAnalysisPipeline } from './orchestration/pipeline.js';
+export {
+  MIGRATION_CANDIDATE_ABSTENTION_REASONS,
+  MIGRATION_CANDIDATE_STATUSES,
+  MIGRATION_CHECKLIST_CANDIDATE_ERROR_CODES,
+  MIGRATION_CHECKLIST_CANDIDATE_SCHEMA,
+  MIGRATION_CHECKLIST_TRUST_ERROR_CODES,
+  MigrationChecklistCandidateError,
+  MigrationChecklistTrustError,
+  isMigrationChecklistCandidateError,
+  isMigrationChecklistTrustError,
+  trustValidateMigrationChecklistCandidate,
+  validateMigrationChecklistCandidate
+} from './migration-checklist/ai-candidate.js';
+export {
+  MIGRATION_PLANNING_PROMPT_VERSION,
+  MIGRATION_PLANNING_SCHEMA_NAME,
+  MIGRATION_PLANNING_TASK,
+  buildMigrationChecklistPrompt,
+  buildMigrationChecklistPromptContext
+} from './migration-checklist/prompt.js';
+export {
+  MIGRATION_GENERATION_RESULT_VERSION,
+  MIGRATION_GENERATION_WARNING_CODES,
+  generateMigrationChecklistDrafts,
+  generateMigrationChecklistForContext
+} from './migration-checklist/generator.js';
+export { assembleMigrationChecklist } from './migration-checklist/assembler.js';
+export {
+  MIGRATION_QUALIFICATION_STATES,
+  MigrationQualificationError,
+  evaluateMigrationQualification
+} from './migration-checklist/qualification-guard.js';
+export {
+  MigrationChecklistWriterError,
+  writeMigrationChecklist
+} from './migration-checklist/writer.js';
+export {
+  MIGRATION_PROGRESS_EVENTS,
+  createMigrationProgressReporter
+} from './migration-checklist/progress.js';
+export {
+  buildMigrationChecklistViewModel,
+  renderMigrationChecklistConsole,
+  renderMigrationChecklistMarkdownSection
+} from './migration-checklist/presentation.js';
+export {
+  MIGRATION_CHECKLIST_STAGE_ID,
+  MIGRATION_CHECKLIST_STAGE_LABEL,
+  runMigrationChecklistStage
+} from './migration-checklist/runtime.js';
+export {
+  DEFAULT_MIGRATION_EVALUATION_DATASET_PATH,
+  MIGRATION_EVALUATION_DATASET_ID,
+  MIGRATION_EVALUATION_DATASET_VERSION,
+  buildMigrationEvaluationContext,
+  buildMigrationEvaluationPrepared,
+  buildMigrationPolicyProbeCandidate,
+  createMigrationGoldenFakeRuntime,
+  loadMigrationEvaluationDataset,
+  migrationEvaluationDatasetDigest,
+  validateMigrationEvaluationDataset
+} from './migration-checklist/evaluation/dataset.js';
+export {
+  compareMigrationEvaluationCase,
+  evaluateMigrationPolicyProbes
+} from './migration-checklist/evaluation/comparator.js';
+export {
+  MIGRATION_EVALUATION_METRICS_VERSION,
+  computeMigrationEvaluationMetrics
+} from './migration-checklist/evaluation/metrics.js';
+export {
+  MIGRATION_GENERATOR_TRUST_SOURCE_IDENTITY,
+  MIGRATION_QUALIFICATION_POLICY,
+  MIGRATION_QUALIFICATION_POLICY_VERSION,
+  MIGRATION_QUALIFICATION_VERDICTS,
+  migrationCandidateSchemaDigest,
+  migrationQualificationPolicyDigest,
+  qualifyMigrationPlanningRuntime
+} from './migration-checklist/evaluation/qualification.js';
+export {
+  MIGRATION_EVALUATION_REPORT_VERSION,
+  runMigrationEvaluation
+} from './migration-checklist/evaluation/runner.js';
+export {
+  buildMigrationEvaluationScorecard,
+  renderMigrationEvaluationScorecard
+} from './migration-checklist/evaluation/scorecard.js';
+export {
+  MIGRATION_ACTION_COMPARATOR_VERSION,
+  MIGRATION_ACTION_EVALUATION_CRITERIA_ID,
+  MIGRATION_ACTION_EVALUATION_CRITERIA_VERSION,
+  MIGRATION_ACTION_NORMALIZATION_VERSION,
+  MIGRATION_ACTION_SUPPORT_STATUSES,
+  evaluateMigrationActionInstruction,
+  migrationActionEvaluationCriteriaDigest,
+  migrationActionEvaluationCriteriaIdentity,
+  normalizeMigrationActionText,
+  validateMigrationActionCriteria
+} from './migration-checklist/evaluation/action-criteria.js';
+export {
+  DEFAULT_MIGRATION_EVALUATION_DATASET_V2_PATH,
+  MIGRATION_EVALUATION_DATASET_V2_VERSION,
+  MIGRATION_EVALUATION_FIXTURE_ROLES,
+  loadMigrationEvaluationDatasetV2,
+  loadVersionedMigrationEvaluationDataset,
+  migrationEvaluationDatasetV2Digest,
+  resolveMigrationEvaluationV2Case,
+  validateMigrationEvaluationDatasetV2
+} from './migration-checklist/evaluation/dataset-v2.js';
+export { compareMigrationEvaluationCaseV2 } from './migration-checklist/evaluation/comparator-v2.js';
+export {
+  MIGRATION_EVALUATION_METRICS_V2_VERSION,
+  computeMigrationEvaluationMetricsV2
+} from './migration-checklist/evaluation/metrics-v2.js';
+export {
+  MIGRATION_QUALIFICATION_POLICY_V2,
+  MIGRATION_QUALIFICATION_POLICY_V2_VERSION,
+  migrationQualificationPolicyV2Digest,
+  qualifyMigrationPlanningRuntimeV2
+} from './migration-checklist/evaluation/qualification-v2.js';
+export {
+  MIGRATION_EVALUATION_REPORT_V2_VERSION,
+  runMigrationEvaluationV2
+} from './migration-checklist/evaluation/runner-v2.js';
+export {
+  buildMigrationEvaluationScorecardV2,
+  renderMigrationEvaluationScorecardV2
+} from './migration-checklist/evaluation/scorecard-v2.js';
+export {
+  ANALYSIS_STAGES,
+  MIGRATION_CHECKLIST_ANALYSIS_STAGE,
+  PipelineStageError,
+  createAnalysisStages,
+  runAnalysisPipeline
+} from './orchestration/pipeline.js';
 export { createProgressReporter } from './orchestration/progress-reporter.js';
 export { renderAnalysisFailureLog, writeAnalysisFailureLog } from './orchestration/failure-log.js';
 export { writeTextArtifact } from './orchestration/text-writer.js';

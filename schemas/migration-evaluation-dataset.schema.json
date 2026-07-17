@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/thomasMinh1995/UpgradeLens/main/schemas/migration-evaluation-dataset.schema.json",
+  "title": "UpgradeLens Migration Planning Evaluation Dataset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "datasetId", "task", "cases"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "datasetId": { "const": "migration-planning-golden" },
+    "task": { "const": "migration-planning.v1" },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "textArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packageId", "declaredName", "normalizedName", "registry", "packageManager", "dependencyType", "manifest"],
+      "properties": {
+        "packageId": { "type": "string", "minLength": 1 },
+        "declaredName": { "type": "string", "minLength": 1 },
+        "normalizedName": { "type": "string", "minLength": 1 },
+        "registry": { "type": "string", "minLength": 1 },
+        "packageManager": { "type": ["string", "null"] },
+        "dependencyType": { "type": "string", "minLength": 1 },
+        "manifest": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["analysisMode", "declaredVersion", "currentVersion", "currentVersionSource", "targetVersion", "targetPolicy", "delta"],
+      "properties": {
+        "analysisMode": { "enum": ["exactBaseline", "declaredConstraint"] },
+        "declaredVersion": { "type": ["string", "null"] },
+        "currentVersion": { "type": ["string", "null"] },
+        "currentVersionSource": { "enum": ["exactDeclaration", null] },
+        "targetVersion": { "type": "string", "minLength": 1 },
+        "targetPolicy": { "enum": ["explicit", "registryLatest"] },
+        "delta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["direction", "classification"],
+          "properties": {
+            "direction": { "enum": ["upgrade", "unknown"] },
+            "classification": { "enum": ["major", "minor", "patch", "other", "unknown"] }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "sourceId", "authority", "trust", "releaseVersions", "content"],
+      "properties": {
+        "id": { "$ref": "#/$defs/digest" },
+        "kind": { "enum": ["migrationGuide", "breakingChanges", "deprecations", "releaseNotes", "changelog"] },
+        "sourceId": { "type": "string", "minLength": 1 },
+        "authority": { "enum": ["officialProject", "publisherProvided"] },
+        "trust": { "enum": ["official", "publisher"] },
+        "releaseVersions": { "$ref": "#/$defs/textArray" },
+        "content": { "type": "string", "minLength": 1, "maxLength": 4000 }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["impactEvidenceId", "symbol", "file"],
+      "properties": {
+        "impactEvidenceId": { "$ref": "#/$defs/digest" },
+        "symbol": { "type": "string", "minLength": 1 },
+        "file": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "limitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dependency", "versions", "findingId", "findingSummary", "evidence", "locations", "locationEligibility", "limitations"],
+      "properties": {
+        "dependency": { "$ref": "#/$defs/dependency" },
+        "versions": { "$ref": "#/$defs/versions" },
+        "findingId": { "type": "string", "minLength": 1 },
+        "findingSummary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "evidence": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "#/$defs/evidence" } },
+        "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+        "locationEligibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reasonCode"],
+          "properties": {
+            "status": { "enum": ["ELIGIBLE", "REVIEW_REQUIRED"] },
+            "reasonCode": { "enum": ["POSITIVE_USAGE_MATCH", "NO_POSITIVE_USAGE_MATCH", "UNSUPPORTED_USAGE_COVERAGE"] }
+          }
+        },
+        "limitations": { "type": "array", "items": { "$ref": "#/$defs/limitation" } }
+      }
+    },
+    "response": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "candidate"],
+          "properties": { "kind": { "const": "candidate" }, "candidate": { "type": "object" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "output"],
+          "properties": { "kind": { "const": "rawText" }, "output": { "type": "string" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "code"],
+          "properties": { "kind": { "const": "runtimeError" }, "code": { "type": "string", "minLength": 1 } }
+        }
+      ]
+    },
+    "concept": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requiredTokens"],
+      "properties": {
+        "requiredTokens": { "$ref": "#/$defs/textArray" },
+        "forbiddenTokens": { "$ref": "#/$defs/textArray" }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rawOutcome", "finalOutcome", "trustDecision", "expectedTrustDetailCode", "actionExpected", "oracleUnsafe", "evidenceRefs", "locations", "actionConcepts", "forbiddenClaims", "requiresHumanReview"],
+      "properties": {
+        "rawOutcome": { "enum": ["ACTIONABLE", "ABSTAIN", "INVALID", "RUNTIME_FAILURE"] },
+        "finalOutcome": { "enum": ["generated", "abstained", "rejected", "failed"] },
+        "trustDecision": { "enum": ["ACCEPTED", "REJECTED", "NOT_EVALUATED"] },
+        "expectedTrustDetailCode": { "type": ["string", "null"] },
+        "actionExpected": { "type": "boolean" },
+        "oracleUnsafe": { "type": "boolean" },
+        "evidenceRefs": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/digest" } },
+        "locations": { "type": "array", "items": { "$ref": "#/$defs/location" } },
+        "actionConcepts": { "type": "array", "items": { "$ref": "#/$defs/concept" } },
+        "forbiddenClaims": { "$ref": "#/$defs/textArray" },
+        "requiresHumanReview": { "const": true }
+      }
+    },
+    "policyProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "instruction", "evidenceRef", "excerpt", "expectedDecision", "expectedDetailCode", "oracleSupported", "coverage"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "instruction": { "type": "string", "minLength": 1, "maxLength": 800 },
+        "evidenceRef": { "$ref": "#/$defs/digest" },
+        "excerpt": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "expectedDecision": { "enum": ["ACCEPTED", "REJECTED"] },
+        "expectedDetailCode": { "type": ["string", "null"] },
+        "oracleSupported": { "type": "boolean" },
+        "coverage": { "$ref": "#/$defs/textArray" }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "scenarioGroup", "ecosystem", "fixture", "response", "expected", "coverage", "policyProbes", "rationale"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$" },
+        "description": { "type": "string", "minLength": 1 },
+        "scenarioGroup": { "enum": ["grounded-action", "abstention", "adversarial", "policy-preservation", "failure"] },
+        "ecosystem": { "enum": ["node", "python", "generic"] },
+        "fixture": { "$ref": "#/$defs/fixture" },
+        "response": { "$ref": "#/$defs/response" },
+        "expected": { "$ref": "#/$defs/expected" },
+        "coverage": { "$ref": "#/$defs/textArray" },
+        "policyProbes": { "type": "array", "items": { "$ref": "#/$defs/policyProbe" } },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

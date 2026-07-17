@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://upgradelens.dev/schemas/migration-evaluation-dataset-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "datasetId", "task", "baseDataset", "cases"],
+  "properties": {
+    "schemaVersion": { "const": "2.0.0" },
+    "datasetId": { "const": "migration-planning-golden" },
+    "task": { "const": "migration-planning.v1" },
+    "baseDataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["datasetId", "version", "digest"],
+      "properties": {
+        "datasetId": { "const": "migration-planning-golden" },
+        "version": { "const": "1.0.0" },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/case" }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "textList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+    },
+    "pattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allOf": { "$ref": "#/$defs/textList" },
+        "anyOf": { "$ref": "#/$defs/textList" },
+        "anyActionVerb": { "$ref": "#/$defs/textList" }
+      }
+    },
+    "specificity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actionVerbs", "sourceIdentifiers", "targetIdentifiers", "objectAnchors"],
+      "properties": {
+        "actionVerbs": { "$ref": "#/$defs/textList" },
+        "sourceIdentifiers": { "$ref": "#/$defs/textList" },
+        "targetIdentifiers": { "$ref": "#/$defs/textList" },
+        "objectAnchors": { "$ref": "#/$defs/textList" }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "acceptablePatterns", "specificity"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "acceptablePatterns": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/pattern" }
+        },
+        "specificity": { "$ref": "#/$defs/specificity" }
+      }
+    },
+    "forbiddenExpansion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "allOf": { "$ref": "#/$defs/textList" },
+        "anyOf": { "$ref": "#/$defs/textList" }
+      }
+    },
+    "actionCriteria": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actions", "forbiddenExpansions", "forbiddenModalities", "allowedVersions"],
+      "properties": {
+        "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
+        "forbiddenExpansions": { "type": "array", "items": { "$ref": "#/$defs/forbiddenExpansion" } },
+        "forbiddenModalities": { "$ref": "#/$defs/textList" },
+        "allowedVersions": { "$ref": "#/$defs/textList" }
+      }
+    },
+    "liveExpected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actionExpected", "actionCriteria"],
+      "properties": {
+        "actionExpected": { "type": "boolean" },
+        "actionCriteria": { "$ref": "#/$defs/actionCriteria" }
+      }
+    },
+    "recordedSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "probeId"],
+          "properties": {
+            "kind": { "const": "BASE_POLICY_PROBE" },
+            "probeId": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "BASE_RESPONSE" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "candidate"],
+          "properties": {
+            "kind": { "const": "CUSTOM_CANDIDATE" },
+            "candidate": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "recordedExpected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unsafe", "expectedTrustDecision", "expectedDetailCode", "coverage"],
+      "properties": {
+        "unsafe": { "type": "boolean" },
+        "expectedTrustDecision": { "enum": ["ACCEPTED", "REJECTED"] },
+        "expectedDetailCode": { "type": ["string", "null"] },
+        "coverage": { "$ref": "#/$defs/textList" }
+      }
+    },
+    "injectedFailure": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "code"],
+          "properties": {
+            "kind": { "const": "RUNTIME_ERROR" },
+            "code": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "output"],
+          "properties": {
+            "kind": { "enum": ["INVALID_JSON", "SCHEMA_INVALID"] },
+            "output": {}
+          }
+        }
+      ]
+    },
+    "injectedExpected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finalOutcome", "detailCode"],
+      "properties": {
+        "finalOutcome": { "enum": ["rejected", "failed"] },
+        "detailCode": { "type": "string", "minLength": 1 }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "baseCaseId"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9./-]*$" },
+        "role": { "enum": ["LIVE_QUALITY", "RECORDED_CONTAINMENT", "INJECTED_FAILURE"] },
+        "baseCaseId": { "type": "string", "minLength": 1 },
+        "fakeResponseSource": { "const": "BASE_CASE" },
+        "expected": { "$ref": "#/$defs/liveExpected" },
+        "recordedSource": { "$ref": "#/$defs/recordedSource" },
+        "recordedExpected": { "$ref": "#/$defs/recordedExpected" },
+        "injectedFailure": { "$ref": "#/$defs/injectedFailure" },
+        "injectedExpected": { "$ref": "#/$defs/injectedExpected" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "role": { "const": "LIVE_QUALITY" } } },
+          "then": {
+            "properties": { "fakeResponseSource": {}, "expected": {} },
+            "required": ["fakeResponseSource", "expected"]
+          }
+        },
+        {
+          "if": { "properties": { "role": { "const": "RECORDED_CONTAINMENT" } } },
+          "then": {
+            "properties": { "recordedSource": {}, "recordedExpected": {} },
+            "required": ["recordedSource", "recordedExpected"]
+          }
+        },
+        {
+          "if": { "properties": { "role": { "const": "INJECTED_FAILURE" } } },
+          "then": {
+            "properties": { "injectedFailure": {}, "injectedExpected": {} },
+            "required": ["injectedFailure", "injectedExpected"]
+          }
+        }
+      ]
+    }
+  }
+}

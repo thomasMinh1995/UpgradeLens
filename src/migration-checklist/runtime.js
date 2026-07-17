@@ -1,0 +1,167 @@
+import { DEFAULT_MIGRATION_CHECKLIST_PATH } from '../constants.js';
+import { assembleMigrationChecklist } from './assembler.js';
+import { prepareMigrationChecklistContexts } from './context-runtime.js';
+import { generateMigrationChecklistDrafts } from './generator.js';
+import { buildMigrationChecklistViewModel } from './presentation.js';
+import { evaluateMigrationQualification } from './qualification-guard.js';
+import { writeMigrationChecklist } from './writer.js';
+
+export const MIGRATION_CHECKLIST_STAGE_ID = 'migrationChecklist';
+export const MIGRATION_CHECKLIST_STAGE_LABEL = 'Migration Checklist';
+
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  for (const child of Object.values(value)) deepFreeze(child);
+  return Object.freeze(value);
+}
+
+function emit(listener, event) {
+  if (!listener) return;
+  try {
+    if (typeof listener === 'function') listener(deepFreeze(structuredClone(event)));
+    else listener.handle?.(deepFreeze(structuredClone(event)));
+  } catch {
+    // Operational presentation cannot affect business output.
+  }
+}
+
+function failureCode(error) {
+  if (typeof error?.code === 'string' && /^[A-Z][A-Z0-9_]*$/.test(error.code)) return error.code;
+  if (/lineage/i.test(error?.message ?? '')) return 'LINEAGE_INVALID';
+  if (/schema|validation/i.test(error?.message ?? '')) return 'ARTIFACT_VALIDATION_FAILED';
+  return 'MIGRATION_CHECKLIST_STAGE_FAILED';
+}
+
+function eventTypeForResult(event) {
+  if (event.outcome === 'generated') return 'migration:context-complete';
+  if (event.outcome === 'abstained') return 'migration:abstained';
+  if (event.reasonCode === 'TRUST_VALIDATION_REJECTED') return 'migration:trust-rejected';
+  return 'migration:fallback';
+}
+
+/**
+ * Experimental application stage: seven artifacts -> MP-02 -> guard -> MP-03 ->
+ * MP-01 assembly -> atomic artifact -> presentation view model.
+ */
+export async function runMigrationChecklistStage({
+  repositoryRoot,
+  aiRuntime,
+  createAiRuntime,
+  runtimeMetadata,
+  qualification = null,
+  allowExperimental = false,
+  generatedAt,
+  artifactPath = DEFAULT_MIGRATION_CHECKLIST_PATH,
+  onEvent,
+  prepareContexts = prepareMigrationChecklistContexts,
+  generateDrafts = generateMigrationChecklistDrafts,
+  assemble = assembleMigrationChecklist,
+  writeArtifact = writeMigrationChecklist
+}) {
+  let total = 0;
+  let processed = 0;
+  let qualificationResult;
+  try {
+    const prepared = await prepareContexts(repositoryRoot);
+    total = prepared.eligibleContexts.length;
+    qualificationResult = await evaluateMigrationQualification({
+      qualification,
+      runtimeMetadata,
+      allowExperimental
+    });
+    emit(onEvent, {
+      type: 'stage:start',
+      stageId: MIGRATION_CHECKLIST_STAGE_ID,
+      total,
+      qualificationState: qualificationResult.state
+    });
+    emit(onEvent, {
+      type: 'stage:progress',
+      stageId: MIGRATION_CHECKLIST_STAGE_ID,
+      processed,
+      total,
+      qualificationState: qualificationResult.state
+    });
+    const activeRuntime = aiRuntime ?? (total > 0 ? createAiRuntime?.() : {
+      async generateStructured() {
+        throw new Error('No eligible migration context should invoke the AI runtime.');
+      }
+    });
+    const generation = await generateDrafts(prepared, {
+      aiRuntime: activeRuntime,
+      onContextEvent(event) {
+        if (event.phase === 'start') {
+          emit(onEvent, {
+            type: 'migration:context-start',
+            stageId: MIGRATION_CHECKLIST_STAGE_ID,
+            packageName: event.packageName,
+            processed,
+            total
+          });
+          return;
+        }
+        processed += 1;
+        emit(onEvent, {
+          type: eventTypeForResult(event),
+          stageId: MIGRATION_CHECKLIST_STAGE_ID,
+          packageName: event.packageName,
+          processed,
+          total,
+          outcome: event.outcome,
+          reasonCode: event.reasonCode,
+          detailCode: event.detailCode
+        });
+        emit(onEvent, {
+          type: 'stage:progress',
+          stageId: MIGRATION_CHECKLIST_STAGE_ID,
+          processed,
+          total,
+          qualificationState: qualificationResult.state
+        });
+      }
+    });
+    const checklist = assemble({
+      prepared,
+      generation,
+      qualification: qualificationResult,
+      generatedAt
+    });
+    const outputPath = await writeArtifact(repositoryRoot, checklist, { artifactPath });
+    emit(onEvent, {
+      type: 'migration:artifact-written',
+      stageId: MIGRATION_CHECKLIST_STAGE_ID,
+      artifactPath: outputPath
+    });
+    const viewModel = buildMigrationChecklistViewModel(checklist);
+    emit(onEvent, {
+      type: 'stage:complete',
+      stageId: MIGRATION_CHECKLIST_STAGE_ID,
+      processed,
+      total,
+      generated: generation.summary.generated,
+      abstained: generation.summary.abstained,
+      rejected: generation.summary.rejected,
+      failed: generation.summary.failed,
+      limitationCount: checklist.summary.limitationCount,
+      qualificationState: qualificationResult.state
+    });
+    return deepFreeze({
+      artifactPath: outputPath,
+      checklist,
+      viewModel,
+      prepared,
+      generation,
+      qualification: qualificationResult
+    });
+  } catch (error) {
+    emit(onEvent, {
+      type: 'stage:failed',
+      stageId: MIGRATION_CHECKLIST_STAGE_ID,
+      processed,
+      total,
+      reasonCode: failureCode(error),
+      qualificationState: qualificationResult?.state ?? 'UNKNOWN'
+    });
+    throw error;
+  }
+}

@@ -22,7 +22,7 @@ The artifact contains `schemaVersion`, `generatedAt`, `generator`, repository id
 - Repository Impact;
 - Repository Impact Evidence.
 
-MP-01 validates the lineage object shape and repository identity consistency. MP-02 must calculate these digests from exact input bytes and verify cross-artifact lineage before calling the builder.
+MP-01 validates the lineage object shape and repository identity consistency. MP-02 calculates these digests from exact input bytes and verifies cross-artifact lineage before calling the builder. MP-03 generation and trust validation are documented in [`mvp-05-provider-neutral-generator.md`](./mvp-05-provider-neutral-generator.md). MP-04 task-specific gates are documented in [`mvp-05-migration-evaluation-and-qualification.md`](./mvp-05-migration-evaluation-and-qualification.md).
 
 ## Status taxonomy
 
@@ -132,20 +132,14 @@ Implemented as a separate read-only runtime. It validates all seven exact-byte a
 
 ### MP-03 — generator and trust validation
 
-- Define the task-specific prompt and structured candidate schema.
-- Verify instruction-to-evidence semantic support as far as deterministic policy permits.
-- Reject invented APIs, actions, prerequisites, URLs, commands, locations, or safety claims.
-- Drop/fail closed on unsupported AI claims; never turn citation presence into proof.
+Implemented as a provider-neutral, package-local runtime. It uses a task-specific strict candidate schema, exact allowlisted excerpt verification, conservative prohibited-capability and identifier guards, whole-candidate fail-closed rejection, deterministic checklist construction, and safe abstention/failure fallbacks. Exact excerpts establish provenance, not full semantic entailment.
 
 ### MP-04 — evaluation and qualification
 
-- Measure step-level evidence precision/coverage, invented API/command rate, eligibility correctness, location preservation, and human-review behavior.
-- Add adversarial and multi-ecosystem golden cases.
-- Qualify providers specifically for `migration-planning.v1`; MVP-03 qualification is not inherited.
+Implemented as a separate offline-first evaluation runtime. It measures raw candidate, trust containment, and published behavior with a strict multi-ecosystem dataset, versioned metrics and critical gates, transparent scorecard, and provider/model/task-specific qualification. The fake result is `QUALIFIED_WITH_LIMITATIONS`; no real provider has been qualified.
 
 ### MP-05 — presentation and orchestration
 
-- Add the writer, pipeline stage, and presentation-only renderers after the task-specific gates pass.
-- Render official references and limitations without creating new business claims.
+Implemented as an experimental opt-in application stage. It assembles MP-02/MP-03 output strictly through this MP-01 builder, enforces the MP-04 qualification identity, atomically writes the artifact, and renders a shared presentation-only view model. See [`mvp-05-migration-checklist-orchestration.md`](./mvp-05-migration-checklist-orchestration.md). Real-provider generation is not enabled by default.
 
 No MP-01 module calls AI, network, filesystem loaders, source scanners, writers, CLI commands, or orchestration stages.

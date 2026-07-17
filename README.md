@@ -4,6 +4,8 @@ UpgradeLens is an upgrade intelligence engine that helps developers understand s
 
 Future MVPs progressively introduce AI-powered knowledge research, version analysis, impact analysis, and migration planning.
 
+The current Migration Checklist application path is experimental and opt-in. It produces human-review drafts, not an autonomous migration plan or safety certification.
+
 MVP-01 focuses only on deterministic project discovery and dependency inventory. It provides a reliable, versioned foundation and contains no AI runtime or reasoning.
 
 ## Why UpgradeLens?
@@ -197,6 +199,28 @@ upgradelens discover /path/to/project --stdout
 ```
 
 Use `upgradelens --help` for all options. The command also accepts a path without the optional `discover` verb.
+
+### Experimental evidence-grounded Migration Checklist
+
+After the normal analysis artifacts are available through the unified pipeline, opt in with:
+
+```sh
+upgradelens analyze /path/to/project --experimental-migration-checklist
+```
+
+This adds the Migration Checklist stage after Repository Impact Evidence and writes:
+
+```text
+.upgradelens/migration-checklist.json
+```
+
+The capability is provider-neutral and reuses the configured UpgradeLens `AiRuntime`. Fake-runtime qualification does not qualify a real provider/model. Until a matching task-specific real-provider qualification exists, the artifact and report identify the output as experimental and require human review for every generated instruction.
+
+Optional progress rendering is controlled with `--progress auto|interactive|plain`; `auto` uses a basic TTY view and stable plain lines in CI.
+
+Migration Checklist does not generate source edits, code, patches, package-manager commands, dependency ordering, inferred prerequisites, rollback plans, effort estimates, numeric confidence, or upgrade-safety claims. `COMPLETE` means only that represented grounded checklist records have actionable review items. Unknown current versions remain unknown, and registry latest remains a registry fact rather than a recommendation.
+
+See [Migration Checklist orchestration](docs/mvp-05-migration-checklist-orchestration.md), [contract](docs/mvp-05-migration-checklist-contract.md), and [evaluation/qualification](docs/mvp-05-migration-evaluation-and-qualification.md).
 
 ## JavaScript API
 

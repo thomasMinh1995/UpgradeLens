@@ -12,6 +12,7 @@
   "files": [
     "bin",
     "docs",
+    "eval",
     "schemas",
     "src",
     "LICENSE",

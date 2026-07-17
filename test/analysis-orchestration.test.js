@@ -4,11 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { parseArguments, runCli } from '../src/cli.js';
+import { HELP, parseArguments, runCli } from '../src/cli.js';
 import {
   ANALYSIS_STAGES,
   PipelineStageError,
   buildImpactPresentationViewModel,
+  createAnalysisStages,
   createProgressReporter,
   renderConsoleSummary,
   renderMarkdownReport,
@@ -182,8 +183,28 @@ test('analyze command parses repository orchestration options', () => {
     stdout: false,
     failOnWarning: false,
     offline: true,
+    experimentalMigrationChecklist: false,
+    progress: 'auto',
     maxDepth: 6
   });
+  const experimental = parseArguments([
+    'analyze', 'fixture', '--experimental-migration-checklist', '--progress', 'plain'
+  ]);
+  assert.equal(experimental.experimentalMigrationChecklist, true);
+  assert.equal(experimental.progress, 'plain');
+  assert.deepEqual(createAnalysisStages({ migrationChecklist: true }).map((item) => item.id), [
+    'projectDiscovery',
+    'knowledgeResearch',
+    'versionAnalysis',
+    'usageDiscovery',
+    'impactAnalysis',
+    'impactEvidence',
+    'migrationChecklist',
+    'markdownReport'
+  ]);
+  assert.match(HELP, /--experimental-migration-checklist/);
+  assert.match(HELP, /Experimental\. Requires human review\./);
+  assert.match(HELP, /--progress <mode>/);
 });
 
 test('pipeline runs every stage in order and reports deterministic progress', async () => {
@@ -317,6 +338,72 @@ test('analyze CLI runs the full scheduler and writes the Markdown report', async
   }));
   const report = await readFile(path.join(root, '.upgradelens/repository-impact.md'), 'utf8');
   assert.equal(report, renderMarkdownReport({ viewModel }));
+  await assert.rejects(
+    readFile(path.join(root, '.upgradelens/migration-checklist.json')),
+    { code: 'ENOENT' }
+  );
+});
+
+test('experimental CLI opt-in inserts Migration Checklist before Markdown without changing default analyze', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-analyze-migration-'));
+  temporaryDirectories.push(root);
+  const artifacts = reportArtifacts();
+  const calls = [];
+  const runner = (id, value) => async () => { calls.push(id); return value; };
+  const migrationChecklistViewModel = {
+    repositoryName: 'VinGrade',
+    status: 'INCOMPLETE',
+    experimental: true,
+    qualificationState: 'NOT_AVAILABLE',
+    humanReviewRequired: true,
+    summary: {
+      dependencyCount: 0,
+      findingCount: 0,
+      itemCount: 0,
+      groundedActionCount: 0,
+      aiAuthoredItemCount: 0,
+      candidateLocationCount: 0,
+      requiresHumanReviewItemCount: 0,
+      limitationCount: 1,
+      statusCounts: { COMPLETE: 0, INCOMPLETE: 0, NO_GROUNDED_ACTION: 0, NOT_ANALYZED: 0 }
+    },
+    dependencies: [],
+    limitations: [{
+      code: 'MIGRATION_PROVIDER_NOT_QUALIFIED',
+      message: 'The configured provider/model has not been qualified for migration-planning.v1.'
+    }]
+  };
+  const stdout = capture();
+  const stderr = capture();
+  const exitCode = await runCli([
+    'analyze', root, '--experimental-migration-checklist', '--progress', 'plain'
+  ], {
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    analysisStageRunners: {
+      projectDiscovery: runner('projectDiscovery', artifacts.projectManifest),
+      knowledgeResearch: runner('knowledgeResearch', 'knowledge'),
+      versionAnalysis: runner('versionAnalysis', artifacts.versionAnalysis),
+      usageDiscovery: runner('usageDiscovery', { summary: {} }),
+      impactAnalysis: runner('impactAnalysis', artifacts.repositoryImpact),
+      impactEvidence: runner('impactEvidence', artifacts.impactEvidence),
+      migrationChecklist: runner('migrationChecklist', {
+        artifactPath: '.upgradelens/migration-checklist.json',
+        viewModel: migrationChecklistViewModel
+      })
+    }
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(calls, [
+    'projectDiscovery', 'knowledgeResearch', 'versionAnalysis', 'usageDiscovery',
+    'impactAnalysis', 'impactEvidence', 'migrationChecklist'
+  ]);
+  assert.match(stderr.value(), /✓ Migration Checklist\n✓ Markdown Report/);
+  assert.match(stdout.value(), /Migration checklist contains no grounded action/);
+  const report = await readFile(path.join(root, '.upgradelens/repository-impact.md'), 'utf8');
+  assert.match(report, /## Migration Checklist/);
+  assert.match(report, /Every AI-authored draft requires human review/);
 });
 
 test('analyze CLI writes a clean failure log and does not run later stages', async () => {

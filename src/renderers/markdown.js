@@ -1,3 +1,5 @@
+import { renderMigrationChecklistMarkdownSection } from '../migration-checklist/presentation.js';
+
 function inlineCode(value) {
   return `\`${String(value).replaceAll('`', '\\`')}\``;
 }
@@ -53,7 +55,10 @@ function renderDependency(dependency) {
   return lines;
 }
 
-export function renderMarkdownReport({ viewModel }) {
+export function renderMarkdownReport({
+  viewModel,
+  migrationChecklistViewModel
+}) {
   requireViewModel(viewModel);
   const summary = viewModel.summary;
   const lines = [
@@ -98,5 +103,9 @@ export function renderMarkdownReport({ viewModel }) {
   );
   if (viewModel.dependencies.length === 0) lines.push('No dependency impact records.', '');
   else for (const dependency of viewModel.dependencies) lines.push(...renderDependency(dependency));
-  return `${lines.join('\n')}\n`;
+  let output = `${lines.join('\n')}\n`;
+  if (migrationChecklistViewModel) {
+    output += `\n${renderMigrationChecklistMarkdownSection({ viewModel: migrationChecklistViewModel })}`;
+  }
+  return output;
 }

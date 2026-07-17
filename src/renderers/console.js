@@ -1,10 +1,17 @@
+import { renderMigrationChecklistConsole } from '../migration-checklist/presentation.js';
+
 function requireViewModel(viewModel) {
   if (!viewModel?.summary || !Array.isArray(viewModel?.dependencies)) {
     throw new Error('Console renderer requires an Impact Presentation View Model.');
   }
 }
 
-export function renderConsoleSummary({ viewModel, reportPath }) {
+export function renderConsoleSummary({
+  viewModel,
+  reportPath,
+  migrationChecklistViewModel,
+  migrationChecklistPath
+}) {
   requireViewModel(viewModel);
   const summary = viewModel.summary;
   const lines = [
@@ -37,5 +44,12 @@ export function renderConsoleSummary({ viewModel, reportPath }) {
     reportPath,
     ''
   );
-  return lines.join('\n');
+  let output = lines.join('\n');
+  if (migrationChecklistViewModel) {
+    output += `\n${renderMigrationChecklistConsole({
+      viewModel: migrationChecklistViewModel,
+      artifactPath: migrationChecklistPath
+    })}`;
+  }
+  return output;
 }
