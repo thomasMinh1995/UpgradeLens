@@ -94,7 +94,7 @@
       "required": ["id", "version", "urgencyContract"],
       "properties": {
         "id": { "const": "deterministic-upgrade-decision" },
-        "version": { "const": "1.0.0" },
+        "version": { "const": "1.1.0" },
         "urgencyContract": { "const": "unavailable" }
       }
     },
@@ -114,7 +114,8 @@
         "USAGE_COVERAGE_PARTIAL", "USAGE_COVERAGE_UNAVAILABLE",
         "VERSION_ANALYSIS_SKIPPED", "VERSION_ANALYSIS_FAILED",
         "VERSION_ANALYSIS_MISSING", "PROVIDER_REJECTED",
-        "SOURCE_CONFLICT", "STALE_EVIDENCE", "NON_REGISTRY_DEPENDENCY"
+        "SOURCE_CONFLICT", "STALE_EVIDENCE", "NON_REGISTRY_DEPENDENCY",
+        "UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER", "USER_SELECTED_TARGET"
       ]
     },
     "occurrence": {
@@ -212,7 +213,7 @@
       "required": ["policyId", "policyVersion", "versionAdapter", "analysisResultId"],
       "properties": {
         "policyId": { "const": "deterministic-upgrade-decision" },
-        "policyVersion": { "const": "1.0.0" },
+        "policyVersion": { "const": "1.1.0" },
         "versionAdapter": { "anyOf": [{ "$ref": "#/$defs/adapter" }, { "type": "null" }] },
         "analysisResultId": {
           "anyOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]

@@ -1,5 +1,11 @@
 # GR-04 — Versioned Production Extractive Contract
 
+> Historical compatibility note: GR-04 originally shipped public Migration
+> Checklist schema `1.0.0`. MP-R04 later upgrades the artifact to schema
+> `2.0.0` for deterministic handoff fields. The extractive candidate, prompt,
+> trust, and presentation identities documented here remain unchanged; v1
+> checklist artifacts must be regenerated and are not actionable handoffs.
+
 ## Decision
 
 UpgradeLens now uses the extractive v2 contract for every new experimental Migration Checklist run. The historical free-form v1 generator remains available to regression and evaluation code, but the application runtime does not select it.

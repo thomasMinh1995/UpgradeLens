@@ -104,6 +104,19 @@ export {
   validateUpgradeDecision,
   validateUpgradeDecisionInvariants
 } from './upgrade-decision/upgrade-decision.js';
+export {
+  PRODUCT_COMPLETION_SCHEMA_VERSION,
+  PRODUCT_COMPLETION_STATUSES,
+  buildProductCompletion,
+  productCompletionExitCode
+} from './product-completion.js';
+export {
+  TargetSelectorError,
+  parseTargetSelector,
+  resolveTargetSelectors,
+  targetOccurrenceId,
+  targetOccurrenceKey
+} from './target-selector.js';
 export { runUpgradeDecisionStage } from './upgrade-decision/runtime.js';
 export {
   serializeUpgradeDecision,
@@ -235,6 +248,11 @@ export {
   MIGRATION_CHECKLIST_STAGE_LABEL,
   runMigrationChecklistStage
 } from './migration-checklist/runtime.js';
+export {
+  MIGRATION_VERIFICATION_STATUSES,
+  extractProjectVerification,
+  unavailableProjectVerification
+} from './migration-checklist/verification.js';
 export {
   DEFAULT_MIGRATION_EVALUATION_DATASET_PATH,
   MIGRATION_EVALUATION_DATASET_ID,

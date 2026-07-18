@@ -66,9 +66,18 @@ function result({
   evidenceCoverage = 'sufficient',
   conflict = false,
   breaking = true,
-  providerRejected = false
+  providerRejected = false,
+  declaredName,
+  projectId,
+  packageId
 } = {}) {
   const dependency = occurrence(index, ecosystem);
+  if (declaredName) {
+    dependency.declaredName = declaredName;
+    dependency.normalizedName = declaredName;
+  }
+  if (projectId) dependency.projectId = projectId;
+  if (packageId) dependency.packageId = packageId;
   const evidenceId = digest(`evidence-${index}`);
   return {
     id: digest(`result-${index}`),
@@ -119,7 +128,9 @@ function artifactsFor(results, {
   coverage = 'complete',
   coverageReason = 'COVERAGE_COMPLETE',
   sourceStatus = 'available',
-  sourceConflict = false
+  sourceConflict = false,
+  evidenceKind = 'breakingChanges',
+  evidenceContent = 'Follow the official migration instructions.'
 } = {}) {
   const sources = results.map((item) => ({
     id: `source-${item.analysisResultId ?? item.id}`,
@@ -128,7 +139,7 @@ function artifactsFor(results, {
     trust: 'official',
     url: 'https://example.test/docs',
     status: sourceStatus,
-    supports: ['breakingChanges'],
+    supports: [evidenceKind],
     discoveredFrom: null,
     trustEvidenceSourceIds: [],
     snapshot: {
@@ -146,13 +157,13 @@ function artifactsFor(results, {
       id: ref,
       packageId: item.dependency.packageId,
       sourceId: sources[index].id,
-      kind: 'breakingChanges',
+      kind: evidenceKind,
       contentDigest: digest(`content-${index}`),
       retrievedAt: generatedAt,
       mediaType: 'text/markdown',
       locator: 'section:breaking',
       releaseVersions: item.versions.targetVersion ? [item.versions.targetVersion] : [],
-      content: 'Follow the official migration instructions.'
+      content: evidenceContent
     }];
   });
   return {
@@ -212,6 +223,7 @@ test('decision contract exposes all six outcomes while production urgency remain
   ]);
   const artifact = decisionFor();
   assert.equal(artifact.policy.urgencyContract, 'unavailable');
+  assert.equal(artifact.policy.version, '1.1.0');
   assert.equal(artifact.summary.UPGRADE_NOW, 0);
 });
 
@@ -234,17 +246,66 @@ test('installed newer than target keeps current with a bounded limitation', () =
   assert.equal(record.requiresHumanReview, true);
 });
 
-test('newer target with target-scoped official evidence plans an upgrade', () => {
+test('caller-selected newer target with target-scoped official evidence plans an upgrade', () => {
   const [record] = decisionFor().decisions;
   assert.equal(record.decision, 'PLAN_UPGRADE');
-  assert.equal(record.primaryReasonCode, 'TARGET_NEWER_EVIDENCE_AVAILABLE');
+  assert.equal(record.primaryReasonCode, 'USER_SELECTED_TARGET');
+  assert.ok(record.reasonCodes.includes('TARGET_NEWER_EVIDENCE_AVAILABLE'));
   assert.equal(record.evidence.targetScopedRefs.length, 1);
   assert.equal(record.requiresHumanReview, true);
 });
 
-test('registry latest alone never becomes an upgrade recommendation', () => {
+test('registry latest without a recommendation driver requires investigation even with no migration evidence', () => {
   const [record] = decisionFor({
     targetPolicy: 'registryLatest',
+    evidenceCoverage: 'none'
+  }).decisions;
+  assert.equal(record.decision, 'INVESTIGATE');
+  assert.equal(record.primaryReasonCode, 'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER');
+});
+
+test('release, migration, and breaking evidence never synthesize a recommendation driver', () => {
+  for (const evidenceKind of ['releaseNotes', 'migrationGuide', 'breakingChanges']) {
+    const [record] = decisionFor(
+      { targetPolicy: 'registryLatest' },
+      { evidenceKind }
+    ).decisions;
+    assert.equal(record.evidence.status, 'sufficient');
+    assert.equal(record.decision, 'INVESTIGATE');
+    assert.equal(record.primaryReasonCode, 'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER');
+  }
+});
+
+test('free-form urgency and security prose never synthesize a recommendation driver', () => {
+  const [record] = decisionFor(
+    { targetPolicy: 'registryLatest' },
+    {
+      evidenceKind: 'releaseNotes',
+      evidenceContent: 'Security critical: all users must upgrade immediately.'
+    }
+  ).decisions;
+  assert.equal(record.decision, 'INVESTIGATE');
+  assert.equal(record.primaryReasonCode, 'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER');
+});
+
+test('invalid referenced prose remains insufficient and never becomes a recommendation driver', () => {
+  const [record] = decisionFor(
+    { targetPolicy: 'registryLatest' },
+    {
+      evidenceKind: 'releaseNotes',
+      evidenceContent: 'Security critical: all users must upgrade immediately.',
+      sourceStatus: 'unavailable'
+    }
+  ).decisions;
+  assert.equal(record.evidence.status, 'insufficient');
+  assert.equal(record.decision, 'INSUFFICIENT_EVIDENCE');
+  assert.equal(record.primaryReasonCode, 'EVIDENCE_INSUFFICIENT');
+  assert.ok(!record.reasonCodes.includes('USER_SELECTED_TARGET'));
+});
+
+test('caller-selected target with missing evidence remains insufficient', () => {
+  const [record] = decisionFor({
+    targetPolicy: 'explicit',
     evidenceCoverage: 'none'
   }).decisions;
   assert.equal(record.decision, 'INSUFFICIENT_EVIDENCE');
@@ -315,6 +376,16 @@ test('partial coverage for repository-sensitive findings requires investigation'
   assert.equal(record.primaryReasonCode, 'USAGE_COVERAGE_PARTIAL');
 });
 
+test('registry-discovered target with breaking evidence and unavailable coverage remains non-actionable', () => {
+  const [record] = decisionFor(
+    { targetPolicy: 'registryLatest' },
+    { coverage: 'unavailable', coverageReason: 'ANALYZER_UNAVAILABLE' }
+  ).decisions;
+  assert.equal(record.decision, 'INVESTIGATE');
+  assert.equal(record.primaryReasonCode, 'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER');
+  assert.ok(record.limitations.some((item) => item.code === 'USAGE_COVERAGE_UNAVAILABLE'));
+});
+
 test('conflicted evidence and unsupported ecosystem require investigation', () => {
   assert.equal(decisionFor({ conflict: true }).decisions[0].primaryReasonCode, 'EVIDENCE_CONFLICT');
   const unsupported = result({ ecosystem: 'jvm', installed: '1.0.0', target: '2.0.0' });
@@ -330,6 +401,17 @@ test('Node and Python adapters compare generically without lexical ordering', ()
     installed: '1.10',
     target: '1.9'
   }).decisions[0].decision, 'KEEP_CURRENT');
+});
+
+test('Node and Python registry-discovered targets do not become plans', () => {
+  for (const options of [
+    { ecosystem: 'node', installed: '1.0.0', target: '2.0.0' },
+    { ecosystem: 'python', installed: '1.0', target: '2.0' }
+  ]) {
+    const [record] = decisionFor({ ...options, targetPolicy: 'registryLatest' }).decisions;
+    assert.equal(record.decision, 'INVESTIGATE');
+    assert.equal(record.primaryReasonCode, 'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER');
+  }
 });
 
 test('multi-repository matrix isolates Node, Python, and unsupported ecosystem outcomes', () => {
@@ -362,11 +444,47 @@ test('multi-repository matrix isolates Node, Python, and unsupported ecosystem o
   );
 });
 
+test('generic identities do not affect policy and one package can differ by structured caller intent', () => {
+  for (const declaredName of ['library-alpha', 'library-beta']) {
+    const [record] = decisionFor({
+      declaredName,
+      targetPolicy: 'registryLatest'
+    }).decisions;
+    assert.equal(record.decision, 'INVESTIGATE');
+  }
+
+  const registryOccurrence = result({
+    index: 1,
+    declaredName: 'shared-library',
+    packageId: 'npm:shared-library',
+    projectId: 'node:repository-a',
+    targetPolicy: 'registryLatest'
+  });
+  const selectedOccurrence = result({
+    index: 2,
+    declaredName: 'shared-library',
+    packageId: 'npm:shared-library',
+    projectId: 'node:repository-b',
+    targetPolicy: 'explicit'
+  });
+  const decisions = buildUpgradeDecision(artifactsFor([
+    selectedOccurrence,
+    registryOccurrence
+  ])).decisions;
+  assert.deepEqual(
+    decisions.map((record) => [record.occurrence.projectId, record.decision]),
+    [
+      ['node:repository-a', 'INVESTIGATE'],
+      ['node:repository-b', 'PLAN_UPGRADE']
+    ]
+  );
+});
+
 test('occurrence identities stay isolated, sorted, schema-valid, and replay deterministic', () => {
   const first = result({ index: 2, installed: '2.0.0', target: '2.0.0' });
   const second = result({ index: 1 });
   const artifact = buildUpgradeDecision(artifactsFor([first, second]));
-  const replay = buildUpgradeDecision(artifactsFor([first, second]));
+  const replay = buildUpgradeDecision(artifactsFor([second, first]));
   assert.equal(artifact.decisions.length, 2);
   assert.equal(artifact.decisions[0].occurrence.projectId, 'node:apps/app-1');
   assert.notEqual(artifact.decisions[0].id, artifact.decisions[1].id);
@@ -374,10 +492,55 @@ test('occurrence identities stay isolated, sorted, schema-valid, and replay dete
   assert.equal(validateUpgradeDecision(artifact), artifact);
 });
 
+test('same-manifest duplicates propagate one explicit driver and one independent registry state', () => {
+  const selected = result({
+    index: 1,
+    declaredName: 'shared-library',
+    packageId: 'npm:shared-library',
+    projectId: 'node:.',
+    installed: '1.0.0',
+    targetPolicy: 'explicit'
+  });
+  const unselected = result({
+    index: 2,
+    declaredName: 'shared-library',
+    packageId: 'npm:shared-library',
+    projectId: 'node:.',
+    installed: '1.5.0',
+    targetPolicy: 'registryLatest'
+  });
+  unselected.dependency.manifest = selected.dependency.manifest;
+  unselected.dependency.dependencyType = selected.dependency.dependencyType;
+
+  const artifacts = artifactsFor([unselected, selected]);
+  artifacts.upgradeDecision = buildUpgradeDecision(artifacts);
+  const decisions = new Map(artifacts.upgradeDecision.decisions.map((record) => [
+    record.versions.declaredVersion,
+    record
+  ]));
+  const prepared = buildMigrationTaskContexts(artifacts);
+
+  assert.equal(decisions.size, 2);
+  assert.equal(decisions.get('1.0.0').decision, 'PLAN_UPGRADE');
+  assert.equal(decisions.get('1.0.0').primaryReasonCode, 'USER_SELECTED_TARGET');
+  assert.equal(decisions.get('1.0.0').versions.targetPolicy, 'explicit');
+  assert.equal(decisions.get('1.5.0').decision, 'INVESTIGATE');
+  assert.equal(
+    decisions.get('1.5.0').reasonCodes.includes('USER_SELECTED_TARGET'),
+    false
+  );
+  assert.equal(decisions.get('1.5.0').versions.targetPolicy, 'registryLatest');
+  assert.equal(prepared.eligibleContexts.length, 1);
+  assert.equal(prepared.eligibleContexts[0].analysisResultId, selected.id);
+  assert.equal(prepared.fallbackRecords.length, 1);
+  assert.equal(prepared.fallbackRecords[0].analysisResultId, unselected.id);
+});
+
 test('persisted non-action decisions gate Migration Checklist contexts', () => {
   for (const options of [
     { installed: '2.0.0', target: '2.0.0' },
-    { installedStatus: 'unresolved' }
+    { installedStatus: 'unresolved' },
+    { targetPolicy: 'registryLatest' }
   ]) {
     const analysis = result(options);
     const artifacts = artifactsFor([analysis]);
@@ -387,6 +550,19 @@ test('persisted non-action decisions gate Migration Checklist contexts', () => {
     assert.equal(prepared.fallbackRecords.length, 1);
     assert.match(prepared.fallbackRecords[0].limitations.at(-1).code, /^UPGRADE_DECISION_/);
   }
+});
+
+test('registry upgrade availability with breaking evidence creates zero AI checklist contexts', () => {
+  const analysis = result({ targetPolicy: 'registryLatest' });
+  const artifacts = artifactsFor([analysis]);
+  artifacts.upgradeDecision = buildUpgradeDecision(artifacts);
+  const prepared = buildMigrationTaskContexts(artifacts);
+  assert.equal(artifacts.upgradeDecision.decisions[0].decision, 'INVESTIGATE');
+  assert.equal(prepared.eligibleContexts.length, 0);
+  assert.equal(prepared.fallbackRecords.length, 1);
+  assert.ok(prepared.fallbackRecords[0].limitations.some(
+    (item) => item.code === 'UPGRADE_DECISION_INVESTIGATE'
+  ));
 });
 
 test('persisted consumer rejects a policy-tampered recommendation even with valid lineage', async () => {
@@ -404,10 +580,13 @@ test('persisted consumer rejects a policy-tampered recommendation even with vali
   const tampered = structuredClone(decision);
   Object.assign(tampered.decisions[0], {
     decision: 'PLAN_UPGRADE',
-    primaryReasonCode: 'TARGET_NEWER_EVIDENCE_AVAILABLE',
-    reasonCodes: ['TARGET_NEWER_EVIDENCE_AVAILABLE'],
+    primaryReasonCode: 'USER_SELECTED_TARGET',
+    reasonCodes: ['TARGET_NEWER_EVIDENCE_AVAILABLE', 'USER_SELECTED_TARGET'],
     requiresHumanReview: true
   });
+  tampered.decisions[0].versions.comparison = 'targetNewer';
+  tampered.decisions[0].versions.targetVersion = '3.0.0';
+  tampered.decisions[0].evidence.status = 'sufficient';
   tampered.summary.KEEP_CURRENT = 0;
   tampered.summary.PLAN_UPGRADE = 1;
   tampered.summary.requiresHumanReviewCount = 1;

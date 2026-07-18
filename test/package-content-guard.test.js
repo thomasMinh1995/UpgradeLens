@@ -90,6 +90,10 @@ test('authoritative required list covers runtime, schemas, datasets, and user do
   for (const value of [
     'package/bin/upgradelens.js',
     'package/src/index.js',
+    'package/src/migration-checklist/verification.js',
+    'package/src/product-completion.js',
+    'package/src/target-selector.js',
+    'package/schemas/migration-checklist.schema.json',
     'package/schemas/migration-planning-qualification-record.schema.json',
     'package/schemas/migration-checklist-extractive-candidate.schema.json',
     'package/schemas/upgrade-decision.schema.json',

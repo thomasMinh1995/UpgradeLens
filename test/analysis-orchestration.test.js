@@ -8,6 +8,7 @@ import { HELP, parseArguments, runCli } from '../src/cli.js';
 import {
   ANALYSIS_STAGES,
   PipelineStageError,
+  buildProductCompletion,
   buildImpactPresentationViewModel,
   createAnalysisStages,
   createProgressReporter,
@@ -207,36 +208,67 @@ function presentationViewModel(artifacts) {
 
 function upgradeDecisionArtifact() {
   return {
+    decisions: [
+      {
+        id: 'decision-antd',
+        analysisResultId: 'analysis-antd',
+        occurrence: {
+          projectId: 'node:.',
+          packageId: 'npm:antd',
+          declaredName: 'antd',
+          manifest: 'package.json',
+          dependencyType: 'dependency'
+        },
+        versions: {
+          installedVersion: '5.0.0',
+          targetVersion: '5.0.0',
+          targetPolicy: 'registryLatest'
+        },
+        decision: 'KEEP_CURRENT',
+        summary: 'Keep the installed version because it equals the evaluated target.',
+        primaryReasonCode: 'ALREADY_AT_TARGET',
+        reasonCodes: ['ALREADY_AT_TARGET'],
+        impact: {
+          status: 'NOT_IMPACTED',
+          coverage: { status: 'complete', reasonCode: 'COVERAGE_COMPLETE' }
+        },
+        requiresHumanReview: false
+      },
+      {
+        id: 'decision-lodash',
+        analysisResultId: 'analysis-lodash',
+        occurrence: {
+          projectId: 'node:.',
+          packageId: 'npm:lodash',
+          declaredName: 'lodash',
+          manifest: 'package.json',
+          dependencyType: 'dependency'
+        },
+        versions: {
+          installedVersion: '4.0.0',
+          targetVersion: '4.0.0',
+          targetPolicy: 'registryLatest'
+        },
+        decision: 'KEEP_CURRENT',
+        summary: 'Keep the installed version because it equals the evaluated target.',
+        primaryReasonCode: 'ALREADY_AT_TARGET',
+        reasonCodes: ['ALREADY_AT_TARGET'],
+        impact: {
+          status: 'NOT_IMPACTED',
+          coverage: { status: 'complete', reasonCode: 'COVERAGE_COMPLETE' }
+        },
+        requiresHumanReview: false
+      }
+    ],
     summary: {
       KEEP_CURRENT: 2,
       UPGRADE_NOW: 0,
       PLAN_UPGRADE: 0,
       INVESTIGATE: 0,
       INSUFFICIENT_EVIDENCE: 0,
-      NOT_ANALYZED: 0
-    },
-    decisions: [
-      {
-        occurrence: {
-          declaredName: 'antd',
-          manifest: 'package.json',
-          dependencyType: 'dependency'
-        },
-        versions: { installedVersion: '5.0.0', targetVersion: '5.0.0' },
-        decision: 'KEEP_CURRENT',
-        primaryReasonCode: 'ALREADY_AT_TARGET'
-      },
-      {
-        occurrence: {
-          declaredName: 'lodash',
-          manifest: 'package.json',
-          dependencyType: 'dependency'
-        },
-        versions: { installedVersion: '4.0.0', targetVersion: '4.0.0' },
-        decision: 'KEEP_CURRENT',
-        primaryReasonCode: 'ALREADY_AT_TARGET'
-      }
-    ]
+      NOT_ANALYZED: 0,
+      requiresHumanReviewCount: 0
+    }
   };
 }
 
@@ -252,8 +284,10 @@ test('analyze command parses repository orchestration options', () => {
     pretty: true,
     stdout: false,
     failOnWarning: false,
+    failOnIncomplete: false,
     offline: true,
     experimentalMigrationChecklist: false,
+    targets: [],
     progress: 'auto',
     maxDepth: 6
   });
@@ -276,7 +310,9 @@ test('analyze command parses repository orchestration options', () => {
     'markdownReport'
   ]);
   assert.match(HELP, /--experimental-migration-checklist/);
-  assert.match(HELP, /Experimental\. Requires human review\./);
+  assert.match(HELP, /Experimental\. Every migration action requires human review\./);
+  assert.match(HELP, /--target <selector>/);
+  assert.match(HELP, /--fail-on-incomplete/);
   assert.match(HELP, /--migration-qualification <path>/);
   assert.match(HELP, /--progress <mode>/);
   assert.throws(
@@ -424,8 +460,17 @@ test('analyze CLI runs the full scheduler and writes the Markdown report', async
   assert.match(stderr.value(), /STAGE COMPLETE id=markdownReport label="Markdown Report"/);
   assert.match(stderr.value(), /RUN COMPLETE completed=8\/8 failed=0 skipped=0/);
   const viewModel = presentationViewModel(artifacts);
+  const completion = buildProductCompletion({
+    upgradeDecision: upgradeDecisionArtifact(),
+    versionAnalysis: artifacts.versionAnalysis,
+    artifactPaths: {
+      report: '.upgradelens/repository-impact.md',
+      upgradeDecision: '.upgradelens/upgrade-decision.json'
+    }
+  });
   assert.equal(stdout.value(), renderConsoleSummary({
     viewModel,
+    completion,
     reportPath: '.upgradelens/repository-impact.md',
     upgradeDecision: upgradeDecisionArtifact(),
     upgradeDecisionPath: '.upgradelens/upgrade-decision.json'
@@ -433,7 +478,8 @@ test('analyze CLI runs the full scheduler and writes the Markdown report', async
   const report = await readFile(path.join(root, '.upgradelens/repository-impact.md'), 'utf8');
   assert.equal(report, renderMarkdownReport({
     viewModel,
-    upgradeDecision: upgradeDecisionArtifact()
+    upgradeDecision: upgradeDecisionArtifact(),
+    completion
   }));
   await assert.rejects(
     readFile(path.join(root, '.upgradelens/migration-checklist.json')),
@@ -474,7 +520,16 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
       candidateLocationCount: 0,
       requiresHumanReviewItemCount: 0,
       limitationCount: 1,
-      statusCounts: { COMPLETE: 0, INCOMPLETE: 0, NO_GROUNDED_ACTION: 0, NOT_ANALYZED: 0 }
+      statusCounts: { COMPLETE: 0, INCOMPLETE: 0, NO_GROUNDED_ACTION: 0, NOT_ANALYZED: 0 },
+      handoffStatusCounts: {
+        NO_VERSION_CHANGE_REQUIRED: 0,
+        ACTIONABLE_WITH_REVIEW: 0,
+        INVESTIGATION_REQUIRED: 0,
+        INSUFFICIENT_EVIDENCE: 0,
+        NOT_ANALYZED: 0,
+        ACTION_GENERATION_FAILED: 0,
+        NO_GROUNDED_ACTION: 0
+      }
     },
     dependencies: [],
     limitations: [{
@@ -510,10 +565,99 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
     'impactAnalysis', 'impactEvidence', 'upgradeDecision', 'migrationChecklist'
   ]);
   assert.match(stderr.value(), /STAGE COMPLETE id=migrationChecklist label="Migration Checklist"[\s\S]*STAGE START id=markdownReport/);
-  assert.match(stdout.value(), /Migration checklist contains no grounded action/);
+  assert.match(stdout.value(), /Migration handoff[\s\S]*Actionable with review: 0/);
+  assert.match(stdout.value(), /Migration Checklist remains experimental/);
   const report = await readFile(path.join(root, '.upgradelens/repository-impact.md'), 'utf8');
   assert.match(report, /## Migration Checklist/);
   assert.match(report, /Every AI-selected official guidance item requires human review/);
+});
+
+test('retained provider/output failure is machine-readable PARTIAL and exits 2', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-analyze-partial-'));
+  temporaryDirectories.push(root);
+  const artifacts = reportArtifacts();
+  const decisionArtifact = structuredClone(upgradeDecisionArtifact());
+  const failed = decisionArtifact.decisions[1];
+  failed.decision = 'NOT_ANALYZED';
+  failed.summary = 'No upgrade decision was evaluated because Version Analysis did not complete.';
+  failed.primaryReasonCode = 'VERSION_ANALYSIS_FAILED';
+  failed.reasonCodes = ['PROVIDER_REJECTED', 'VERSION_ANALYSIS_FAILED'];
+  failed.requiresHumanReview = true;
+  decisionArtifact.summary.KEEP_CURRENT = 1;
+  decisionArtifact.summary.NOT_ANALYZED = 1;
+  decisionArtifact.summary.requiresHumanReviewCount = 1;
+  failed.analysisResultId = artifacts.versionAnalysis.results[1].id;
+  artifacts.versionAnalysis.results[1] = {
+    ...artifacts.versionAnalysis.results[1],
+    humanReviewReasons: ['ANALYSIS_FAILED', 'OUTPUT_SCHEMA_INVALID'],
+    limitations: [{
+      code: 'OUTPUT_SCHEMA_INVALID',
+      message: 'The provider output was rejected.'
+    }]
+  };
+  const runner = (value) => async () => value;
+  const stdout = capture();
+  const stderr = capture();
+
+  const exitCode = await runCli(['analyze', root, '--stdout', '--progress', 'plain'], {
+    stdout: stdout.stream,
+    stderr: stderr.stream,
+    analysisStageRunners: {
+      projectDiscovery: runner(artifacts.projectManifest),
+      knowledgeResearch: runner('knowledge'),
+      versionAnalysis: runner(artifacts.versionAnalysis),
+      usageDiscovery: runner({ summary: {} }),
+      impactAnalysis: runner(artifacts.repositoryImpact),
+      impactEvidence: runner(artifacts.impactEvidence),
+      upgradeDecision: runner(decisionArtifact)
+    }
+  });
+  assert.notEqual(stdout.value(), '', stderr.value());
+  const completion = JSON.parse(stdout.value());
+
+  assert.equal(exitCode, 2);
+  assert.equal(completion.status, 'PARTIAL');
+  assert.equal(completion.failedOccurrences.length, 1);
+  assert.equal(completion.failedOccurrences[0].dependency, 'lodash');
+  assert.match(completion.failedOccurrences[0].recovery, /output was rejected/i);
+  assert.doesNotMatch(stdout.value(), /STAGE START|RUN COMPLETE/);
+  assert.match(stderr.value(), /RUN COMPLETE/);
+});
+
+test('strict analyze exits 2 for a valid review outcome but not for all keep-current', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-analyze-strict-'));
+  temporaryDirectories.push(root);
+  const artifacts = reportArtifacts();
+  const reviewDecision = structuredClone(upgradeDecisionArtifact());
+  const first = reviewDecision.decisions[0];
+  first.decision = 'INVESTIGATE';
+  first.summary = 'A newer target is available, but no structured recommendation driver is present.';
+  first.primaryReasonCode = 'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER';
+  first.reasonCodes = ['UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER'];
+  first.versions.targetVersion = '6.0.0';
+  first.requiresHumanReview = true;
+  reviewDecision.summary.KEEP_CURRENT = 1;
+  reviewDecision.summary.INVESTIGATE = 1;
+  reviewDecision.summary.requiresHumanReviewCount = 1;
+  const run = async (upgradeDecision, args = []) => runCli([
+    'analyze', root, '--stdout', ...args
+  ], {
+    stdout: capture().stream,
+    stderr: capture().stream,
+    analysisStageRunners: {
+      projectDiscovery: async () => artifacts.projectManifest,
+      knowledgeResearch: async () => 'knowledge',
+      versionAnalysis: async () => artifacts.versionAnalysis,
+      usageDiscovery: async () => ({ summary: {} }),
+      impactAnalysis: async () => artifacts.repositoryImpact,
+      impactEvidence: async () => artifacts.impactEvidence,
+      upgradeDecision: async () => upgradeDecision
+    }
+  });
+
+  assert.equal(await run(reviewDecision), 0);
+  assert.equal(await run(reviewDecision, ['--fail-on-incomplete']), 2);
+  assert.equal(await run(upgradeDecisionArtifact(), ['--fail-on-incomplete']), 0);
 });
 
 test('analyze CLI writes a clean failure log and does not run later stages', async () => {

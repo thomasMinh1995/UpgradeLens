@@ -9,6 +9,52 @@ function headingText(value) {
   return String(value).replace(/[\r\n]+/g, ' ').replaceAll('\\', '\\\\').replaceAll('#', '\\#');
 }
 
+function tableText(value) {
+  return String(value).replaceAll('|', '\\|').replace(/[\r\n]+/g, ' ');
+}
+
+function renderProductCompletion(completion) {
+  const labels = {
+    KEEP_CURRENT: 'Keep current',
+    UPGRADE_NOW: 'Upgrade now',
+    PLAN_UPGRADE: 'Plan upgrade',
+    INVESTIGATE: 'Investigate',
+    INSUFFICIENT_EVIDENCE: 'Insufficient evidence',
+    NOT_ANALYZED: 'Not analyzed'
+  };
+  const lines = [
+    '## Product Outcome',
+    '',
+    `- Overall: ${inlineCode(completion.status)}`,
+    `- Next step: ${completion.nextStep}`,
+    `- Human-review occurrences: ${completion.reviewRequiredCount}`,
+    '',
+    '## Dependency Decisions',
+    '',
+    '| Dependency occurrence | Installed → Target | Decision | Risk / coverage | Why / next step |',
+    '| --- | --- | --- | --- | --- |'
+  ];
+  for (const decision of completion.decisions) {
+    lines.push(
+      `| ${inlineCode(`${decision.dependency} — ${decision.projectId}`)} | `
+      + `${inlineCode(`${decision.installedVersion ?? 'unknown'} → ${decision.targetVersion ?? 'unknown'}`)} | `
+      + `${tableText(labels[decision.decision])} | ${tableText(decision.coverage)} | `
+      + `${tableText(decision.explanation)} Next: ${tableText(decision.nextStep)} |`
+    );
+  }
+  if (completion.failedOccurrences.length > 0) {
+    lines.push('', '## Failed Dependency Occurrences', '');
+    for (const failure of completion.failedOccurrences) {
+      lines.push(
+        `- ${inlineCode(`${failure.dependency} — ${failure.projectId}`)}: `
+        + `${failure.stage}. ${failure.recovery}`
+      );
+    }
+  }
+  lines.push('');
+  return lines;
+}
+
 function requireViewModel(viewModel) {
   if (!viewModel?.summary || !Array.isArray(viewModel?.dependencies)) {
     throw new Error('Markdown renderer requires an Impact Presentation View Model.');
@@ -61,13 +107,15 @@ function renderDependency(dependency) {
 export function renderMarkdownReport({
   viewModel,
   upgradeDecision,
-  migrationChecklistViewModel
+  migrationChecklistViewModel,
+  completion
 }) {
   requireViewModel(viewModel);
   const summary = viewModel.summary;
   const lines = [
     '# UpgradeLens Repository Impact Report',
     '',
+    ...(completion ? renderProductCompletion(completion) : []),
     '## Repository',
     '',
     inlineCode(viewModel.repositoryName),

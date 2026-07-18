@@ -40,7 +40,8 @@ function inputLineage() {
     versionAnalysis: artifact('version-analysis', 'version'),
     usageIndex: artifact('usage-index', 'usage'),
     repositoryImpact: artifact('repository-impact', 'impact'),
-    repositoryImpactEvidence: artifact('repository-impact-evidence', 'impact-evidence')
+    repositoryImpactEvidence: artifact('repository-impact-evidence', 'impact-evidence'),
+    upgradeDecision: artifact('upgrade-decision', 'upgrade-decision')
   };
 }
 
@@ -137,10 +138,78 @@ function record({
   analysisStatus = 'analyzed',
   selectedEvidenceRefs = [evidenceRef],
   findings = [deterministicFinding()],
-  limitations = []
+  limitations = [],
+  decisionStatus = analysisStatus === 'analyzed'
+    ? (versions.targetPolicy === 'explicit' ? 'PLAN_UPGRADE' : 'INVESTIGATE')
+    : 'NOT_ANALYZED'
 } = {}) {
+  const actionable = ['PLAN_UPGRADE', 'UPGRADE_NOW'].includes(decisionStatus);
   return {
     analysisResultId: digest(seed),
+    decisionId: digest(`${seed}:decision`),
+    decision: {
+      status: decisionStatus,
+      targetOrigin: versions.targetPolicy,
+      recommendationDriver: actionable ? 'USER_SELECTED_TARGET' : null,
+      primaryReasonCode: actionable
+        ? 'USER_SELECTED_TARGET'
+        : decisionStatus === 'INVESTIGATE'
+          ? 'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER'
+          : 'VERSION_ANALYSIS_FAILED',
+      reasonCodes: [actionable
+        ? 'USER_SELECTED_TARGET'
+        : decisionStatus === 'INVESTIGATE'
+          ? 'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER'
+          : 'VERSION_ANALYSIS_FAILED']
+    },
+    affectedAreas: [{
+      ...structuredClone(candidateLocation),
+      findingId: 'button-removed',
+      coverageStatus: 'complete'
+    }],
+    coverage: { status: 'complete', reasonCode: 'COVERAGE_COMPLETE' },
+    verification: {
+      status: 'VERIFICATION_COMMAND_UNAVAILABLE',
+      commands: [],
+      limitation: {
+        code: 'VERIFICATION_COMMAND_UNAVAILABLE',
+        message: 'No supported project-derived verification command was found.'
+      }
+    },
+    officialEvidence: selectedEvidenceRefs.map((id) => ({
+      id,
+      sourceId: 'npm:antd:documentation:migration',
+      kind: 'migrationGuide',
+      authority: 'officialProject',
+      trust: 'official',
+      contentDigest: digest('official-evidence-content'),
+      locator: 'heading:migration',
+      releaseVersions: ['2.0.0']
+    })),
+    preconditions: actionable ? [
+      {
+        code: 'EXPLICIT_TARGET_SELECTED',
+        message: 'The target was explicitly selected.'
+      },
+      {
+        code: 'TARGET_SCOPED_EVIDENCE_VALID',
+        message: 'Target-scoped evidence is valid.'
+      },
+      {
+        code: 'HUMAN_APPROVAL_REQUIRED',
+        message: 'Human approval is required.'
+      }
+    ] : [],
+    recovery: { status: 'RECOVERY_PLAN_NOT_PROVIDED', evidenceRefs: [] },
+    reviewQuestions: decisionStatus === 'INVESTIGATE'
+      ? ['Has a human selected this target?'] : [],
+    missingInformation: [],
+    nextStep: actionable
+      ? { code: 'REVIEW_MIGRATION_HANDOFF', message: 'Review the migration handoff.' }
+      : decisionStatus === 'INVESTIGATE'
+        ? { code: 'COMPLETE_HUMAN_INVESTIGATION', message: 'Complete human investigation.' }
+        : { code: 'RERUN_VERSION_ANALYSIS', message: 'Rerun Version Analysis.' },
+    humanReviewRequired: decisionStatus !== 'KEEP_CURRENT',
     dependency: dependency(packageId, projectId),
     versions,
     analysisStatus,
@@ -180,7 +249,7 @@ function fallbackFinding(reasonCode, instruction = 'Manual review is required be
 test('builds a valid evidence-grounded deterministic checklist with candidate locations', () => {
   const checklist = build();
 
-  assert.equal(MIGRATION_CHECKLIST_SCHEMA_VERSION, '1.0.0');
+  assert.equal(MIGRATION_CHECKLIST_SCHEMA_VERSION, '2.0.0');
   assert.equal(DEFAULT_MIGRATION_CHECKLIST_PATH, '.upgradelens/migration-checklist.json');
   assert.equal(validateMigrationChecklist(checklist), checklist);
   assert.equal(checklist.status, 'COMPLETE');
@@ -201,7 +270,8 @@ test('requires exact lineage slots for all seven input artifacts and an injected
     'versionAnalysis',
     'usageIndex',
     'repositoryImpact',
-    'repositoryImpactEvidence'
+    'repositoryImpactEvidence',
+    'upgradeDecision'
   ]) {
     const input = inputLineage();
     delete input[field];

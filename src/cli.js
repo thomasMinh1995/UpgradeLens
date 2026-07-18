@@ -109,6 +109,15 @@ import { buildImpactPresentationViewModel } from './renderers/impact-presentatio
 import { renderMarkdownReport } from './renderers/markdown.js';
 import { isPortableRelativePath } from './portable.js';
 import {
+  buildProductCompletion,
+  productCompletionExitCode
+} from './product-completion.js';
+import {
+  parseTargetSelector,
+  resolveTargetSelectors,
+  targetOccurrenceKey
+} from './target-selector.js';
+import {
   DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH,
   loadVersionAnalysisArtifacts
 } from './version-analysis-loader.js';
@@ -122,7 +131,8 @@ import { resolveMigrationQualification } from './migration-checklist/qualificati
 
 const HELP = `${PRODUCT_NAME} ${VERSION}
 
-Analyze a repository or run an individual UpgradeLens stage.
+Decide whether evaluated dependency targets should be kept, planned, or investigated.
+The default registry candidate is a fact, not an upgrade recommendation.
 
 Usage:
   ${CLI_NAME} analyze <repository> [options]
@@ -139,9 +149,20 @@ Usage:
 Analyze options:
       --offline         Use fresh research cache entries only; never request registries
       --max-depth <n>   Maximum directory depth for discovery and usage scanning
+      --target <selector>
+                        Select a caller-owned target. Repeatable.
+                        Required fields: package=<canonical-id>,target=<version>
+                        Optional occurrence fields: project,manifest,type,occurrence
+                        occurrence is a stable sha256 ID shown in ambiguity guidance
+                        Example: package=npm:react,target=20.0.0
+                        Scoped example: package=npm:@scope/pkg,target=3.0.0
+      --fail-on-incomplete
+                        Exit 2 for review-required or insufficient-data outcomes.
+                        Partial provider/output/runtime results always exit 2.
+      --stdout          Print only the machine-readable product completion summary
       --experimental-migration-checklist
                         Generate an evidence-grounded migration checklist.
-                        Experimental. Requires human review.
+                        Experimental. Every migration action requires human review.
       --migration-qualification <path>
                         Migration Planning v2 qualification record relative to the
                         repository (default: ${DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH})
@@ -168,6 +189,8 @@ Analyze-version options:
   -o, --output <path>   Version Analysis artifact path relative to the project root
                         (default: ${DEFAULT_VERSION_ANALYSIS_PATH})
       --package <id>    Analyze one exact canonical package ID (for example, pypi:langsmith)
+      --target <selector>
+                        Select explicit targets using the same analyze selector syntax
       --stdout          Print only the Version Analysis JSON
 
 Eval options:
@@ -250,8 +273,10 @@ export function parseArguments(argv) {
     pretty: true,
     stdout: false,
     failOnWarning: false,
+    failOnIncomplete: false,
     offline: false,
     experimentalMigrationChecklist: false,
+    targets: [],
     progress: 'auto'
   };
   let rootSet = false;
@@ -262,7 +287,12 @@ export function parseArguments(argv) {
     else if (argument === '--stdout') options.stdout = true;
     else if (argument === '--no-pretty') options.pretty = false;
     else if (argument === '--fail-on-warning') options.failOnWarning = true;
+    else if (argument === '--fail-on-incomplete') options.failOnIncomplete = true;
     else if (argument === '--offline') options.offline = true;
+    else if (argument === '--target') {
+      options.targets.push(parseTargetSelector(takeValue(args, index, argument)));
+      index += 1;
+    }
     else if (argument === '--experimental-migration-checklist') {
       options.experimentalMigrationChecklist = true;
     } else if (argument === '--progress') {
@@ -343,6 +373,12 @@ export function parseArguments(argv) {
     throw new Error('--max-depth is only supported by discover and analyze');
   }
   if (command !== 'discover' && options.failOnWarning) throw new Error('--fail-on-warning is only supported by discover');
+  if (command !== 'analyze' && options.failOnIncomplete) {
+    throw new Error('--fail-on-incomplete is only supported by analyze');
+  }
+  if (!['analyze', 'analyze-version'].includes(command) && options.targets.length > 0) {
+    throw new Error('--target is only supported by analyze and analyze-version');
+  }
   if (command !== 'discover' && !options.pretty) throw new Error('--no-pretty is only supported by discover');
   if (command !== 'eval' && options.dataset !== DEFAULT_EVALUATION_DATASET_PATH) throw new Error('--dataset is only supported by eval');
   if (command !== 'scorecard' && options.report !== DEFAULT_EVALUATION_REPORT_PATH) throw new Error('--report is only supported by scorecard');
@@ -525,6 +561,33 @@ function configuredAiTimeoutMs(env) {
   return timeoutMs;
 }
 
+function failureRecoveryGuidance(stage, error) {
+  const message = error?.message ?? '';
+  const code = error?.code ?? '';
+  if (/UPGRADELENS_AI_(?:ENDPOINT|MODEL)|AI runtime/i.test(message)) {
+    return [
+      `Stage: ${stage?.label ?? 'Version Analysis'}`,
+      'Required configuration: UPGRADELENS_AI_ENDPOINT and UPGRADELENS_AI_MODEL; authorization is optional.',
+      'Next action: configure one supported provider runtime and rerun. No credential value was printed.'
+    ];
+  }
+  if (/LINEAGE|lineage|digest mismatch|stale/i.test(`${code} ${message}`)) {
+    return [
+      `Stage: ${stage?.label ?? 'Artifact validation'}`,
+      'The input artifact chain is stale or mismatched.',
+      'Next action: rerun the upstream UpgradeLens workflow to regenerate the affected artifacts.'
+    ];
+  }
+  if (code === 'ENOENT' || /ENOENT|not found|missing artifact/i.test(message)) {
+    return [
+      `Stage: ${stage?.label ?? 'Artifact loading'}`,
+      'A required upstream artifact is missing.',
+      'Next action: run `upgradelens analyze <repository>` to regenerate the supported artifact chain.'
+    ];
+  }
+  return [];
+}
+
 async function executeAnalyzeVersion(options, io) {
   const root = path.resolve(options.root);
   const artifacts = await loadVersionAnalysisArtifacts({
@@ -547,10 +610,14 @@ async function executeAnalyzeVersion(options, io) {
       throw new Error(`Selected package ${options.packageId} matches ${inputs.length} dependency occurrences; one-dependency selection is ambiguous and no runtime call was made.`);
     }
   }
-  const contexts = inputs.map((input) => buildDependencyAiContext(artifacts, {
-    input,
-    target: { policy: 'registryLatest' }
-  }));
+  const selectedTargets = resolveTargetSelectors(inputs, options.targets ?? []);
+  const contexts = inputs.map((input) => {
+    const selected = selectedTargets.get(targetOccurrenceKey(input));
+    return buildDependencyAiContext(artifacts, {
+      input,
+      target: selected?.target ?? { policy: 'registryLatest' }
+    });
+  });
   const needsRuntime = contexts.some((context) => context.knowledge.evidence.length > 0
     && context.versions.analysisMode !== 'unsupportedBaseline'
     && context.versions.targetVersion !== null);
@@ -966,10 +1033,21 @@ export function createCliAnalysisStageRunners(options, io) {
         repositoryImpact: artifacts.impactAnalysis,
         impactEvidence: artifacts.impactEvidence
       });
+      const completion = buildProductCompletion({
+        upgradeDecision: artifacts.upgradeDecision,
+        versionAnalysis: artifacts.versionAnalysis,
+        migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel,
+        artifactPaths: {
+          report: options.output,
+          upgradeDecision: DEFAULT_UPGRADE_DECISION_PATH,
+          migrationChecklist: artifacts.migrationChecklist?.artifactPath ?? null
+        }
+      });
       const contents = renderMarkdownReport({
         viewModel,
         upgradeDecision: artifacts.upgradeDecision,
-        migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel
+        migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel,
+        completion
       });
       if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       progress?.({
@@ -983,6 +1061,7 @@ export function createCliAnalysisStageRunners(options, io) {
       return Object.freeze({
         target,
         viewModel,
+        completion,
         migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel ?? null
       });
     }
@@ -1033,6 +1112,10 @@ export async function executeAnalyze(options, io) {
     });
   } catch (error) {
     if (error instanceof PipelineCancellationError || signal.aborted) {
+      io.stderr.write(
+        '\nUpgradeLens product outcome: CANCELLED\n'
+        + 'Next action: rerun when you are ready; no successful completion was published.\n'
+      );
       return 130;
     }
     if (!(error instanceof PipelineStageError)) throw error;
@@ -1040,7 +1123,10 @@ export async function executeAnalyze(options, io) {
     try {
       logTarget = await (io.writeAnalysisFailureLog ?? writeAnalysisFailureLog)(root, error);
     } catch {
-      io.stderr.write(`\n${error.stage.label} failed.\n\nUnable to write analysis log.\n`);
+      io.stderr.write(
+        `\nUpgradeLens product outcome: FAILED\n${error.stage.label} failed.\n\n`
+        + 'Unable to write analysis log.\n'
+      );
       return 1;
     }
     const displayLog = path.relative(root, logTarget).split(path.sep).join('/');
@@ -1048,6 +1134,7 @@ export async function executeAnalyze(options, io) {
     if (decision) {
       const lines = [
         '',
+        'UpgradeLens product outcome: FAILED',
         `${error.stage.label} failed.`,
         '',
         `Qualification status: ${decision.status}`,
@@ -1064,22 +1151,34 @@ export async function executeAnalyze(options, io) {
       lines.push(`Next action: ${decision.nextAction}`, '', 'See:', displayLog || DEFAULT_ANALYSIS_LOG_PATH);
       io.stderr.write(`${lines.join('\n')}\n`);
     } else {
-      io.stderr.write(`\n${error.stage.label} failed.\n\nSee:\n${displayLog || DEFAULT_ANALYSIS_LOG_PATH}\n`);
+      const guidance = failureRecoveryGuidance(error.stage, error.cause);
+      const guidanceText = guidance.length > 0 ? `\n${guidance.join('\n')}\n` : '';
+      io.stderr.write(
+        `\nUpgradeLens product outcome: FAILED\n${error.stage.label} failed.\n`
+        + `${guidanceText}\nSee:\n`
+        + `${displayLog || DEFAULT_ANALYSIS_LOG_PATH}\n`
+      );
     }
     return 1;
   } finally {
     if (installSignalHandler) signalHost.removeListener?.('SIGINT', onSigint);
   }
 
-  io.stdout.write(renderConsoleSummary({
-    viewModel: result.artifacts.markdownReport.viewModel,
-    reportPath: options.output,
-    upgradeDecision: result.artifacts.upgradeDecision,
-    upgradeDecisionPath: DEFAULT_UPGRADE_DECISION_PATH,
-    migrationChecklistViewModel: result.artifacts.migrationChecklist?.viewModel,
-    migrationChecklistPath: result.artifacts.migrationChecklist?.artifactPath
-  }));
-  return 0;
+  const completion = result.artifacts.markdownReport.completion;
+  if (options.stdout) {
+    io.stdout.write(`${JSON.stringify(completion, null, 2)}\n`);
+  } else {
+    io.stdout.write(renderConsoleSummary({
+      viewModel: result.artifacts.markdownReport.viewModel,
+      completion,
+      reportPath: options.output,
+      upgradeDecision: result.artifacts.upgradeDecision,
+      upgradeDecisionPath: DEFAULT_UPGRADE_DECISION_PATH,
+      migrationChecklistViewModel: result.artifacts.migrationChecklist?.viewModel,
+      migrationChecklistPath: result.artifacts.migrationChecklist?.artifactPath
+    }));
+  }
+  return productCompletionExitCode(completion, { strict: options.failOnIncomplete });
 }
 
 export async function runCli(argv, io = {}) {
@@ -1118,7 +1217,11 @@ export async function runCli(argv, io = {}) {
     }
     return options.failOnWarning && manifest.warnings.length > 0 ? 2 : 0;
   } catch (error) {
-    stderr.write(`${CLI_NAME}: ${error.message}\n`);
+    const guidance = failureRecoveryGuidance(null, error);
+    stderr.write(
+      `${CLI_NAME}: ${error.message}\n`
+      + (guidance.length > 0 ? `${guidance.join('\n')}\n` : '')
+    );
     return 1;
   }
 }

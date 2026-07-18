@@ -25,12 +25,16 @@ export const REQUIRED_PACKAGE_PATHS = Object.freeze([
   'package/eval/migration-planning/golden-dataset-v2.json',
   'package/eval/migration-planning/golden-dataset.json',
   'package/package.json',
+  'package/schemas/migration-checklist.schema.json',
   'package/schemas/migration-checklist-extractive-candidate.schema.json',
   'package/schemas/migration-planning-qualification-record.schema.json',
   'package/schemas/upgrade-decision.schema.json',
   'package/src/cli.js',
   'package/src/index.js',
-  'package/src/orchestration/progress-events.js'
+  'package/src/migration-checklist/verification.js',
+  'package/src/orchestration/progress-events.js',
+  'package/src/product-completion.js',
+  'package/src/target-selector.js'
 ]);
 
 const CAPTURE_DIRECTORY_PATTERN = /^package\/docs\/[^/]*-cli-captures(?:\/|$)/i;

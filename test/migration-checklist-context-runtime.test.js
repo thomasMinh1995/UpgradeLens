@@ -8,11 +8,13 @@ import {
   buildKnowledgeEvidenceBundle,
   buildMigrationChecklist,
   buildRepositoryImpactEvidence,
+  buildUpgradeDecision,
   buildUsageIndex,
   buildVersionAnalysisManifest,
   createJavaScriptUsageAnalyzer,
   loadMigrationChecklistInputs,
-  prepareMigrationChecklistContexts
+  prepareMigrationChecklistContexts,
+  serializeUpgradeDecision
 } from '../src/index.js';
 
 const generatedAt = '2026-07-16T00:00:00.000Z';
@@ -74,6 +76,17 @@ function projectManifest({ ecosystem, declaredName, normalizedName, declaredVers
         name: declaredName,
         normalizedName,
         declaredVersion,
+        ...(ecosystem === 'node' && !declaredVersion.startsWith('^') ? {
+          installedVersion: declaredVersion,
+          installedVersionStatus: 'resolved',
+          installedVersionSource: {
+            type: 'package-lock',
+            path: 'package-lock.json',
+            lockfileVersion: 3,
+            packagePath: `node_modules/${normalizedName}`
+          },
+          installedVersionReason: null
+        } : {}),
         type: dependencyType,
         manifest
       }]
@@ -143,11 +156,23 @@ function dependencyFacts(project, packageRecord) {
 }
 
 function versionsFor(ecosystem, declaredVersion, targetVersion, targetPolicy, uncertainBaseline) {
+  const resolved = ecosystem === 'node' && !uncertainBaseline;
   return {
-    analysisMode: uncertainBaseline ? 'declaredConstraint' : 'exactBaseline',
+    analysisMode: resolved ? 'exactBaseline' : uncertainBaseline ? 'declaredConstraint' : 'exactBaseline',
     declaredVersion,
-    currentVersion: uncertainBaseline ? null : (ecosystem === 'node' ? '18.0.0' : '0.115.0'),
-    currentVersionSource: uncertainBaseline ? null : 'exactDeclaration',
+    ...(ecosystem === 'node' ? {
+      installedVersion: resolved ? declaredVersion : null,
+      installedVersionStatus: resolved ? 'resolved' : 'unresolved',
+      installedVersionSource: resolved ? {
+        type: 'package-lock',
+        path: 'package-lock.json',
+        lockfileVersion: 3,
+        packagePath: 'node_modules/react'
+      } : null,
+      installedVersionReason: resolved ? null : 'PACKAGE_NOT_RESOLVED'
+    } : {}),
+    currentVersion: uncertainBaseline ? null : (ecosystem === 'node' ? declaredVersion : '0.115.0'),
+    currentVersionSource: uncertainBaseline ? null : (resolved ? 'resolvedArtifact' : 'exactDeclaration'),
     targetVersion,
     targetPolicy,
     delta: uncertainBaseline
@@ -339,7 +364,7 @@ async function fixture({
     generatedAt
   });
   const artifacts = { project, knowledge, bundle, version, usage, impact, impactEvidence };
-  return { artifacts, sources: sourcesFor(artifacts), actionEvidence, facts };
+  return { artifacts, sources: await sourcesWithDecision(artifacts), actionEvidence, facts };
 }
 
 function analysisInputFromResult(result) {
@@ -386,7 +411,7 @@ async function duplicateOccurrenceFixture({
   reverseVersionInputs = false
 } = {}) {
   const chain = await fixture({
-    uncertainBaseline: secondStatus === 'skipped',
+    uncertainBaseline: false,
     evidenceContents: ['First occurrence instruction.', 'Second occurrence instruction.']
   });
   const artifacts = chain.artifacts;
@@ -438,13 +463,16 @@ async function duplicateOccurrenceFixture({
   secondResult.versions = secondStatus === 'analyzed'
     ? {
         ...structuredClone(firstResult.versions),
-        declaredVersion: secondDeclaredVersion,
-        currentVersion: secondDeclaredVersion
+        declaredVersion: secondDeclaredVersion
       }
     : {
         ...structuredClone(firstResult.versions),
         analysisMode: 'unsupportedBaseline',
         declaredVersion: null,
+        installedVersion: null,
+        installedVersionStatus: 'unresolved',
+        installedVersionSource: null,
+        installedVersionReason: 'PACKAGE_NOT_RESOLVED',
         currentVersion: null,
         currentVersionSource: null,
         delta: { direction: 'unknown', classification: 'unknown' }
@@ -536,7 +564,7 @@ async function duplicateOccurrenceFixture({
   rechain(artifacts);
   return {
     artifacts,
-    sources: sourcesFor(artifacts),
+    sources: await sourcesWithDecision(artifacts),
     actionEvidence: chain.actionEvidence,
     facts: chain.facts
   };
@@ -554,6 +582,19 @@ function sourcesFor({ project, knowledge, bundle, version, usage, impact, impact
     repositoryImpact: { bytes: bytes(impact), artifact: '.upgradelens/repository-impact.json' },
     repositoryImpactEvidence: {
       bytes: bytes(impactEvidence), artifact: '.upgradelens/repository-impact-evidence.json'
+    }
+  };
+}
+
+async function sourcesWithDecision(artifacts) {
+  const sources = sourcesFor(artifacts);
+  const loaded = await loadMigrationChecklistInputs({ sources });
+  const decision = buildUpgradeDecision(loaded);
+  return {
+    ...sources,
+    upgradeDecision: {
+      bytes: Buffer.from(serializeUpgradeDecision(decision)),
+      artifact: '.upgradelens/upgrade-decision.json'
     }
   };
 }
@@ -719,23 +760,23 @@ test('rejects finding, symbol/file, and Impact Evidence location inconsistencies
   );
 });
 
-test('builds an eligible bounded official context with exact positive candidate location', async () => {
+test('registry target with official evidence remains an investigation handoff with no action context', async () => {
   const chain = await fixture({ targetPolicy: 'registryLatest' });
   const prepared = await prepareMigrationChecklistContexts({ sources: chain.sources });
-  const context = prepared.eligibleContexts[0];
+  const record = prepared.fallbackRecords[0];
 
-  assert.equal(prepared.summary.eligible, 1);
-  assert.equal(context.eligibility.reasonCode, 'ELIGIBLE');
-  assert.equal(context.locationEligibility.reasonCode, 'POSITIVE_USAGE_MATCH');
-  assert.deepEqual(context.positiveCandidateLocations, [{
+  assert.equal(prepared.summary.eligible, 0);
+  assert.equal(record.decision.status, 'INVESTIGATE');
+  assert.equal(record.decision.recommendationDriver, null);
+  assert.deepEqual(record.affectedAreas, [{
     impactEvidenceId: chain.artifacts.impactEvidence.dependencies[0].findings[0].id,
+    findingId: 'createRoot-changed',
     symbol: 'createRoot',
-    file: 'src/App.tsx'
+    file: 'src/App.tsx',
+    coverageStatus: 'complete'
   }]);
-  assert.equal(context.evidence[0].sourceUrl, chain.artifacts.knowledge.sources[0].url);
-  assert.equal(context.versions.targetPolicy, 'registryLatest');
-  assert.equal('recommended' in context.versions, false);
-  assert.ok(context.limitations.some((item) => item.code === 'REGISTRY_LATEST_IS_NOT_RECOMMENDATION'));
+  assert.equal(record.versions.targetPolicy, 'registryLatest');
+  assert.ok(record.limitations.some((item) => item.code === 'REGISTRY_LATEST_IS_NOT_RECOMMENDATION'));
 });
 
 test('skipped analysis yields NOT_ANALYZED fallback and no eligible context', async () => {
@@ -893,16 +934,19 @@ test('missing action evidence yields deterministic NO_GROUNDED_ACTION fallback',
   assert.equal(checklist.status, 'NO_GROUNDED_ACTION');
 });
 
-test('null current version and range baseline remain uncertain without exact-version inference', async () => {
+test('unresolved range baseline becomes an evidence-gap handoff without exact-version inference', async () => {
   const chain = await fixture({ uncertainBaseline: true });
   const prepared = await prepareMigrationChecklistContexts({ sources: chain.sources });
-  const versions = prepared.eligibleContexts[0].versions;
+  const record = prepared.fallbackRecords[0];
+  const versions = record.versions;
 
   assert.equal(versions.analysisMode, 'declaredConstraint');
   assert.equal(versions.declaredVersion, '^18.0.0');
   assert.equal(versions.currentVersion, null);
   assert.equal(versions.currentVersionSource, null);
   assert.deepEqual(versions.delta, { direction: 'unknown', classification: 'unknown' });
+  assert.equal(record.decision.status, 'INSUFFICIENT_EVIDENCE');
+  assert.equal(record.nextStep.code, 'RESOLVE_INSTALLED_BASELINE');
 });
 
 test('an analyzed finding with no target fails closed instead of using registry latest as recommendation', async () => {
@@ -911,10 +955,8 @@ test('an analyzed finding with no target fails closed instead of using registry 
 
   assert.deepEqual(prepared.eligibleContexts, []);
   assert.equal(prepared.fallbackRecords[0].versions.targetVersion, null);
-  assert.equal(
-    prepared.fallbackRecords[0].findings[0].eligibilityReasonCode,
-    'NO_GROUNDED_ACTION'
-  );
+  assert.equal(prepared.fallbackRecords[0].decision.status, 'INSUFFICIENT_EVIDENCE');
+  assert.equal(prepared.fallbackRecords[0].nextStep.code, 'SELECT_OR_DISCOVER_TARGET');
 });
 
 test('stale or conflicted evidence fails closed without action generation', async () => {
@@ -922,25 +964,23 @@ test('stale or conflicted evidence fails closed without action generation', asyn
     const chain = await fixture(options);
     const prepared = await prepareMigrationChecklistContexts({ sources: chain.sources });
     assert.deepEqual(prepared.eligibleContexts, []);
-    assert.equal(prepared.summary.conflictedEvidence, 1);
-    assert.equal(
-      prepared.fallbackRecords[0].findings[0].eligibilityReasonCode,
-      'INVALID_OR_CONFLICTED_EVIDENCE'
-    );
+    assert.ok(['INSUFFICIENT_EVIDENCE', 'INVESTIGATE']
+      .includes(prepared.fallbackRecords[0].decision.status));
+    assert.deepEqual(prepared.fallbackRecords[0].findings, []);
   }
 });
 
-test('unsupported Python usage coverage still permits dependency-level context without safety claim', async () => {
+test('unsupported Python baseline and coverage produce no action or fake location', async () => {
   const chain = await fixture({ ecosystem: 'python', positiveLocation: false });
   const prepared = await prepareMigrationChecklistContexts({ sources: chain.sources });
-  const context = prepared.eligibleContexts[0];
+  const record = prepared.fallbackRecords[0];
 
-  assert.equal(context.eligibility.reasonCode, 'ELIGIBLE');
-  assert.equal(context.locationEligibility.reasonCode, 'UNSUPPORTED_USAGE_COVERAGE');
-  assert.deepEqual(context.positiveCandidateLocations, []);
-  assert.equal(prepared.summary.unsupportedUsageCoverage, 1);
+  assert.deepEqual(prepared.eligibleContexts, []);
+  assert.equal(record.decision.status, 'INSUFFICIENT_EVIDENCE');
+  assert.deepEqual(record.affectedAreas, []);
+  assert.equal(record.coverage.status, 'unavailable');
   assert.doesNotMatch(JSON.stringify(prepared), /DEPENDENCY_NOT_USED/);
-  assert.equal('safe' in context, false);
+  assert.equal('safe' in record, false);
 });
 
 test('no positive JS match is not converted into an unused or safety claim', async () => {

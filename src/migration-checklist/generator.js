@@ -62,7 +62,8 @@ const compareRecords = (left, right) => (
   || compareText(left.dependency.manifest, right.dependency.manifest)
   || compareText(left.dependency.dependencyType, right.dependency.dependencyType)
   || compareText(left.dependency.packageId, right.dependency.packageId)
-  || compareText(left.analysisResultId, right.analysisResultId)
+  || compareText(left.analysisResultId ?? '', right.analysisResultId ?? '')
+  || compareText(left.decisionId ?? '', right.decisionId ?? '')
 );
 const compareWarnings = (left, right) => (
   compareText(left.contextId, right.contextId)
@@ -143,6 +144,14 @@ function validateEligibleContext(context) {
     throw inputError(`context ${context.contextId} is not eligible.`);
   }
   if (context.requiresHumanReview !== true) throw inputError('requiresHumanReview must be true.');
+  if (context.decisionId !== undefined) {
+    if (!DIGEST_EXPRESSION.test(context.decisionId)
+        || !['PLAN_UPGRADE', 'UPGRADE_NOW'].includes(context.decision?.status)
+        || context.decision?.recommendationDriver === null
+        || context.humanReviewRequired !== true) {
+      throw inputError(`context ${context.contextId} has an invalid actionable Upgrade Decision projection.`);
+    }
+  }
   if (!Array.isArray(context.evidence) || !Array.isArray(context.evidenceAllowlist)
       || !Array.isArray(context.finding.evidenceRefs) || context.evidence.length === 0) {
     throw inputError(`context ${context.contextId} must contain selected evidence and allowlists.`);
@@ -203,12 +212,35 @@ function validateEligibleContext(context) {
 function sameIdentity(left, right) {
   return canonicalJson(left.dependency) === canonicalJson(right.dependency)
     && canonicalJson(left.versions) === canonicalJson(right.versions)
-    && left.analysisStatus === right.analysisStatus;
+    && left.analysisStatus === right.analysisStatus
+    && (left.decisionId ?? null) === (right.decisionId ?? null);
+}
+
+const HANDOFF_BASIS_FIELDS = Object.freeze([
+  'decisionId',
+  'decision',
+  'affectedAreas',
+  'coverage',
+  'verification',
+  'officialEvidence',
+  'preconditions',
+  'recovery',
+  'reviewQuestions',
+  'missingInformation',
+  'nextStep',
+  'humanReviewRequired'
+]);
+
+function handoffBasis(context) {
+  return Object.fromEntries(HANDOFF_BASIS_FIELDS
+    .filter((field) => Object.hasOwn(context, field))
+    .map((field) => [field, structuredClone(context[field])]));
 }
 
 function baseRecord(context) {
   return {
     analysisResultId: context.analysisResultId,
+    ...handoffBasis(context),
     dependency: structuredClone(context.dependency),
     versions: structuredClone(context.versions),
     analysisStatus: 'analyzed',
@@ -301,7 +333,7 @@ function fallbackRecord(context, reasonCode, limitationCode, limitationMessage) 
     summary: context.finding.summary,
     eligibilityReasonCode: reasonCode,
     evidenceRefs: [...context.evidenceAllowlist],
-    positiveImpactLocations: [],
+    positiveImpactLocations: structuredClone(context.positiveCandidateLocations).sort(compareLocations),
     items: [manualItem]
   });
   return record;
@@ -490,10 +522,11 @@ function validatePrepared(prepared) {
   const fallbackIds = new Set();
   for (const record of prepared.fallbackRecords) {
     validateFallbackRecord(record);
-    if (fallbackIds.has(record.analysisResultId)) {
-      throw inputError(`duplicate fallback analysisResultId ${record.analysisResultId}.`);
+    const fallbackId = record.analysisResultId ?? record.decisionId;
+    if (fallbackIds.has(fallbackId)) {
+      throw inputError(`duplicate fallback identity ${fallbackId}.`);
     }
-    fallbackIds.add(record.analysisResultId);
+    fallbackIds.add(fallbackId);
   }
 }
 
@@ -501,9 +534,14 @@ function validateFallbackRecord(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) {
     throw inputError('fallback record must be an object.');
   }
-  assertString(record.analysisResultId, 'fallback analysisResultId');
+  if (record.analysisResultId !== null) {
+    assertString(record.analysisResultId, 'fallback analysisResultId');
+  }
   if (!record.dependency || !record.versions || typeof record.analysisStatus !== 'string') {
     throw inputError(`fallback ${record.analysisResultId} is missing normalized identity.`);
+  }
+  if (record.decisionId !== undefined && !DIGEST_EXPRESSION.test(record.decisionId)) {
+    throw inputError(`fallback ${record.analysisResultId ?? record.decisionId} has invalid decision identity.`);
   }
   for (const field of [
     'projectId', 'packageId', 'declaredName', 'normalizedName', 'ecosystem', 'registry',
@@ -535,9 +573,10 @@ function validateFallbackRecord(record) {
 }
 
 function mergeRecord(records, incoming) {
-  const existing = records.get(incoming.analysisResultId);
+  const recordKey = incoming.analysisResultId ?? incoming.decisionId;
+  const existing = records.get(recordKey);
   if (!existing) {
-    records.set(incoming.analysisResultId, structuredClone(incoming));
+    records.set(recordKey, structuredClone(incoming));
     return;
   }
   if (!sameIdentity(existing, incoming)) {

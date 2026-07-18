@@ -48,8 +48,16 @@ export function buildMigrationChecklistViewModel(checklist, { qualificationDecis
     packageId: record.dependency.packageId,
     name: record.dependency.declaredName,
     projectId: record.dependency.projectId,
+    manifest: record.dependency.manifest,
     status: record.status,
+    handoffStatus: record.handoff.status,
+    decisionStatus: record.decision.status,
+    decisionId: record.decisionId,
+    targetOrigin: record.decision.targetOrigin,
+    recommendationDriver: record.decision.recommendationDriver,
+    decisionReasonCodes: [...record.decision.reasonCodes],
     analysisStatus: record.analysisStatus,
+    installedVersion: record.versions.installedVersion ?? record.versions.currentVersion,
     currentVersion: record.versions.currentVersion,
     currentVersionLabel: record.versions.currentVersion === null
       ? 'unknown current version' : record.versions.currentVersion,
@@ -58,6 +66,16 @@ export function buildMigrationChecklistViewModel(checklist, { qualificationDecis
       ? `${record.versions.targetVersion ?? 'unknown'} (registry latest fact)`
       : (record.versions.targetVersion ?? 'unknown target version'),
     targetPolicy: record.versions.targetPolicy,
+    affectedAreas: structuredClone(record.handoff.affectedAreas),
+    coverage: structuredClone(record.handoff.coverage),
+    verification: structuredClone(record.handoff.verification),
+    officialEvidence: structuredClone(record.handoff.officialEvidence),
+    preconditions: structuredClone(record.handoff.preconditions),
+    recovery: structuredClone(record.handoff.recovery),
+    reviewQuestions: [...record.handoff.reviewQuestions],
+    missingInformation: structuredClone(record.handoff.missingInformation),
+    nextStep: structuredClone(record.handoff.nextStep),
+    humanReviewRequired: record.handoff.humanReviewRequired,
     findings: record.findings.map((finding) => ({
       id: finding.id,
       summary: finding.summary,
@@ -110,6 +128,8 @@ export function renderMigrationChecklistConsole({ viewModel, artifactPath }) {
     `  ${summary.findingCount} breaking findings represented`,
     `  ${summary.aiAuthoredItemCount} AI-selected official guidance items`,
     `  ${summary.candidateLocationCount} candidate review locations`,
+    `  ${summary.handoffStatusCounts.ACTIONABLE_WITH_REVIEW} actionable handoffs require review`,
+    `  ${summary.handoffStatusCounts.INVESTIGATION_REQUIRED} investigation handoffs`,
     `  ${summary.requiresHumanReviewItemCount} checklist items require human review`,
     `  Provider qualification: ${viewModel.qualification.status}`,
     `  Qualification ID: ${viewModel.qualification.qualificationId ?? 'none'}`,
@@ -154,10 +174,64 @@ function renderDependency(dependency) {
     `### ${inlineCode(dependency.name)} (${inlineCode(dependency.packageId)})`,
     '',
     `- Checklist status: ${inlineCode(dependency.status)}`,
+    `- Handoff status: ${inlineCode(dependency.handoffStatus)}`,
+    `- Upgrade decision: ${inlineCode(dependency.decisionStatus)}`,
+    `- Decision ID: ${inlineCode(dependency.decisionId)}`,
+    `- Target origin: ${inlineCode(dependency.targetOrigin)}`,
+    `- Recommendation driver: ${inlineCode(dependency.recommendationDriver ?? 'none')}`,
+    `- Manifest: ${inlineCode(dependency.manifest)}`,
+    `- Installed version: ${dependency.installedVersion ?? 'unknown'}`,
     `- Current version: ${dependency.currentVersionLabel}`,
     `- Target version: ${dependency.targetVersionLabel}`,
+    `- Usage coverage: ${inlineCode(`${dependency.coverage.status} / ${dependency.coverage.reasonCode ?? 'none'}`)}`,
+    `- Next step: ${inlineCode(dependency.nextStep.code)} — ${dependency.nextStep.message}`,
     ''
   ];
+  if (dependency.affectedAreas.length === 0) {
+    lines.push('Affected areas: none verified. This is not proof that source adaptation is unnecessary.', '');
+  } else {
+    lines.push('Affected areas to inspect before proposing a patch:');
+    for (const area of dependency.affectedAreas) {
+      lines.push(
+        `- ${inlineCode(area.file)} — symbol ${inlineCode(area.symbol)}; finding ${inlineCode(area.findingId)}; impact evidence ${inlineCode(area.impactEvidenceId)}`
+      );
+    }
+    lines.push('');
+  }
+  if (dependency.verification.status === 'AVAILABLE') {
+    lines.push('Project-derived verification commands:');
+    for (const command of dependency.verification.commands) {
+      lines.push(
+        `- ${inlineCode(command.command)} from ${inlineCode(command.source.path)}; run in ${inlineCode(command.workingDirectory)}`
+      );
+    }
+    lines.push('');
+  } else if (dependency.verification.status !== 'NOT_APPLICABLE') {
+    lines.push(`${inlineCode('VERIFICATION_COMMAND_UNAVAILABLE')}: no supported project-derived verification command is available.`, '');
+  }
+  if (dependency.officialEvidence.length > 0) {
+    lines.push('Official evidence metadata:');
+    for (const evidence of dependency.officialEvidence) {
+      lines.push(
+        `- ${inlineCode(evidence.id)} — ${evidence.kind}; `
+        + `${evidence.authority}/${evidence.trust}; `
+        + `releases ${evidence.releaseVersions.join(', ')}; locator ${inlineCode(evidence.locator)}`
+      );
+    }
+    lines.push('');
+  }
+  if (dependency.reviewQuestions.length > 0) {
+    lines.push('Investigation questions:');
+    for (const question of dependency.reviewQuestions) lines.push(`- ${question}`);
+    lines.push('');
+  }
+  if (dependency.missingInformation.length > 0) {
+    lines.push('Missing information:');
+    for (const item of dependency.missingInformation) {
+      lines.push(`- ${inlineCode(item.code)}: ${item.message}`);
+    }
+    lines.push('');
+  }
   if (dependency.findings.length === 0) lines.push('No grounded breaking-change record is available.', '');
   for (const finding of dependency.findings) {
     lines.push(
@@ -187,6 +261,8 @@ export function renderMigrationChecklistMarkdownSection({ viewModel }) {
     '> Experimental evidence-grounded checklist. Every AI-selected official guidance item requires human review.',
     '>',
     '> Checklist coverage marked COMPLETE applies only to the grounded records represented here. It does not mean the upgrade is safe or the migration is complete.',
+    '>',
+    '> Coding Agents must inspect every listed affected source area before designing or applying a patch.',
     '',
     `- Checklist status: ${inlineCode(viewModel.status)}`,
     `- Provider qualification: ${inlineCode(viewModel.qualification.status)}`,

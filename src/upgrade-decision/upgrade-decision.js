@@ -17,7 +17,7 @@ import {
 import { compareText, isSorted } from '../portable.js';
 
 export const UPGRADE_DECISION_POLICY_ID = 'deterministic-upgrade-decision';
-export const UPGRADE_DECISION_POLICY_VERSION = '1.0.0';
+export const UPGRADE_DECISION_POLICY_VERSION = '1.1.0';
 export const UPGRADE_DECISIONS = Object.freeze([
   'KEEP_CURRENT',
   'UPGRADE_NOW',
@@ -139,6 +139,7 @@ function evidenceFor(artifacts, result) {
   return {
     status: conflicted ? 'conflicted' : sufficient ? 'sufficient' : 'insufficient',
     targetScopedRefs: sortedUniqueText(targetScopedRefs),
+    hasReferencedEvidence: refs.length > 0,
     conflicted,
     stale
   };
@@ -191,6 +192,10 @@ function coverageReason(impact) {
 function providerRejected(result) {
   return [...result.humanReviewReasons, ...result.limitations.map((item) => item.code)]
     .some((value) => /PROVIDER|REJECT/i.test(value));
+}
+
+function recommendationDriverFor(result) {
+  return result.versions.targetPolicy === 'explicit' ? 'USER_SELECTED_TARGET' : null;
 }
 
 function decide(result, comparison, evidence, impact) {
@@ -310,6 +315,30 @@ function decide(result, comparison, evidence, impact) {
       limitations
     };
   }
+  if (evidence.status === 'insufficient' && evidence.hasReferencedEvidence) {
+    const reasons = ['EVIDENCE_INSUFFICIENT', ...(evidence.stale ? ['STALE_EVIDENCE'] : [])];
+    return {
+      decision: 'INSUFFICIENT_EVIDENCE',
+      primaryReasonCode: 'EVIDENCE_INSUFFICIENT',
+      reasonCodes: reasons,
+      summary: 'Referenced evidence is invalid or insufficient for an upgrade plan.',
+      limitations
+    };
+  }
+  const recommendationDriver = recommendationDriverFor(result);
+  if (recommendationDriver === null) {
+    limitations.push(limitation(
+      'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER',
+      'A newer target is available, but no verified reason to recommend upgrading was provided.'
+    ));
+    return {
+      decision: 'INVESTIGATE',
+      primaryReasonCode: 'UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER',
+      reasonCodes: ['UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER'],
+      summary: 'A newer target is available, but no structured recommendation driver is present.',
+      limitations
+    };
+  }
   if (evidence.status !== 'sufficient') {
     const reasons = ['EVIDENCE_INSUFFICIENT', ...(evidence.stale ? ['STALE_EVIDENCE'] : [])];
     return {
@@ -331,9 +360,9 @@ function decide(result, comparison, evidence, impact) {
   }
   return {
     decision: 'PLAN_UPGRADE',
-    primaryReasonCode: 'TARGET_NEWER_EVIDENCE_AVAILABLE',
-    reasonCodes: ['TARGET_NEWER_EVIDENCE_AVAILABLE'],
-    summary: `Plan an evidence-bounded upgrade to target ${versions.targetVersion}.`,
+    primaryReasonCode: recommendationDriver,
+    reasonCodes: [recommendationDriver, 'TARGET_NEWER_EVIDENCE_AVAILABLE'],
+    summary: `Plan the caller-selected, evidence-bounded upgrade to target ${versions.targetVersion}.`,
     limitations
   };
 }
@@ -342,7 +371,13 @@ function decisionRecord(artifacts, result, impactEvidence, adapters) {
   const comparison = comparisonFor(result, adapters);
   const evidence = result.status === 'analyzed'
     ? evidenceFor(artifacts, result)
-    : { status: 'notEvaluated', targetScopedRefs: [], conflicted: false, stale: false };
+    : {
+        status: 'notEvaluated',
+        targetScopedRefs: [],
+        hasReferencedEvidence: false,
+        conflicted: false,
+        stale: false
+      };
   const impact = impactFor(impactEvidence, result);
   const outcome = decide(result, comparison, evidence, impact);
   const occurrence = structuredClone(result.dependency);
@@ -518,6 +553,14 @@ export function validateUpgradeDecisionInvariants(artifact) {
     }
     if (record.decision !== 'KEEP_CURRENT' && !record.requiresHumanReview) {
       errors.push(`decision ${record.id} must require human review.`);
+    }
+    if (record.decision === 'PLAN_UPGRADE'
+        && (record.versions.targetPolicy !== 'explicit'
+          || record.versions.comparison !== 'targetNewer'
+          || record.evidence.status !== 'sufficient'
+          || record.primaryReasonCode !== 'USER_SELECTED_TARGET'
+          || !record.reasonCodes.includes('USER_SELECTED_TARGET'))) {
+      errors.push(`PLAN_UPGRADE ${record.id} lacks a structured user-selected target driver.`);
     }
     if (record.decision === 'KEEP_CURRENT'
         && record.versions.comparison === 'installedNewer'

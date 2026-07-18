@@ -17,7 +17,7 @@
     "limitations"
   ],
   "properties": {
-    "schemaVersion": { "const": "1.0.0" },
+    "schemaVersion": { "const": "2.0.0" },
     "generatedAt": { "type": "string", "format": "date-time" },
     "generator": { "$ref": "#/$defs/generator" },
     "input": { "$ref": "#/$defs/input" },
@@ -123,7 +123,8 @@
         "versionAnalysis",
         "usageIndex",
         "repositoryImpact",
-        "repositoryImpactEvidence"
+        "repositoryImpactEvidence",
+        "upgradeDecision"
       ],
       "properties": {
         "projectManifest": { "$ref": "#/$defs/projectManifestLineage" },
@@ -168,6 +169,28 @@
         "NOT_ANALYZED": { "type": "integer", "minimum": 0 }
       }
     },
+    "handoffStatusCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "NO_VERSION_CHANGE_REQUIRED",
+        "ACTIONABLE_WITH_REVIEW",
+        "INVESTIGATION_REQUIRED",
+        "INSUFFICIENT_EVIDENCE",
+        "NOT_ANALYZED",
+        "ACTION_GENERATION_FAILED",
+        "NO_GROUNDED_ACTION"
+      ],
+      "properties": {
+        "NO_VERSION_CHANGE_REQUIRED": { "type": "integer", "minimum": 0 },
+        "ACTIONABLE_WITH_REVIEW": { "type": "integer", "minimum": 0 },
+        "INVESTIGATION_REQUIRED": { "type": "integer", "minimum": 0 },
+        "INSUFFICIENT_EVIDENCE": { "type": "integer", "minimum": 0 },
+        "NOT_ANALYZED": { "type": "integer", "minimum": 0 },
+        "ACTION_GENERATION_FAILED": { "type": "integer", "minimum": 0 },
+        "NO_GROUNDED_ACTION": { "type": "integer", "minimum": 0 }
+      }
+    },
     "summary": {
       "type": "object",
       "additionalProperties": false,
@@ -180,7 +203,8 @@
         "candidateLocationCount",
         "requiresHumanReviewItemCount",
         "limitationCount",
-        "statusCounts"
+        "statusCounts",
+        "handoffStatusCounts"
       ],
       "properties": {
         "dependencyCount": { "type": "integer", "minimum": 0 },
@@ -191,7 +215,8 @@
         "candidateLocationCount": { "type": "integer", "minimum": 0 },
         "requiresHumanReviewItemCount": { "type": "integer", "minimum": 0 },
         "limitationCount": { "type": "integer", "minimum": 0 },
-        "statusCounts": { "$ref": "#/$defs/statusCounts" }
+        "statusCounts": { "$ref": "#/$defs/statusCounts" },
+        "handoffStatusCounts": { "$ref": "#/$defs/handoffStatusCounts" }
       }
     },
     "dependency": {
@@ -236,7 +261,7 @@
         "analysisMode": { "enum": ["exactBaseline", "declaredConstraint", "unsupportedBaseline"] },
         "declaredVersion": { "$ref": "#/$defs/nullableString" },
         "installedVersion": { "$ref": "#/$defs/nullableString" },
-        "installedVersionStatus": { "enum": ["resolved", "unresolved"] },
+        "installedVersionStatus": { "enum": ["resolved", "unresolved", "legacyMissing"] },
         "installedVersionSource": {
           "anyOf": [
             { "$ref": "#/$defs/installedVersionSource" },
@@ -292,6 +317,19 @@
               "installedVersion": { "type": "null" },
               "installedVersionSource": { "type": "null" },
               "installedVersionReason": { "$ref": "#/$defs/installedVersionReason" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "installedVersionStatus": { "const": "legacyMissing" } },
+            "required": ["installedVersionStatus"]
+          },
+          "then": {
+            "properties": {
+              "installedVersion": { "type": "null" },
+              "installedVersionSource": { "type": "null" },
+              "installedVersionReason": { "type": "null" }
             }
           }
         }
@@ -390,11 +428,244 @@
         "message": { "type": "string", "minLength": 1 }
       }
     },
+    "decisionProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "targetOrigin",
+        "recommendationDriver",
+        "primaryReasonCode",
+        "reasonCodes"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "KEEP_CURRENT", "UPGRADE_NOW", "PLAN_UPGRADE", "INVESTIGATE",
+            "INSUFFICIENT_EVIDENCE", "NOT_ANALYZED"
+          ]
+        },
+        "targetOrigin": { "enum": ["explicit", "registryLatest", "unknown"] },
+        "recommendationDriver": { "type": ["string", "null"], "minLength": 1 },
+        "primaryReasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "reasonCodes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" }
+        }
+      }
+    },
+    "affectedArea": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "impactEvidenceId", "findingId", "symbol", "file", "coverageStatus"
+      ],
+      "properties": {
+        "impactEvidenceId": { "$ref": "#/$defs/digest" },
+        "findingId": { "type": "string", "minLength": 1 },
+        "symbol": { "type": "string", "minLength": 1 },
+        "file": { "$ref": "#/$defs/relativePath" },
+        "coverageStatus": {
+          "enum": ["complete", "partial", "unavailable", "failed", "missing"]
+        }
+      }
+    },
+    "coverageState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasonCode"],
+      "properties": {
+        "status": { "enum": ["complete", "partial", "unavailable", "failed", "missing"] },
+        "reasonCode": { "type": ["string", "null"] }
+      }
+    },
+    "verificationSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "contentDigest", "scriptName", "packageManager"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "contentDigest": { "$ref": "#/$defs/digest" },
+        "scriptName": { "enum": ["build", "check", "lint", "test", "typecheck"] },
+        "packageManager": { "enum": ["bun", "npm", "pnpm", "yarn"] }
+      }
+    },
+    "verificationCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "command", "workingDirectory", "source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/digest" },
+        "role": { "enum": ["BUILD", "CHECK", "LINT", "TEST", "TYPECHECK"] },
+        "command": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "workingDirectory": { "$ref": "#/$defs/relativePath" },
+        "source": { "$ref": "#/$defs/verificationSource" }
+      }
+    },
+    "verificationState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "commands", "limitation"],
+      "properties": {
+        "status": {
+          "enum": ["AVAILABLE", "VERIFICATION_COMMAND_UNAVAILABLE", "NOT_APPLICABLE"]
+        },
+        "commands": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/verificationCommand" }
+        },
+        "limitation": {
+          "anyOf": [{ "$ref": "#/$defs/limitation" }, { "type": "null" }]
+        }
+      }
+    },
+    "officialEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "sourceId", "kind", "authority", "trust", "contentDigest",
+        "locator", "releaseVersions"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/digest" },
+        "sourceId": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "breakingChanges", "changelog", "compatibility", "deprecations", "migrationGuide",
+            "releaseNotes"
+          ]
+        },
+        "authority": { "enum": ["officialProject", "publisherProvided"] },
+        "trust": { "enum": ["official", "publisher"] },
+        "contentDigest": { "$ref": "#/$defs/digest" },
+        "locator": { "type": "string", "minLength": 1 },
+        "releaseVersions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "precondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "enum": [
+            "EXPLICIT_TARGET_SELECTED",
+            "TARGET_SCOPED_EVIDENCE_VALID",
+            "HUMAN_APPROVAL_REQUIRED"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidenceRefs"],
+      "properties": {
+        "status": { "const": "RECOVERY_PLAN_NOT_PROVIDED" },
+        "evidenceRefs": {
+          "type": "array",
+          "maxItems": 0,
+          "items": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "missingInformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "nextStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "enum": [
+            "NONE",
+            "COLLECT_TARGET_EVIDENCE",
+            "RESOLVE_INSTALLED_BASELINE",
+            "SELECT_OR_DISCOVER_TARGET",
+            "RERUN_VERSION_ANALYSIS",
+            "COMPLETE_HUMAN_INVESTIGATION",
+            "REVIEW_MIGRATION_HANDOFF"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "affectedAreas", "coverage", "verification", "officialEvidence", "preconditions",
+        "recovery", "reviewQuestions", "missingInformation", "nextStep",
+        "humanReviewRequired"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "NO_VERSION_CHANGE_REQUIRED",
+            "ACTIONABLE_WITH_REVIEW",
+            "INVESTIGATION_REQUIRED",
+            "INSUFFICIENT_EVIDENCE",
+            "NOT_ANALYZED",
+            "ACTION_GENERATION_FAILED",
+            "NO_GROUNDED_ACTION"
+          ]
+        },
+        "affectedAreas": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/affectedArea" }
+        },
+        "coverage": { "$ref": "#/$defs/coverageState" },
+        "verification": { "$ref": "#/$defs/verificationState" },
+        "officialEvidence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/officialEvidence" }
+        },
+        "preconditions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/precondition" }
+        },
+        "recovery": { "$ref": "#/$defs/recovery" },
+        "reviewQuestions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "missingInformation": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/missingInformation" }
+        },
+        "nextStep": { "$ref": "#/$defs/nextStep" },
+        "humanReviewRequired": { "type": "boolean" }
+      }
+    },
     "dependencyChecklist": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "analysisResultId",
+        "decisionId",
+        "decision",
+        "handoff",
         "dependency",
         "versions",
         "analysisStatus",
@@ -405,10 +676,15 @@
         "limitations"
       ],
       "properties": {
-        "analysisResultId": { "$ref": "#/$defs/digest" },
+        "analysisResultId": {
+          "anyOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }]
+        },
+        "decisionId": { "$ref": "#/$defs/digest" },
+        "decision": { "$ref": "#/$defs/decisionProjection" },
+        "handoff": { "$ref": "#/$defs/handoff" },
         "dependency": { "$ref": "#/$defs/dependency" },
         "versions": { "$ref": "#/$defs/versions" },
-        "analysisStatus": { "enum": ["analyzed", "skipped", "failed"] },
+        "analysisStatus": { "enum": ["analyzed", "skipped", "failed", "missing"] },
         "status": { "$ref": "#/$defs/checklistStatus" },
         "eligibility": { "$ref": "#/$defs/eligibility" },
         "selectedEvidenceRefs": {

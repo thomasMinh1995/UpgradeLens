@@ -202,6 +202,47 @@ Use `upgradelens --help` for all options. The command also accepts a path withou
 
 ### Experimental evidence-grounded Migration Checklist
 
+The primary workflow is decision-first:
+
+```sh
+upgradelens analyze /path/to/project
+```
+
+Without a caller-selected target, registry latest remains a candidate fact and
+does not become a recommendation. Select one or more exact dependency
+occurrences with repeatable structured targets:
+
+```sh
+upgradelens analyze /path/to/project \
+  --target 'package=npm:framework-a,target=2.0.0'
+
+upgradelens analyze /path/to/project \
+  --target 'package=npm:@scope/package,target=3.0.0,project=node:apps/web,manifest=apps/web/package.json,type=dependency'
+```
+
+Unqualified selectors that match multiple projects/workspaces fail with stable
+candidate guidance. If declarations still have the same project, manifest, and
+type, copy one exact selector from that guidance:
+
+```sh
+upgradelens analyze /path/to/project \
+  --target 'package=pypi:library-a,target=2.0.0,project=python:.,manifest=requirements.txt,type=runtime,occurrence=sha256:<candidate-id>'
+```
+
+`occurrence` is a deterministic identifier derived from portable declaration
+facts. It is optional when the existing fields already identify one
+occurrence. A stale ID or an ID combined with conflicting package/project/
+manifest/type fields fails before provider construction. Raw version
+constraints are displayed as human guidance but are not embedded in the
+comma-separated selector, so constraints containing commas, equals signs, or
+Python markers remain copy/paste safe.
+
+Targets are validated by the owning ecosystem adapter before provider
+construction. Add `--fail-on-incomplete` when CI should exit 2 for
+review-required or insufficient-data outcomes; retained provider/output
+failures always produce `PARTIAL` and exit 2. `analyze --stdout` emits only
+the machine-readable product completion summary on stdout.
+
 After the normal analysis artifacts are available through the unified pipeline, opt in with:
 
 ```sh
@@ -271,7 +312,7 @@ behavior. Activity labels are sanitized and bounded; they never contain raw
 prompts, evidence bodies, repository snippets, request headers, or provider
 error payloads.
 
-Migration Checklist does not generate source edits, code, patches, package-manager commands, dependency ordering, inferred prerequisites, rollback plans, effort estimates, numeric confidence, or upgrade-safety claims. `COMPLETE` means only that represented grounded checklist records have actionable review items. Unknown current versions remain unknown, and registry latest remains a registry fact rather than a recommendation.
+Migration Checklist does not generate source edits, code, patches, dependency ordering, inferred prerequisites, rollback plans, effort estimates, numeric confidence, or upgrade-safety claims. Schema v2 may include bounded package-manager verification commands only when they are derived deterministically from existing supported project scripts; AI cannot create or modify them. Each occurrence carries an explicit handoff status, Upgrade Decision identity, affected-area/coverage state, bounded official-evidence metadata, and human-review requirement. `COMPLETE` remains only the legacy checklist-coverage status, never migration completion. Unknown current versions remain unknown, and registry latest remains a registry fact rather than a recommendation.
 
 See [Migration Checklist orchestration](docs/mvp-05-migration-checklist-orchestration.md), [contract](docs/mvp-05-migration-checklist-contract.md), [evaluation/qualification](docs/mvp-05-migration-evaluation-and-qualification.md), and [persisted qualification resolution](docs/migration-planning-qualification-resolution.md).
 The full lifecycle, heartbeat, rendering, privacy, and cancellation behavior is

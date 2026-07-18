@@ -41,7 +41,8 @@ function lineageInput() {
     versionAnalysis: artifact('version-analysis'),
     usageIndex: artifact('usage-index'),
     repositoryImpact: artifact('repository-impact'),
-    repositoryImpactEvidence: artifact('repository-impact-evidence')
+    repositoryImpactEvidence: artifact('repository-impact-evidence'),
+    upgradeDecision: artifact('upgrade-decision')
   };
 }
 
@@ -70,6 +71,7 @@ function eligibleContext({
   locationReason = location ? 'POSITIVE_USAGE_MATCH' : 'UNSUPPORTED_USAGE_COVERAGE'
 } = {}) {
   const evidenceRefs = selectedEvidence.map((item) => item.id).sort();
+  const impactEvidenceId = digest(`impact:${suffix}`);
   return {
     contextVersion: '1',
     contextId: digest(`context:${suffix}`),
@@ -96,6 +98,53 @@ function eligibleContext({
         : { direction: 'upgrade', classification: 'major' }
     },
     analysisResultId: digest(`analysis:${suffix}`),
+    decisionId: digest(`decision:${suffix}`),
+    decision: {
+      status: 'PLAN_UPGRADE',
+      targetOrigin: targetPolicy,
+      recommendationDriver: 'USER_SELECTED_TARGET',
+      primaryReasonCode: 'USER_SELECTED_TARGET',
+      reasonCodes: ['USER_SELECTED_TARGET']
+    },
+    affectedAreas: location ? [{
+      impactEvidenceId,
+      findingId: `breaking-${suffix}`,
+      symbol: 'oldApi',
+      file: `src/${suffix}.tsx`,
+      coverageStatus: 'complete'
+    }] : [],
+    coverage: {
+      status: location ? 'complete' : 'unavailable',
+      reasonCode: location ? 'COVERAGE_COMPLETE' : 'ANALYZER_UNAVAILABLE'
+    },
+    verification: {
+      status: 'VERIFICATION_COMMAND_UNAVAILABLE',
+      commands: [],
+      limitation: {
+        code: 'VERIFICATION_COMMAND_UNAVAILABLE',
+        message: 'No supported project-derived verification command was found.'
+      }
+    },
+    officialEvidence: selectedEvidence.map((item) => ({
+      id: item.id,
+      sourceId: item.sourceId,
+      kind: item.kind,
+      authority: item.authority,
+      trust: item.trust,
+      contentDigest: item.contentDigest,
+      locator: item.locator,
+      releaseVersions: structuredClone(item.releaseVersions)
+    })).sort((left, right) => left.id.localeCompare(right.id)),
+    preconditions: [
+      { code: 'EXPLICIT_TARGET_SELECTED', message: 'The target was explicitly selected.' },
+      { code: 'TARGET_SCOPED_EVIDENCE_VALID', message: 'Target evidence is valid.' },
+      { code: 'HUMAN_APPROVAL_REQUIRED', message: 'Human approval is required.' }
+    ],
+    recovery: { status: 'RECOVERY_PLAN_NOT_PROVIDED', evidenceRefs: [] },
+    reviewQuestions: [],
+    missingInformation: [],
+    nextStep: { code: 'REVIEW_MIGRATION_HANDOFF', message: 'Review the migration handoff.' },
+    humanReviewRequired: true,
     finding: {
       id: `breaking-${suffix}`,
       kind: 'breakingChange',
@@ -106,7 +155,7 @@ function eligibleContext({
     evidence: structuredClone(selectedEvidence),
     evidenceAllowlist: evidenceRefs,
     positiveCandidateLocations: location ? [{
-      impactEvidenceId: digest(`impact:${suffix}`),
+      impactEvidenceId,
       symbol: 'oldApi',
       file: `src/${suffix}.tsx`
     }] : [],
@@ -180,6 +229,23 @@ function prepared(contexts = [], fallbackRecords = []) {
       conflictedEvidence: 0
     }
   };
+}
+
+function recordHandoff(context) {
+  return Object.fromEntries([
+    'decisionId',
+    'decision',
+    'affectedAreas',
+    'coverage',
+    'verification',
+    'officialEvidence',
+    'preconditions',
+    'recovery',
+    'reviewQuestions',
+    'missingInformation',
+    'nextStep',
+    'humanReviewRequired'
+  ].map((field) => [field, structuredClone(context[field])]));
 }
 
 test('prompt is task-specific, bounded, and excludes URLs, locations, repository source, and provider config', () => {
@@ -417,6 +483,7 @@ test('MP-02 fallbacks are preserved and never sent to AI, including merge with a
   const context = eligibleContext({ suffix: 'merge' });
   const fallbackRecord = {
     analysisResultId: context.analysisResultId,
+    ...recordHandoff(context),
     dependency: structuredClone(context.dependency),
     versions: structuredClone(context.versions),
     analysisStatus: 'analyzed',

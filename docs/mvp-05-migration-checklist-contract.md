@@ -4,7 +4,7 @@
 
 `.upgradelens/migration-checklist.json` is a versioned, provider-neutral, human-review artifact. It records evidence-grounded review actions and deterministic fallback records. It is not an autonomous migration plan, safety certificate, patch, command runner, or migration execution log.
 
-The initial schema is [`migration-checklist.schema.json`](../schemas/migration-checklist.schema.json), version `1.0.0`. MP-01 provides a pure builder, schema validator, invariant validator, stable item IDs, deterministic serialization, and grounding/eligibility policy. MP-02 exact-byte loading and upstream joins are documented in [`mvp-05-deterministic-context-runtime.md`](./mvp-05-deterministic-context-runtime.md).
+The current schema is [`migration-checklist.schema.json`](../schemas/migration-checklist.schema.json), version `2.0.0`. Version 2 adds the MP-R04 deterministic Migration Handoff projection while preserving the extractive action boundary. Version 1 artifacts are legacy, non-actionable, and must be regenerated. MP-01 provides a pure builder, schema validator, invariant validator, stable item IDs, deterministic serialization, and grounding/eligibility policy. MP-02 exact-byte loading and upstream joins are documented in [`mvp-05-deterministic-context-runtime.md`](./mvp-05-deterministic-context-runtime.md).
 
 `COMPLETE` never means “migration complete” or “safe to upgrade.” It only means all dependency checklist records in the normalized valid input contain structurally grounded actionable records.
 
@@ -12,7 +12,7 @@ The initial schema is [`migration-checklist.schema.json`](../schemas/migration-c
 
 The artifact contains `schemaVersion`, `generatedAt`, `generator`, repository identity, overall `status`, summary, dependency records, and limitations. `generatedAt` is mandatory input to `buildMigrationChecklist`; the builder does not read the clock.
 
-`input` records the schema version, portable artifact path, and exact-byte digest for all seven required artifacts:
+`input` records the schema version, portable artifact path, and exact-byte digest for all eight required artifacts:
 
 - Project Manifest, including repository identity;
 - Knowledge Manifest, including `researchId`;
@@ -21,6 +21,27 @@ The artifact contains `schemaVersion`, `generatedAt`, `generator`, repository id
 - Usage Index;
 - Repository Impact;
 - Repository Impact Evidence.
+- Upgrade Decision.
+
+Every dependency occurrence also contains a deterministic handoff projection:
+
+- authoritative decision ID, decision status, target origin, reason codes, and
+  recommendation driver;
+- one of `NO_VERSION_CHANGE_REQUIRED`, `ACTIONABLE_WITH_REVIEW`,
+  `INVESTIGATION_REQUIRED`, `INSUFFICIENT_EVIDENCE`, `NOT_ANALYZED`,
+  `ACTION_GENERATION_FAILED`, or `NO_GROUNDED_ACTION`;
+- verified affected areas and coverage state;
+- bounded official-evidence metadata (stable evidence/source identity, kind,
+  authority, trust, content digest, locator, and release scope; never raw
+  evidence text or provider-owned provenance);
+- project-derived verification commands or
+  `VERIFICATION_COMMAND_UNAVAILABLE`;
+- structured preconditions, explicit recovery unavailability, human-review
+  state, investigation questions, evidence gaps, and next step.
+
+Only `PLAN_UPGRADE` and `UPGRADE_NOW` may contain AI-selected migration
+instructions. Registry-discovered targets, keep decisions, evidence gaps, and
+not-analyzed occurrences never enter action generation.
 
 MP-01 validates the lineage object shape and repository identity consistency. MP-02 calculates these digests from exact input bytes and verifies cross-artifact lineage before calling the builder. MP-03 generation and trust validation are documented in [`mvp-05-provider-neutral-generator.md`](./mvp-05-provider-neutral-generator.md). MP-04 task-specific gates are documented in [`mvp-05-migration-evaluation-and-qualification.md`](./mvp-05-migration-evaluation-and-qualification.md).
 
@@ -128,7 +149,7 @@ The schema has no fields for dependency ordering, inferred prerequisites, genera
 
 ### MP-02 — deterministic loader and context
 
-Implemented as a separate read-only runtime. It validates all seven exact-byte artifacts, the full lineage/reference graph, bounded official evidence, independent action/location eligibility, immutable MP-03 contexts, and MP-01-compatible deterministic fallbacks.
+Implemented as a separate read-only runtime. It validates the seven legacy exact-byte artifacts plus persisted authoritative Upgrade Decision, the full lineage/reference graph, bounded official evidence, independent action/location eligibility, immutable MP-03 contexts, and MP-01-compatible deterministic fallbacks.
 
 ### MP-03 — generator and trust validation
 

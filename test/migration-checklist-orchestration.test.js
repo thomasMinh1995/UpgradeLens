@@ -105,15 +105,76 @@ function createExtractiveFixtureRuntime(cases) {
   };
 }
 
+function handoffContext(context) {
+  const affectedAreas = context.positiveCandidateLocations.map((location) => ({
+    ...structuredClone(location),
+    findingId: context.finding.id,
+    coverageStatus: context.locationEligibility.reasonCode === 'UNSUPPORTED_USAGE_COVERAGE'
+      ? 'unavailable' : 'complete'
+  }));
+  return {
+    ...context,
+    decisionId: context.contextId,
+    decision: {
+      status: 'PLAN_UPGRADE',
+      targetOrigin: 'explicit',
+      recommendationDriver: 'USER_SELECTED_TARGET',
+      primaryReasonCode: 'USER_SELECTED_TARGET',
+      reasonCodes: ['USER_SELECTED_TARGET']
+    },
+    affectedAreas,
+    coverage: {
+      status: affectedAreas.length > 0 ? 'complete' : 'unavailable',
+      reasonCode: affectedAreas.length > 0 ? 'COVERAGE_COMPLETE' : 'ANALYZER_UNAVAILABLE'
+    },
+    verification: {
+      status: 'VERIFICATION_COMMAND_UNAVAILABLE',
+      commands: [],
+      limitation: {
+        code: 'VERIFICATION_COMMAND_UNAVAILABLE',
+        message: 'No supported project-derived verification command was found.'
+      }
+    },
+    officialEvidence: context.evidence.map((item) => ({
+      id: item.id,
+      sourceId: item.sourceId,
+      kind: item.kind,
+      authority: item.authority,
+      trust: item.trust,
+      contentDigest: item.contentDigest,
+      locator: item.locator,
+      releaseVersions: structuredClone(item.releaseVersions)
+    })).sort((left, right) => left.id.localeCompare(right.id)),
+    preconditions: [
+      { code: 'EXPLICIT_TARGET_SELECTED', message: 'The target was explicitly selected.' },
+      { code: 'TARGET_SCOPED_EVIDENCE_VALID', message: 'Target evidence is valid.' },
+      { code: 'HUMAN_APPROVAL_REQUIRED', message: 'Human approval is required.' }
+    ],
+    recovery: { status: 'RECOVERY_PLAN_NOT_PROVIDED', evidenceRefs: [] },
+    reviewQuestions: [],
+    missingInformation: [],
+    nextStep: { code: 'REVIEW_MIGRATION_HANDOFF', message: 'Review the migration handoff.' },
+    humanReviewRequired: true
+  };
+}
+
 async function fixture(ids = ['generic/ambiguous-evidence', 'node/multi-action']) {
   const loaded = await loadMigrationEvaluationDataset();
   const dataset = coreDataset(loaded);
   const cases = ids.map((id) => dataset.cases.find((item) => item.id === id));
   const first = buildMigrationEvaluationPrepared(cases[0]);
+  const input = {
+    ...structuredClone(first.input),
+    upgradeDecision: {
+      schemaVersion: '1.0.0',
+      artifact: '.upgradelens/upgrade-decision.json',
+      artifactDigest: first.eligibleContexts[0].contextId
+    }
+  };
   const prepared = {
     contextVersion: first.contextVersion,
-    input: structuredClone(first.input),
-    eligibleContexts: cases.map(buildMigrationEvaluationContext),
+    input,
+    eligibleContexts: cases.map(buildMigrationEvaluationContext).map(handoffContext),
     fallbackRecords: [],
     summary: {
       totalFindings: cases.length,
@@ -515,8 +576,8 @@ test('stage remains correct without a listener and fatal preparation failure wri
     { code: 'ENOENT' });
 });
 
-test('presentation is deterministic, truth-preserving, and handles unknown/registry-latest facts', async () => {
-  const { checklist, qualification } = await assembled(['python/unknown-registry-action']);
+test('presentation is deterministic and truth-preserving for an explicit reviewed handoff', async () => {
+  const { checklist, qualification } = await assembled(['python/unsupported-usage-action']);
   const before = structuredClone(checklist);
   const viewModel = buildMigrationChecklistViewModel(checklist, {
     qualificationDecision: qualification
@@ -536,8 +597,7 @@ test('presentation is deterministic, truth-preserving, and handles unknown/regis
   assert.match(consoleOutput, /Experimental override: YES/);
   assert.match(consoleOutput, /Human review required: YES/);
   assert.match(markdown, /AI-selected official guidance — requires human review/);
-  assert.match(markdown, /unknown current version/);
-  assert.match(markdown, /registry latest fact/);
+  assert.match(markdown, /Current version: 1\.0\.0/);
   assert.match(markdown, /does not mean the upgrade is safe or the migration is complete/);
   assert.doesNotMatch(markdown, /recommended target|fixes generated|migration ready|verified action/i);
 });

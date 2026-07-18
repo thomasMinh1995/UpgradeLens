@@ -2,7 +2,7 @@
 
 ## Scope
 
-MP-05 closes the experimental application path from the seven validated UpgradeLens artifacts to `.upgradelens/migration-checklist.json`, console output, and the existing Markdown report. It does not broaden the MP-01 through MP-04 trust boundary and does not enable Migration Checklist by default.
+MP-05 closes the experimental application path from the validated UpgradeLens artifacts, including persisted Upgrade Decision, to `.upgradelens/migration-checklist.json`, console output, and the existing Markdown report. MP-R04 upgrades that artifact to the evidence-bounded Migration Handoff contract without broadening the extractive or qualification boundary. Migration Checklist remains disabled by default.
 
 The command is explicit:
 
@@ -10,12 +10,12 @@ The command is explicit:
 upgradelens analyze <repository> --experimental-migration-checklist
 ```
 
-Without the flag, the existing seven-stage analysis pipeline is unchanged, no migration qualification is required, and no Migration Checklist artifact is created.
+Without the flag, the default analysis pipeline is unchanged, no migration qualification is required, and no Migration Checklist artifact is created.
 
 ## Runtime flow
 
 ```text
-Seven exact-byte artifacts
+Seven legacy exact-byte artifacts + persisted Upgrade Decision
         ↓
 MP-02 context preparation and deterministic fallbacks
         ↓
@@ -97,6 +97,9 @@ Current limitations remain visible:
 - exact excerpts do not prove semantic entailment;
 - leading-dash flags and unsupported plain-language instructions expose known lexical/semantic gaps;
 - Usage Analyzer coverage is global rather than per project and Python has no usage analyzer;
+- verification extraction is currently limited to safe generic Node package
+  script roles and never executes them;
+- no structured recovery instruction is currently available;
 - progress UX is intentionally basic pending RR-02.
 
 RR-01 should validate the complete artifact pipeline on representative repositories. RR-02 should review interactive wording, density, failure diagnostics, and developer ergonomics. Real-provider enablement requires separate provider portability validation and task-specific qualification.

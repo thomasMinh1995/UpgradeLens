@@ -34,7 +34,8 @@ const compareDependencies = (left, right) => (
   || compareText(left.dependency.packageId, right.dependency.packageId)
   || compareText(left.versions.declaredVersion ?? '', right.versions.declaredVersion ?? '')
   || compareText(left.versions.targetVersion ?? '', right.versions.targetVersion ?? '')
-  || compareText(left.analysisResultId, right.analysisResultId)
+  || compareText(left.analysisResultId ?? '', right.analysisResultId ?? '')
+  || compareText(left.decisionId ?? '', right.decisionId ?? '')
 );
 const compareFindings = (left, right) => compareText(left.id, right.id);
 const compareItems = (left, right) => compareText(left.id, right.id);
@@ -45,6 +46,18 @@ const compareLocations = (left, right) => (
 );
 const compareLimitations = (left, right) => (
   compareText(left.code, right.code) || compareText(left.message, right.message)
+);
+const compareAffectedAreas = (left, right) => (
+  compareText(left.impactEvidenceId, right.impactEvidenceId)
+  || compareText(left.findingId, right.findingId)
+  || compareText(left.symbol, right.symbol)
+  || compareText(left.file, right.file)
+);
+const compareVerificationCommands = (left, right) => (
+  compareText(left.role, right.role)
+  || compareText(left.workingDirectory, right.workingDirectory)
+  || compareText(left.command, right.command)
+  || compareText(left.id, right.id)
 );
 
 function digest(value) {
@@ -132,6 +145,18 @@ function checklistSummary(dependencies, limitations) {
     status,
     dependencies.filter((dependency) => dependency.status === status).length
   ]));
+  const handoffStatusCounts = Object.fromEntries([
+    'NO_VERSION_CHANGE_REQUIRED',
+    'ACTIONABLE_WITH_REVIEW',
+    'INVESTIGATION_REQUIRED',
+    'INSUFFICIENT_EVIDENCE',
+    'NOT_ANALYZED',
+    'ACTION_GENERATION_FAILED',
+    'NO_GROUNDED_ACTION'
+  ].map((status) => [
+    status,
+    dependencies.filter((dependency) => dependency.handoff.status === status).length
+  ]));
   return {
     dependencyCount: dependencies.length,
     findingCount: findings.length,
@@ -142,7 +167,8 @@ function checklistSummary(dependencies, limitations) {
     requiresHumanReviewItemCount: items.filter((item) => item.requiresHumanReview).length,
     limitationCount: limitations.length
       + dependencies.reduce((count, dependency) => count + dependency.limitations.length, 0),
-    statusCounts
+    statusCounts,
+    handoffStatusCounts
   };
 }
 
@@ -195,6 +221,59 @@ function normalizeFinding(analysisResultId, finding) {
   };
 }
 
+const GENERATION_FAILURE_CODES = new Set([
+  'AI_RUNTIME_FAILED',
+  'EVIDENCE_REFERENCE_INVALID',
+  'OUTPUT_JSON_INVALID',
+  'OUTPUT_SCHEMA_INVALID',
+  'OUTPUT_SEMANTICS_INVALID',
+  'PROHIBITED_CAPABILITY',
+  'SUPPORTING_EXCERPT_INVALID',
+  'TRUST_VALIDATION_REJECTED'
+]);
+
+function handoffStatus(record, findings) {
+  const decision = record.decision.status;
+  if (decision === 'KEEP_CURRENT') return 'NO_VERSION_CHANGE_REQUIRED';
+  if (decision === 'INVESTIGATE') return 'INVESTIGATION_REQUIRED';
+  if (decision === 'INSUFFICIENT_EVIDENCE') return 'INSUFFICIENT_EVIDENCE';
+  if (decision === 'NOT_ANALYZED') return 'NOT_ANALYZED';
+  const hasFailure = record.limitations.some((item) => GENERATION_FAILURE_CODES.has(item.code));
+  if (hasFailure) return 'ACTION_GENERATION_FAILED';
+  const hasAction = findings.some((finding) => finding.items.some((item) => (
+    item.kind === 'REVIEW_MIGRATION_INSTRUCTION' && item.basis === 'AI_AUTHORED'
+  )));
+  return hasAction ? 'ACTIONABLE_WITH_REVIEW' : 'NO_GROUNDED_ACTION';
+}
+
+function normalizeVerification(record) {
+  if (!['PLAN_UPGRADE', 'UPGRADE_NOW'].includes(record.decision.status)) {
+    return { status: 'NOT_APPLICABLE', commands: [], limitation: null };
+  }
+  const verification = structuredClone(record.verification);
+  verification.commands.sort(compareVerificationCommands);
+  return verification;
+}
+
+function normalizeHandoff(record, findings) {
+  return {
+    status: handoffStatus(record, findings),
+    affectedAreas: structuredClone(record.affectedAreas).sort(compareAffectedAreas),
+    coverage: structuredClone(record.coverage),
+    verification: normalizeVerification(record),
+    officialEvidence: structuredClone(record.officialEvidence)
+      .sort((left, right) => compareText(left.id, right.id)),
+    preconditions: structuredClone(record.preconditions)
+      .sort((left, right) => compareText(left.code, right.code)),
+    recovery: structuredClone(record.recovery),
+    reviewQuestions: [...record.reviewQuestions].sort(compareText),
+    missingInformation: structuredClone(record.missingInformation)
+      .sort((left, right) => compareText(left.code, right.code)),
+    nextStep: structuredClone(record.nextStep),
+    humanReviewRequired: record.humanReviewRequired
+  };
+}
+
 function normalizeDependency(record) {
   const findings = (record.findings ?? [])
     .map((finding) => normalizeFinding(record.analysisResultId, finding))
@@ -202,6 +281,12 @@ function normalizeDependency(record) {
   const state = expectedDependencyState(record.analysisStatus, findings);
   return {
     analysisResultId: record.analysisResultId,
+    decisionId: record.decisionId,
+    decision: {
+      ...structuredClone(record.decision),
+      reasonCodes: sortedText(record.decision.reasonCodes)
+    },
+    handoff: normalizeHandoff(record, findings),
     dependency: structuredClone(record.dependency),
     versions: structuredClone(record.versions),
     analysisStatus: record.analysisStatus,
@@ -249,6 +334,90 @@ function validateVersionSemantics(record, errors) {
     )
   ) {
     errors.push(`Dependency ${record.analysisResultId} has inconsistent unresolved installed-version fields.`);
+  } else if (
+    versions.installedVersionStatus === 'legacyMissing'
+    && (
+      versions.installedVersion !== null
+      || versions.installedVersionSource !== null
+      || versions.installedVersionReason !== null
+      || record.analysisResultId !== null
+    )
+  ) {
+    errors.push(`Dependency ${record.decisionId} has inconsistent legacy installed-version fields.`);
+  }
+}
+
+function verificationCommandId(command) {
+  const { id, ...material } = command;
+  return digest(material);
+}
+
+function validateHandoff(record, errors) {
+  const expectedStatus = handoffStatus({
+    ...record,
+    limitations: record.limitations
+  }, record.findings);
+  if (record.handoff.status !== expectedStatus) {
+    errors.push(`Dependency ${record.decisionId} handoff status is inconsistent.`);
+  }
+  if (!isSorted(record.decision.reasonCodes, compareText)) {
+    errors.push(`Dependency ${record.decisionId} decision reason codes must be sorted.`);
+  }
+  if (!record.decision.reasonCodes.includes(record.decision.primaryReasonCode)) {
+    errors.push(`Dependency ${record.decisionId} decision primary reason is not present.`);
+  }
+  if (record.decision.targetOrigin !== record.versions.targetPolicy) {
+    errors.push(`Dependency ${record.decisionId} target origin differs from version facts.`);
+  }
+  const migrationDecision = ['PLAN_UPGRADE', 'UPGRADE_NOW'].includes(record.decision.status);
+  const aiActions = record.findings.flatMap((finding) => finding.items)
+    .filter((item) => item.basis === 'AI_AUTHORED');
+  if (!migrationDecision && aiActions.length > 0) {
+    errors.push(`Dependency ${record.decisionId} has AI action under a non-actionable decision.`);
+  }
+  if (record.decision.status === 'PLAN_UPGRADE'
+      && (record.decision.targetOrigin !== 'explicit'
+        || record.decision.recommendationDriver !== 'USER_SELECTED_TARGET')) {
+    errors.push(`Dependency ${record.decisionId} PLAN_UPGRADE lacks explicit target intent.`);
+  }
+  if (record.decision.status !== 'PLAN_UPGRADE'
+      && record.decision.status !== 'UPGRADE_NOW'
+      && record.decision.recommendationDriver !== null) {
+    errors.push(`Dependency ${record.decisionId} has a recommendation driver on a non-actionable decision.`);
+  }
+  if (!isSorted(record.handoff.affectedAreas, compareAffectedAreas)) {
+    errors.push(`Dependency ${record.decisionId} affected areas must be sorted.`);
+  }
+  if (!isSorted(record.handoff.verification.commands, compareVerificationCommands)) {
+    errors.push(`Dependency ${record.decisionId} verification commands must be sorted.`);
+  }
+  if (!isSorted(record.handoff.officialEvidence, (left, right) => compareText(left.id, right.id))) {
+    errors.push(`Dependency ${record.decisionId} official evidence must be sorted.`);
+  }
+  const selectedEvidence = new Set(record.selectedEvidenceRefs);
+  if (record.handoff.officialEvidence.some((item) => !selectedEvidence.has(item.id))) {
+    errors.push(`Dependency ${record.decisionId} handoff contains unselected official evidence.`);
+  }
+  if (!migrationDecision && record.handoff.verification.status !== 'NOT_APPLICABLE') {
+    errors.push(`Dependency ${record.decisionId} has migration verification under a non-actionable decision.`);
+  }
+  if (record.handoff.verification.status === 'AVAILABLE'
+      && record.handoff.verification.commands.length === 0) {
+    errors.push(`Dependency ${record.decisionId} available verification has no commands.`);
+  }
+  if (record.handoff.verification.status === 'VERIFICATION_COMMAND_UNAVAILABLE'
+      && (record.handoff.verification.commands.length > 0
+        || record.handoff.verification.limitation?.code !== 'VERIFICATION_COMMAND_UNAVAILABLE')) {
+    errors.push(`Dependency ${record.decisionId} unavailable verification is inconsistent.`);
+  }
+  for (const command of record.handoff.verification.commands) {
+    if (command.id !== verificationCommandId(command)) {
+      errors.push(`Verification command ${command.id} does not have a stable id.`);
+    }
+  }
+  if (record.handoff.recovery.status !== 'RECOVERY_PLAN_NOT_PROVIDED'
+      || record.handoff.recovery.evidenceRefs.length > 0) {
+    errors.push(`Dependency ${record.decisionId} has an unsupported recovery plan.`);
   }
 }
 
@@ -372,8 +541,13 @@ export function validateMigrationChecklistInvariants(checklist) {
     errors.push('repository identity must match Project Manifest lineage.');
   }
 
-  for (const duplicate of duplicateValues(dependencies.map((record) => record.analysisResultId))) {
+  for (const duplicate of duplicateValues(dependencies
+    .map((record) => record.analysisResultId)
+    .filter((value) => value !== null))) {
     errors.push(`Duplicate dependency checklist analysis result id ${duplicate}.`);
+  }
+  for (const duplicate of duplicateValues(dependencies.map((record) => record.decisionId))) {
+    errors.push(`Duplicate dependency handoff decision id ${duplicate}.`);
   }
 
   const globalItemIds = new Set();
@@ -398,6 +572,7 @@ export function validateMigrationChecklistInvariants(checklist) {
       errors.push(`Dependency ${record.analysisResultId} has duplicate finding id ${duplicate}.`);
     }
     validateVersionSemantics(record, errors);
+    validateHandoff(record, errors);
     for (const finding of record.findings) validateFinding(record, finding, globalItemIds, errors);
   }
 
