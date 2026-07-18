@@ -36,6 +36,13 @@ export {
 export { discoverProject } from './discovery.js';
 export { loadProjectManifestInput } from './project-manifest-input.js';
 export { createUsageAnalyzerRegistry } from './usage/analyzer-registry.js';
+export {
+  USAGE_COVERAGE_REASON_CODES,
+  USAGE_COVERAGE_STATUSES,
+  buildProjectUsageCoverage,
+  coverageForProject,
+  unavailableLegacyCoverage
+} from './usage/coverage.js';
 export { UsageDiscoveryInputError, loadUsageDiscoveryInputs } from './usage/input-loader.js';
 export {
   JAVASCRIPT_SOURCE_EXTENSIONS,
@@ -64,6 +71,12 @@ export {
   validateRepositoryImpact,
   validateRepositoryImpactInvariants
 } from './impact/repository-impact.js';
+export {
+  REPOSITORY_IMPACT_REASON_CODES,
+  REPOSITORY_IMPACT_STATUSES,
+  classifyDependencyImpact,
+  classifyFindingImpact
+} from './impact/status.js';
 export { analyzeRepositoryImpact, runImpactAnalysis } from './impact/runtime.js';
 export { serializeRepositoryImpact, writeRepositoryImpact } from './impact/writer.js';
 export { ImpactEvidenceInputError, loadImpactEvidenceInputs } from './impact-evidence/input-loader.js';

@@ -31,6 +31,20 @@ function capture() {
 }
 
 function reportArtifacts() {
+  const usageCoverage = {
+    projectId: 'node:.',
+    projectPath: '.',
+    ecosystem: 'node',
+    status: 'complete',
+    analyzer: { id: 'javascript-typescript', version: '1.0.0' },
+    scannedFileCount: 2,
+    analyzedFileCount: 2,
+    parseFailureCount: 0,
+    analyzerFailureCount: 0,
+    unreadableFileCount: 0,
+    scanFailureCount: 0,
+    reasonCode: 'COVERAGE_COMPLETE'
+  };
   return {
     projectManifest: { repository: { name: 'VinGrade', root: '.' } },
     versionAnalysis: {
@@ -75,12 +89,17 @@ function reportArtifacts() {
           packageId: 'npm:antd',
           name: 'antd',
           impacted: true,
+          status: 'IMPACTED',
+          reasonCode: 'EXACT_SYMBOL_USAGE_FOUND',
+          coverage: structuredClone(usageCoverage),
           findings: [
             {
               id: 'modal-removed',
               kind: 'breakingChange',
               summary: 'Modal was removed.',
               impacted: true,
+              status: 'IMPACTED',
+              reasonCode: 'EXACT_SYMBOL_USAGE_FOUND',
               matches: [{ symbol: 'Modal', files: ['src/Dialog.tsx', 'src/Home.tsx'] }]
             }
           ]
@@ -91,12 +110,17 @@ function reportArtifacts() {
           packageId: 'npm:lodash',
           name: 'lodash',
           impacted: false,
+          status: 'NOT_IMPACTED',
+          reasonCode: 'NO_EXACT_SYMBOL_USAGE_FOUND',
+          coverage: structuredClone(usageCoverage),
           findings: [
             {
               id: 'map-removed',
               kind: 'breakingChange',
               summary: 'map was removed.',
               impacted: false,
+              status: 'NOT_IMPACTED',
+              reasonCode: 'NO_EXACT_SYMBOL_USAGE_FOUND',
               matches: []
             }
           ]
@@ -113,10 +137,13 @@ function reportArtifacts() {
         usageRecordCount: 2,
         affectedFileCount: 2,
         reasonCounts: {
-          DEPENDENCY_NOT_USED: 1,
+          DEPENDENCY_NOT_USED: 0,
           EXACT_SYMBOL_USAGE_FOUND: 1,
-          NO_EXACT_SYMBOL_USAGE_FOUND: 0,
-          NO_MATCHABLE_SYMBOL_FOUND: 0
+          NO_EXACT_SYMBOL_USAGE_FOUND: 1,
+          NO_MATCHABLE_SYMBOL_FOUND: 0,
+          USAGE_NOT_FOUND: 0,
+          COVERAGE_UNAVAILABLE: 0,
+          NOT_ANALYZED: 0
         }
       },
       dependencies: [
@@ -126,6 +153,9 @@ function reportArtifacts() {
           packageId: 'npm:antd',
           name: 'antd',
           impacted: true,
+          status: 'IMPACTED',
+          reasonCode: 'EXACT_SYMBOL_USAGE_FOUND',
+          coverage: structuredClone(usageCoverage),
           findings: [
             {
               id: 'evidence-modal',
@@ -133,6 +163,7 @@ function reportArtifacts() {
               kind: 'breakingChange',
               summary: 'Modal was removed.',
               impacted: true,
+              status: 'IMPACTED',
               reasonCode: 'EXACT_SYMBOL_USAGE_FOUND',
               matchedSymbols: [
                 {
@@ -149,6 +180,9 @@ function reportArtifacts() {
           packageId: 'npm:lodash',
           name: 'lodash',
           impacted: false,
+          status: 'NOT_IMPACTED',
+          reasonCode: 'NO_EXACT_SYMBOL_USAGE_FOUND',
+          coverage: structuredClone(usageCoverage),
           findings: [
             {
               id: 'evidence-map',
@@ -156,7 +190,8 @@ function reportArtifacts() {
               kind: 'breakingChange',
               summary: 'map was removed.',
               impacted: false,
-              reasonCode: 'DEPENDENCY_NOT_USED',
+              status: 'NOT_IMPACTED',
+              reasonCode: 'NO_EXACT_SYMBOL_USAGE_FOUND',
               matchedSymbols: []
             }
           ]
@@ -309,6 +344,8 @@ test('Markdown and console renderers are deterministic and do not mutate busines
     'Requires human review: 0', '',
     'Impacted: 1',
     'Not impacted: 1',
+    'Usage not found: 0',
+    'Coverage unavailable: 0',
     'Not analyzed: 0', '',
     'Breaking findings: 2',
     'Evidence records: 2', '',

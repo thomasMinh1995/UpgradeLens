@@ -1,11 +1,8 @@
 import { createHash } from 'node:crypto';
 
 import { canonicalJsonBytes } from '../canonical-json.js';
-import {
-  JAVASCRIPT_USAGE_ANALYZER_ID,
-  JAVASCRIPT_USAGE_ANALYZER_VERSION
-} from '../usage/js/analyzer.js';
 import { compareText } from '../portable.js';
+import { coverageForProject } from '../usage/coverage.js';
 import { migrationChecklistEligibility } from './grounding-policy.js';
 import { loadMigrationChecklistInputs } from './input-loader.js';
 
@@ -254,23 +251,22 @@ function positiveLocations(impactEvidenceFinding) {
 }
 
 function projectUsageCoverageSupported(artifacts, result) {
-  const project = artifacts.projectManifest.projects.find((item) => item.id === result.dependency.projectId);
-  return project?.ecosystem === 'node'
-    && artifacts.projectManifest.projects.length === 1
-    && artifacts.usageIndex.analysis.analyzers.some((analyzer) => (
-      analyzer.id === JAVASCRIPT_USAGE_ANALYZER_ID
-      && analyzer.version === JAVASCRIPT_USAGE_ANALYZER_VERSION
-    ))
-    && artifacts.usageIndex.analysis.scannedFileCount === artifacts.usageIndex.analysis.analyzedFileCount
-    && artifacts.usageIndex.warnings.length === 0;
+  return coverageForProject(
+    artifacts.usageIndex,
+    result.dependency.projectId,
+    result.dependency.ecosystem
+  ).status === 'complete';
 }
 
-function locationEligibility(artifacts, result, locations) {
+function locationEligibility(artifacts, result, locations, impactEvidenceFinding) {
   if (result.status !== 'analyzed') {
     return { status: 'INELIGIBLE', reasonCode: 'NOT_ANALYZED' };
   }
   if (locations.length > 0) {
     return { status: 'ELIGIBLE', reasonCode: 'POSITIVE_USAGE_MATCH' };
+  }
+  if (impactEvidenceFinding?.status === 'COVERAGE_UNAVAILABLE') {
+    return { status: 'REVIEW_REQUIRED', reasonCode: 'UNSUPPORTED_USAGE_COVERAGE' };
   }
   if (projectUsageCoverageSupported(artifacts, result)) {
     return { status: 'REVIEW_REQUIRED', reasonCode: 'NO_POSITIVE_USAGE_MATCH' };
@@ -481,7 +477,7 @@ export function buildMigrationTaskContexts(artifacts, options = {}) {
       });
       const impactFinding = evidenceByResult.get(result.id)?.get(finding.id);
       const locations = positiveLocations(impactFinding);
-      const locationState = locationEligibility(artifacts, result, locations);
+      const locationState = locationEligibility(artifacts, result, locations, impactFinding);
       const limitations = sortedUniqueLimitations([
         ...classificationLimitations(result, resolvedEvidence, eligibility, summaryWithinBounds),
         ...locationLimitations(locationState)

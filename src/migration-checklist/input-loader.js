@@ -17,10 +17,15 @@ import {
   isMatchableUsageSymbol,
   matchFindingToUsage
 } from '../impact/matcher.js';
+import {
+  classifyDependencyImpact,
+  classifyFindingImpact
+} from '../impact/status.js';
 import { validateRepositoryImpact } from '../impact/repository-impact.js';
 import { isPortableRelativePath } from '../portable.js';
 import { loadProjectManifestInput } from '../project-manifest-input.js';
 import { validateUsageIndex } from '../usage/usage-index.js';
+import { coverageForProject } from '../usage/coverage.js';
 import {
   DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH,
   loadKnowledgeEvidenceBundleInput,
@@ -376,6 +381,13 @@ function validateUsageReferences(artifacts) {
       fail(`Usage Index dependency ${usage.projectId}/${usage.packageId} has no exact Version Analysis identity.`, 'REFERENCE_MISMATCH');
     }
   }
+  const projects = new Map(artifacts.projectManifest.projects.map((project) => [project.id, project]));
+  for (const coverage of artifacts.usageIndex.analysis.coverage ?? []) {
+    const project = projects.get(coverage.projectId);
+    if (!project || project.path !== coverage.projectPath || project.ecosystem !== coverage.ecosystem) {
+      fail(`Usage Index coverage ${coverage.projectId} has no exact Project Manifest identity.`, 'REFERENCE_MISMATCH');
+    }
+  }
 }
 
 function validateImpactReferences(artifacts) {
@@ -407,16 +419,42 @@ function validateImpactReferences(artifacts) {
       fail(`Repository Impact finding count differs for result ${dependency.analysisResultId}.`, 'REFERENCE_MISMATCH');
     }
     const usage = usages.get(`${dependency.projectId}\0${dependency.packageId}`) ?? null;
+    const coverage = dependency.coverage ?? coverageForProject(
+      artifacts.usageIndex,
+      dependency.projectId,
+      result.dependency.ecosystem
+    );
     const impacts = new Map(dependency.findings.map((finding) => [finding.id, finding]));
     for (const finding of expectedFindings) {
       const impact = impacts.get(finding.id);
       const expectedMatches = matchFindingToUsage(finding, usage);
+      const expectedState = classifyFindingImpact({
+        versionStatus: result.status,
+        coverage,
+        usage,
+        matches: expectedMatches
+      });
       if (!impact
           || impact.kind !== finding.kind
           || impact.summary !== finding.summary
           || impact.impacted !== (expectedMatches.length > 0)
+          || (impact.status !== undefined
+            && (impact.status !== expectedState.status || impact.reasonCode !== expectedState.reasonCode))
           || !sameJson(impact.matches, expectedMatches)) {
         fail(`Repository Impact finding ${dependency.analysisResultId}/${finding.id} is inconsistent with Version Analysis or Usage Index.`, 'REFERENCE_MISMATCH');
+      }
+    }
+    if (dependency.status !== undefined) {
+      const expectedState = classifyDependencyImpact({
+        versionStatus: result.status,
+        coverage,
+        usage,
+        findings: dependency.findings
+      });
+      if (dependency.status !== expectedState.status
+          || dependency.reasonCode !== expectedState.reasonCode
+          || !sameJson(dependency.coverage, coverage)) {
+        fail(`Repository Impact state ${dependency.analysisResultId} is inconsistent with usage coverage.`, 'REFERENCE_MISMATCH');
       }
     }
   }
@@ -433,6 +471,9 @@ function expectedMatchedSymbols(impactFinding) {
 }
 
 function expectedImpactEvidenceReason(impactFinding, usage) {
+  if (impactFinding.status === 'COVERAGE_UNAVAILABLE') return 'COVERAGE_UNAVAILABLE';
+  if (impactFinding.status === 'NOT_ANALYZED') return 'NOT_ANALYZED';
+  if (impactFinding.status === 'USAGE_NOT_FOUND') return 'USAGE_NOT_FOUND';
   if (impactFinding.impacted) return 'EXACT_SYMBOL_USAGE_FOUND';
   if (!usage) return 'DEPENDENCY_NOT_USED';
   if (!usage.symbols.some((symbol) => isMatchableUsageSymbol(symbol.name))) {
@@ -468,10 +509,17 @@ function validateImpactEvidenceReferences(artifacts) {
           || evidence.kind !== finding.kind
           || evidence.summary !== finding.summary
           || evidence.impacted !== finding.impacted
+          || (finding.status !== undefined && evidence.status !== finding.status)
           || evidence.reasonCode !== expectedImpactEvidenceReason(finding, usage)
           || !sameJson(evidence.matchedSymbols, expectedMatchedSymbols(finding))) {
         fail(`Repository Impact Evidence location ${dependency.analysisResultId}/${finding.id} is inconsistent with Repository Impact.`, 'REFERENCE_MISMATCH');
       }
+    }
+    if (impact.status !== undefined
+        && (dependency.status !== impact.status
+          || dependency.reasonCode !== impact.reasonCode
+          || !sameJson(dependency.coverage, impact.coverage))) {
+      fail(`Repository Impact Evidence state ${dependency.analysisResultId} is inconsistent with Repository Impact.`, 'REFERENCE_MISMATCH');
     }
   }
   if (seen.size !== impacts.size) {

@@ -295,9 +295,25 @@ async function fixture({
           file: ecosystem === 'node' ? 'src/App.tsx' : 'src/app.py'
         }]
       : [],
-    scannedFileCount: 1,
-    analyzedFileCount: 1,
+    scannedFileCount: ecosystem === 'node' ? 1 : 0,
+    analyzedFileCount: ecosystem === 'node' ? 1 : 0,
     analyzers: [createJavaScriptUsageAnalyzer()],
+    coverage: [{
+      projectId: dependency.projectId,
+      projectPath: '.',
+      ecosystem,
+      status: ecosystem === 'node' ? 'complete' : 'unavailable',
+      analyzer: ecosystem === 'node'
+        ? { id: 'javascript-typescript', version: '1.0.0' }
+        : null,
+      scannedFileCount: ecosystem === 'node' ? 1 : 0,
+      analyzedFileCount: ecosystem === 'node' ? 1 : 0,
+      parseFailureCount: 0,
+      analyzerFailureCount: 0,
+      unreadableFileCount: 0,
+      scanFailureCount: 0,
+      reasonCode: ecosystem === 'node' ? 'COVERAGE_COMPLETE' : 'ANALYZER_UNAVAILABLE'
+    }],
     warnings: [],
     generatedAt
   });

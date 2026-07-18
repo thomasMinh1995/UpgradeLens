@@ -5,6 +5,11 @@ import addFormats from 'ajv-formats';
 
 import { PRODUCT_NAME, USAGE_INDEX_SCHEMA_VERSION, VERSION } from '../constants.js';
 import { compareText, isSorted } from '../portable.js';
+import {
+  USAGE_COVERAGE_REASON_CODES,
+  USAGE_COVERAGE_STATUSES,
+  compareCoverage
+} from './coverage.js';
 
 const schema = JSON.parse(await readFile(
   new URL('../../schemas/usage-index.schema.json', import.meta.url),
@@ -69,11 +74,64 @@ export function validateUsageIndexInvariants(index) {
   const errors = [];
   if (!isSorted(index.dependencies, compareDependencies)) errors.push('dependencies must be sorted.');
   if (!isSorted(index.analysis.analyzers, compareAnalyzers)) errors.push('analyzers must be sorted.');
+  if (index.analysis.coverage && !isSorted(index.analysis.coverage, compareCoverage)) {
+    errors.push('analysis.coverage must be sorted.');
+  }
   if (new Set(index.analysis.analyzers.map((analyzer) => analyzer.id)).size !== index.analysis.analyzers.length) {
     errors.push('analyzer ids must be unique.');
   }
   if (index.analysis.analyzedFileCount > index.analysis.scannedFileCount) {
     errors.push('analysis.analyzedFileCount cannot exceed scannedFileCount.');
+  }
+  const coverageProjects = new Set();
+  let coverageScannedFileCount = 0;
+  let coverageAnalyzedFileCount = 0;
+  for (const coverage of index.analysis.coverage ?? []) {
+    if (coverageProjects.has(coverage.projectId)) {
+      errors.push(`duplicate coverage project ${coverage.projectId}.`);
+    }
+    coverageProjects.add(coverage.projectId);
+    if (!USAGE_COVERAGE_STATUSES.includes(coverage.status)) {
+      errors.push(`coverage ${coverage.projectId} has unsupported status.`);
+    }
+    if (!USAGE_COVERAGE_REASON_CODES.includes(coverage.reasonCode)) {
+      errors.push(`coverage ${coverage.projectId} has unsupported reasonCode.`);
+    }
+    if (coverage.analyzedFileCount > coverage.scannedFileCount) {
+      errors.push(`coverage ${coverage.projectId} analyzedFileCount cannot exceed scannedFileCount.`);
+    }
+    coverageScannedFileCount += coverage.scannedFileCount;
+    coverageAnalyzedFileCount += coverage.analyzedFileCount;
+    const processedFileCount = coverage.analyzedFileCount + coverage.parseFailureCount
+      + coverage.analyzerFailureCount + coverage.unreadableFileCount;
+    if (processedFileCount !== coverage.scannedFileCount) {
+      errors.push(`coverage ${coverage.projectId} file counts are inconsistent.`);
+    }
+    if ((coverage.status === 'unavailable') !== (coverage.analyzer === null)) {
+      errors.push(`coverage ${coverage.projectId} analyzer availability is inconsistent.`);
+    }
+    const failures = coverage.parseFailureCount + coverage.analyzerFailureCount
+      + coverage.unreadableFileCount + coverage.scanFailureCount;
+    if (coverage.status === 'complete' && failures !== 0) {
+      errors.push(`coverage ${coverage.projectId} complete status has failures.`);
+    }
+    if (coverage.status === 'complete' && coverage.reasonCode !== 'COVERAGE_COMPLETE') {
+      errors.push(`coverage ${coverage.projectId} complete reasonCode is inconsistent.`);
+    }
+    if (coverage.analyzer
+        && !index.analysis.analyzers.some((analyzer) => (
+          analyzer.id === coverage.analyzer.id && analyzer.version === coverage.analyzer.version
+        ))) {
+      errors.push(`coverage ${coverage.projectId} analyzer is not declared by analysis.`);
+    }
+  }
+  if ((index.analysis.coverage?.length ?? 0) > 0) {
+    if (coverageScannedFileCount !== index.analysis.scannedFileCount) {
+      errors.push('analysis.scannedFileCount does not equal project coverage total.');
+    }
+    if (coverageAnalyzedFileCount !== index.analysis.analyzedFileCount) {
+      errors.push('analysis.analyzedFileCount does not equal project coverage total.');
+    }
   }
   if (!isSorted(index.warnings, compareWarnings)) errors.push('warnings must be sorted.');
   const identities = new Set();
@@ -124,7 +182,16 @@ export function validateUsageIndex(index) {
   return index;
 }
 
-export function buildUsageIndex({ input, usages, scannedFileCount, analyzedFileCount, analyzers, warnings, generatedAt = new Date() }) {
+export function buildUsageIndex({
+  input,
+  usages,
+  scannedFileCount,
+  analyzedFileCount,
+  analyzers,
+  coverage = [],
+  warnings,
+  generatedAt = new Date()
+}) {
   const dependencies = indexUsages(usages);
   const sortedWarnings = structuredClone(warnings).sort(compareWarnings);
   const sortedAnalyzers = analyzers.map(({ id, version }) => ({ id, version })).sort(compareAnalyzers);
@@ -133,7 +200,12 @@ export function buildUsageIndex({ input, usages, scannedFileCount, analyzedFileC
     generatedAt: generatedAt instanceof Date ? generatedAt.toISOString() : generatedAt,
     generator: { name: PRODUCT_NAME, version: VERSION },
     input: structuredClone(input),
-    analysis: { analyzers: sortedAnalyzers, scannedFileCount, analyzedFileCount },
+    analysis: {
+      analyzers: sortedAnalyzers,
+      scannedFileCount,
+      analyzedFileCount,
+      coverage: structuredClone(coverage).sort(compareCoverage)
+    },
     summary: summary(dependencies, sortedWarnings.length),
     dependencies,
     warnings: sortedWarnings

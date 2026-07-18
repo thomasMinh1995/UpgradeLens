@@ -29,10 +29,15 @@ export function renderConsoleSummary({
     '',
     `Impacted: ${summary.impactedCount}`,
     `Not impacted: ${summary.notImpactedCount}`,
+    `Usage not found: ${summary.usageNotFoundCount}`,
+    `Coverage unavailable: ${summary.coverageUnavailableCount}`,
     `Not analyzed: ${summary.notAnalyzedCount}`
   ];
   if (viewModel.analysisStatus === 'INCOMPLETE') {
-    lines.push('', 'Impact conclusions are incomplete because some dependencies were not analyzed.');
+    lines.push(
+      '',
+      'Impact conclusions are incomplete because usage coverage is unavailable or some dependencies were not analyzed.'
+    );
   }
   lines.push(
     '',

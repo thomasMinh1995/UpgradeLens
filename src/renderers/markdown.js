@@ -19,7 +19,7 @@ function renderFinding(finding) {
     `#### ${headingText(finding.summary)}`,
     '',
     `- Finding ID: ${inlineCode(finding.findingId)}`,
-    `- Impacted: ${finding.impacted ? 'Yes' : 'No'}`,
+    `- Impact status: ${inlineCode(finding.status ?? (finding.impacted ? 'IMPACTED' : 'COVERAGE_UNAVAILABLE'))}`,
     `- Evidence reason: ${inlineCode(finding.reasonCode)}`
   ];
   if (finding.matchedSymbols.length === 0) {
@@ -40,12 +40,14 @@ function renderDependency(dependency) {
     `### ${inlineCode(dependency.name)} (${inlineCode(dependency.packageId)})`,
     '',
     `- Impact status: ${inlineCode(dependency.impactStatus)}`,
+    `- Impact reason: ${inlineCode(dependency.impactReasonCode ?? 'NONE')}`,
     `- Version Analysis status: ${inlineCode(dependency.versionAnalysisStatus)}`,
     ''
   ];
-  if (dependency.impactStatus === 'NOT_ANALYZED') {
+  if (['NOT_ANALYZED', 'COVERAGE_UNAVAILABLE', 'USAGE_NOT_FOUND'].includes(dependency.impactStatus)
+      && dependency.message) {
     lines.push(dependency.message, '');
-    return lines;
+    if (dependency.impactStatus === 'NOT_ANALYZED') return lines;
   }
   if (dependency.findings.length === 0) {
     lines.push('No breaking findings.', '');
@@ -78,7 +80,10 @@ export function renderMarkdownReport({
     ''
   ];
   if (viewModel.analysisStatus === 'INCOMPLETE') {
-    lines.push('> Impact conclusions are incomplete because some dependencies were not analyzed.', '');
+    lines.push(
+      '> Impact conclusions are incomplete because usage coverage is unavailable or some dependencies were not analyzed.',
+      ''
+    );
   }
   lines.push(
     '## Summary',
@@ -92,6 +97,8 @@ export function renderMarkdownReport({
     `| Requires human review | ${summary.requiresHumanReviewCount} |`,
     `| Impacted | ${summary.impactedCount} |`,
     `| Not impacted | ${summary.notImpactedCount} |`,
+    `| Usage not found | ${summary.usageNotFoundCount} |`,
+    `| Coverage unavailable | ${summary.coverageUnavailableCount} |`,
     `| Not analyzed | ${summary.notAnalyzedCount} |`,
     `| Breaking findings | ${summary.breakingFindingCount} |`,
     `| Impacted findings | ${summary.impactedFindingCount} |`,
