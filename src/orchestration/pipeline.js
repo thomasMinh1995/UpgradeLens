@@ -7,6 +7,7 @@ export const ANALYSIS_STAGES = Object.freeze([
   Object.freeze({ id: 'usageDiscovery', label: 'Repository Usage Discovery' }),
   Object.freeze({ id: 'impactAnalysis', label: 'Repository Impact Analysis' }),
   Object.freeze({ id: 'impactEvidence', label: 'Repository Impact Evidence' }),
+  Object.freeze({ id: 'upgradeDecision', label: 'Deterministic Upgrade Decision' }),
   Object.freeze({ id: 'markdownReport', label: 'Markdown Report' })
 ]);
 
@@ -39,6 +40,10 @@ export const ANALYSIS_STAGE_INITIAL_ACTIVITIES = Object.freeze({
   impactEvidence: Object.freeze({
     activityKind: 'VALIDATE_IMPACT_EVIDENCE',
     subject: 'Validating repository impact evidence'
+  }),
+  upgradeDecision: Object.freeze({
+    activityKind: 'APPLY_UPGRADE_DECISION_POLICY',
+    subject: 'Applying deterministic upgrade decision policy'
   }),
   migrationChecklist: Object.freeze({
     activityKind: 'PREPARE_MIGRATION_CONTEXTS',

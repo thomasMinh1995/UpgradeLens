@@ -132,7 +132,8 @@
         "versionAnalysis": { "$ref": "#/$defs/artifactLineage" },
         "usageIndex": { "$ref": "#/$defs/artifactLineage" },
         "repositoryImpact": { "$ref": "#/$defs/artifactLineage" },
-        "repositoryImpactEvidence": { "$ref": "#/$defs/artifactLineage" }
+        "repositoryImpactEvidence": { "$ref": "#/$defs/artifactLineage" },
+        "upgradeDecision": { "$ref": "#/$defs/artifactLineage" }
       }
     },
     "checklistStatus": {

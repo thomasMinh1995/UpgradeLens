@@ -50,8 +50,8 @@ function throwIfCancelled(signal) {
 }
 
 /**
- * Experimental application stage: seven artifacts -> MP-02 -> v2 guard -> extractive generator ->
- * MP-01 assembly -> atomic artifact -> presentation view model.
+ * Experimental application stage: validated artifacts + Upgrade Decision -> MP-02 ->
+ * v2 guard -> extractive generator -> MP-01 assembly -> atomic artifact -> presentation view model.
  */
 export async function runMigrationChecklistStage({
   repositoryRoot,

@@ -97,6 +97,19 @@ export {
   writeRepositoryImpactEvidence
 } from './impact-evidence/writer.js';
 export {
+  UPGRADE_DECISION_POLICY_ID,
+  UPGRADE_DECISION_POLICY_VERSION,
+  UPGRADE_DECISIONS,
+  buildUpgradeDecision,
+  validateUpgradeDecision,
+  validateUpgradeDecisionInvariants
+} from './upgrade-decision/upgrade-decision.js';
+export { runUpgradeDecisionStage } from './upgrade-decision/runtime.js';
+export {
+  serializeUpgradeDecision,
+  writeUpgradeDecision
+} from './upgrade-decision/writer.js';
+export {
   MIGRATION_CHECKLIST_ELIGIBILITY_REASON_CODES,
   MIGRATION_CHECKLIST_ELIGIBILITY_STATUSES,
   MIGRATION_CHECKLIST_ITEM_BASES,

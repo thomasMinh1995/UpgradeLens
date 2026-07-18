@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { canonicalJsonBytes } from '../canonical-json.js';
 import { compareText } from '../portable.js';
 import { coverageForProject } from '../usage/coverage.js';
+import { loadPersistedUpgradeDecision } from '../upgrade-decision/input-loader.js';
 import { migrationChecklistEligibility } from './grounding-policy.js';
 import { loadMigrationChecklistInputs } from './input-loader.js';
 
@@ -429,6 +430,23 @@ function noFindingFallback(result) {
   return record;
 }
 
+function upgradeDecisionFallback(result, decision) {
+  const record = baseFallbackRecord(result);
+  const manualReview = ['INVESTIGATE', 'INSUFFICIENT_EVIDENCE', 'NOT_ANALYZED']
+    .includes(decision.decision);
+  record.limitations = sortedUniqueLimitations([
+    ...result.limitations,
+    ...humanReviewLimitation(result),
+    limitation(
+      `UPGRADE_DECISION_${decision.decision}`,
+      manualReview
+        ? `Deterministic Upgrade Decision is ${decision.decision}; migration action generation is blocked pending human review or additional evidence.`
+        : 'Deterministic Upgrade Decision is KEEP_CURRENT; no version-change action is permitted.'
+    )
+  ]);
+  return record;
+}
+
 function impactEvidenceByResult(artifacts) {
   return new Map(artifacts.repositoryImpactEvidence.dependencies.map((dependency) => [
     dependency.analysisResultId,
@@ -450,8 +468,19 @@ export function buildMigrationTaskContexts(artifacts, options = {}) {
     unsupportedUsageCoverage: 0,
     conflictedEvidence: 0
   };
+  const decisionsByResult = new Map((artifacts.upgradeDecision?.decisions ?? []).map((decision) => [
+    decision.analysisResultId,
+    decision
+  ]));
 
   for (const result of artifacts.versionAnalysis.results) {
+    const upgradeDecision = decisionsByResult.get(result.id);
+    if (upgradeDecision && !['PLAN_UPGRADE', 'UPGRADE_NOW'].includes(upgradeDecision.decision)) {
+      fallbackRecords.push(upgradeDecisionFallback(result, upgradeDecision));
+      if (upgradeDecision.decision === 'NOT_ANALYZED') summary.notAnalyzed += 1;
+      else summary.noGroundedAction += 1;
+      continue;
+    }
     if (result.status !== 'analyzed') {
       fallbackRecords.push(notAnalyzedFallback(result));
       summary.notAnalyzed += 1;
@@ -526,8 +555,12 @@ export function buildMigrationTaskContexts(artifacts, options = {}) {
   return deepFreeze(structuredClone(output));
 }
 
-/** Public MP-02 orchestration: load seven artifacts, then prepare contexts without AI or I/O writes. */
+/**
+ * Load the seven legacy inputs plus the optional persisted Upgrade Decision, then
+ * prepare contexts without AI or writes. Production analyze always supplies the decision.
+ */
 export async function prepareMigrationChecklistContexts(input, options = {}) {
   const artifacts = await loadMigrationChecklistInputs(input, options);
-  return buildMigrationTaskContexts(artifacts, options);
+  const withDecision = await loadPersistedUpgradeDecision(input, artifacts, options);
+  return buildMigrationTaskContexts(withDecision, options);
 }

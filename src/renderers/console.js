@@ -1,4 +1,5 @@
 import { renderMigrationChecklistConsole } from '../migration-checklist/presentation.js';
+import { renderUpgradeDecisionConsole } from '../upgrade-decision/presentation.js';
 
 function requireViewModel(viewModel) {
   if (!viewModel?.summary || !Array.isArray(viewModel?.dependencies)) {
@@ -9,6 +10,8 @@ function requireViewModel(viewModel) {
 export function renderConsoleSummary({
   viewModel,
   reportPath,
+  upgradeDecision,
+  upgradeDecisionPath,
   migrationChecklistViewModel,
   migrationChecklistPath
 }) {
@@ -50,6 +53,12 @@ export function renderConsoleSummary({
     ''
   );
   let output = lines.join('\n');
+  if (upgradeDecision) {
+    output += `\n${renderUpgradeDecisionConsole({
+      artifact: upgradeDecision,
+      artifactPath: upgradeDecisionPath
+    })}`;
+  }
   if (migrationChecklistViewModel) {
     output += `\n${renderMigrationChecklistConsole({
       viewModel: migrationChecklistViewModel,

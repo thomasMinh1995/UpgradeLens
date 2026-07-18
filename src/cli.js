@@ -18,6 +18,7 @@ import {
   QUALIFICATION_RECORD_FILENAME,
   DEFAULT_VERSION_ANALYSIS_PATH,
   DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
+  DEFAULT_UPGRADE_DECISION_PATH,
   DEFAULT_REPOSITORY_IMPACT_PATH,
   DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
   DEFAULT_MIGRATION_CHECKLIST_PATH,
@@ -116,6 +117,7 @@ import { serializeVersionAnalysisManifest, writeVersionAnalysisManifest } from '
 import { runUsageDiscovery } from './usage/runtime.js';
 import { writeUsageIndex } from './usage/writer.js';
 import { runMigrationChecklistStage } from './migration-checklist/runtime.js';
+import { runUpgradeDecisionStage } from './upgrade-decision/runtime.js';
 import { resolveMigrationQualification } from './migration-checklist/qualification-resolution.js';
 
 const HELP = `${PRODUCT_NAME} ${VERSION}
@@ -915,6 +917,19 @@ export function createCliAnalysisStageRunners(options, io) {
       );
       return impactEvidence;
     },
+    async upgradeDecision({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      const decision = await (io.runUpgradeDecisionStage ?? runUpgradeDecisionStage)({
+        repositoryRoot: root,
+        artifactPath: DEFAULT_UPGRADE_DECISION_PATH
+      });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_UPGRADE_DECISION',
+        subject: 'Writing deterministic Upgrade Decision artifact'
+      });
+      return decision;
+    },
     async migrationChecklist({ progress, signal } = {}) {
       if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const onMigrationEvent = migrationEventListener(options, io, progress);
@@ -953,6 +968,7 @@ export function createCliAnalysisStageRunners(options, io) {
       });
       const contents = renderMarkdownReport({
         viewModel,
+        upgradeDecision: artifacts.upgradeDecision,
         migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel
       });
       if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
@@ -1058,6 +1074,8 @@ export async function executeAnalyze(options, io) {
   io.stdout.write(renderConsoleSummary({
     viewModel: result.artifacts.markdownReport.viewModel,
     reportPath: options.output,
+    upgradeDecision: result.artifacts.upgradeDecision,
+    upgradeDecisionPath: DEFAULT_UPGRADE_DECISION_PATH,
     migrationChecklistViewModel: result.artifacts.migrationChecklist?.viewModel,
     migrationChecklistPath: result.artifacts.migrationChecklist?.artifactPath
   }));

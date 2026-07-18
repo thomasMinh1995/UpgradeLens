@@ -101,6 +101,7 @@ test('progress contract has stable stages, immutable allowlisted events, and val
     'usageDiscovery',
     'impactAnalysis',
     'impactEvidence',
+    'upgradeDecision',
     'markdownReport'
   ]);
   assert.deepEqual(events.map((event) => event.type), [
@@ -346,6 +347,6 @@ test('first CLI SIGINT performs controlled cancellation, removes its handler, an
   assert.equal(signalHost.listenerCount('SIGINT'), 0);
   assert.equal(stdout.value(), '');
   assert.match(stderr.value(), /STAGE CANCELLED id=projectDiscovery reason=USER_CANCELLED/);
-  assert.match(stderr.value(), /RUN CANCELLED completed=0\/7 next=RERUN_WHEN_READY/);
+  assert.match(stderr.value(), /RUN CANCELLED completed=0\/8 next=RERUN_WHEN_READY/);
   assert.doesNotMatch(stderr.value(), /RUN COMPLETE|Analysis status: COMPLETE|\bat\s+.*\.js:/);
 });

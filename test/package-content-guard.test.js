@@ -92,6 +92,7 @@ test('authoritative required list covers runtime, schemas, datasets, and user do
     'package/src/index.js',
     'package/schemas/migration-planning-qualification-record.schema.json',
     'package/schemas/migration-checklist-extractive-candidate.schema.json',
+    'package/schemas/upgrade-decision.schema.json',
     'package/eval/migration-planning/golden-dataset-v2.json',
     'package/docs/cli-progress.md',
     'package/docs/migration-planning-qualification-resolution.md',

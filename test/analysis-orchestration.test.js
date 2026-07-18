@@ -205,6 +205,41 @@ function presentationViewModel(artifacts) {
   return buildImpactPresentationViewModel(artifacts);
 }
 
+function upgradeDecisionArtifact() {
+  return {
+    summary: {
+      KEEP_CURRENT: 2,
+      UPGRADE_NOW: 0,
+      PLAN_UPGRADE: 0,
+      INVESTIGATE: 0,
+      INSUFFICIENT_EVIDENCE: 0,
+      NOT_ANALYZED: 0
+    },
+    decisions: [
+      {
+        occurrence: {
+          declaredName: 'antd',
+          manifest: 'package.json',
+          dependencyType: 'dependency'
+        },
+        versions: { installedVersion: '5.0.0', targetVersion: '5.0.0' },
+        decision: 'KEEP_CURRENT',
+        primaryReasonCode: 'ALREADY_AT_TARGET'
+      },
+      {
+        occurrence: {
+          declaredName: 'lodash',
+          manifest: 'package.json',
+          dependencyType: 'dependency'
+        },
+        versions: { installedVersion: '4.0.0', targetVersion: '4.0.0' },
+        decision: 'KEEP_CURRENT',
+        primaryReasonCode: 'ALREADY_AT_TARGET'
+      }
+    ]
+  };
+}
+
 test('analyze command parses repository orchestration options', () => {
   assert.deepEqual(parseArguments(['analyze', 'fixture', '--offline', '--max-depth', '6']), {
     command: 'analyze',
@@ -236,6 +271,7 @@ test('analyze command parses repository orchestration options', () => {
     'usageDiscovery',
     'impactAnalysis',
     'impactEvidence',
+    'upgradeDecision',
     'migrationChecklist',
     'markdownReport'
   ]);
@@ -279,12 +315,12 @@ test('pipeline runs every stage in order and reports deterministic progress', as
 
   assert.deepEqual(calls, ANALYSIS_STAGES.map((stage) => stage.id));
   assert.equal(result.artifacts.markdownReport, 'markdownReport');
-  assert.match(output.value(), /^\[0\.0s\] RUN START stages=7\n/);
+  assert.match(output.value(), /^\[0\.0s\] RUN START stages=8\n/);
   for (const stage of ANALYSIS_STAGES) {
     assert.match(output.value(), new RegExp(`STAGE START id=${stage.id} `));
     assert.match(output.value(), new RegExp(`STAGE COMPLETE id=${stage.id} `));
   }
-  assert.match(output.value(), /\[0\.0s\] RUN COMPLETE completed=7\/7 failed=0 skipped=0\n$/);
+  assert.match(output.value(), /\[0\.0s\] RUN COMPLETE completed=8\/8 failed=0 skipped=0\n$/);
 });
 
 test('pipeline stops at the first failed stage', async () => {
@@ -311,7 +347,7 @@ test('pipeline stops at the first failed stage', async () => {
   );
   assert.deepEqual(calls, ['projectDiscovery', 'knowledgeResearch', 'versionAnalysis', 'usageDiscovery']);
   assert.match(output.value(), /STAGE FAILED id=usageDiscovery reason=STAGE_FAILED/);
-  assert.match(output.value(), /RUN FAILED completed=3\/7 next=REVIEW_FAILURE_DETAILS\n$/);
+  assert.match(output.value(), /RUN FAILED completed=3\/8 next=REVIEW_FAILURE_DETAILS\n$/);
   assert.doesNotMatch(output.value(), /Repository Impact Analysis|Analysis completed/);
 });
 
@@ -364,7 +400,8 @@ test('analyze CLI runs the full scheduler and writes the Markdown report', async
     versionAnalysis: async () => { calls.push('versionAnalysis'); return artifacts.versionAnalysis; },
     usageDiscovery: async () => { calls.push('usageDiscovery'); return { summary: {} }; },
     impactAnalysis: async () => { calls.push('impactAnalysis'); return artifacts.repositoryImpact; },
-    impactEvidence: async () => { calls.push('impactEvidence'); return artifacts.impactEvidence; }
+    impactEvidence: async () => { calls.push('impactEvidence'); return artifacts.impactEvidence; },
+    upgradeDecision: async () => { calls.push('upgradeDecision'); return upgradeDecisionArtifact(); }
   };
   const stdout = capture();
   const stderr = capture();
@@ -381,17 +418,23 @@ test('analyze CLI runs the full scheduler and writes the Markdown report', async
     'versionAnalysis',
     'usageDiscovery',
     'impactAnalysis',
-    'impactEvidence'
+    'impactEvidence',
+    'upgradeDecision'
   ]);
   assert.match(stderr.value(), /STAGE COMPLETE id=markdownReport label="Markdown Report"/);
-  assert.match(stderr.value(), /RUN COMPLETE completed=7\/7 failed=0 skipped=0/);
+  assert.match(stderr.value(), /RUN COMPLETE completed=8\/8 failed=0 skipped=0/);
   const viewModel = presentationViewModel(artifacts);
   assert.equal(stdout.value(), renderConsoleSummary({
     viewModel,
-    reportPath: '.upgradelens/repository-impact.md'
+    reportPath: '.upgradelens/repository-impact.md',
+    upgradeDecision: upgradeDecisionArtifact(),
+    upgradeDecisionPath: '.upgradelens/upgrade-decision.json'
   }));
   const report = await readFile(path.join(root, '.upgradelens/repository-impact.md'), 'utf8');
-  assert.equal(report, renderMarkdownReport({ viewModel }));
+  assert.equal(report, renderMarkdownReport({
+    viewModel,
+    upgradeDecision: upgradeDecisionArtifact()
+  }));
   await assert.rejects(
     readFile(path.join(root, '.upgradelens/migration-checklist.json')),
     { code: 'ENOENT' }
@@ -453,6 +496,7 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
       usageDiscovery: runner('usageDiscovery', { summary: {} }),
       impactAnalysis: runner('impactAnalysis', artifacts.repositoryImpact),
       impactEvidence: runner('impactEvidence', artifacts.impactEvidence),
+      upgradeDecision: runner('upgradeDecision', upgradeDecisionArtifact()),
       migrationChecklist: runner('migrationChecklist', {
         artifactPath: '.upgradelens/migration-checklist.json',
         viewModel: migrationChecklistViewModel
@@ -463,7 +507,7 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
   assert.equal(exitCode, 0);
   assert.deepEqual(calls, [
     'projectDiscovery', 'knowledgeResearch', 'versionAnalysis', 'usageDiscovery',
-    'impactAnalysis', 'impactEvidence', 'migrationChecklist'
+    'impactAnalysis', 'impactEvidence', 'upgradeDecision', 'migrationChecklist'
   ]);
   assert.match(stderr.value(), /STAGE COMPLETE id=migrationChecklist label="Migration Checklist"[\s\S]*STAGE START id=markdownReport/);
   assert.match(stdout.value(), /Migration checklist contains no grounded action/);

@@ -27,6 +27,7 @@ export const REQUIRED_PACKAGE_PATHS = Object.freeze([
   'package/package.json',
   'package/schemas/migration-checklist-extractive-candidate.schema.json',
   'package/schemas/migration-planning-qualification-record.schema.json',
+  'package/schemas/upgrade-decision.schema.json',
   'package/src/cli.js',
   'package/src/index.js',
   'package/src/orchestration/progress-events.js'

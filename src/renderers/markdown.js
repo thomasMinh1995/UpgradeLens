@@ -1,4 +1,5 @@
 import { renderMigrationChecklistMarkdownSection } from '../migration-checklist/presentation.js';
+import { renderUpgradeDecisionMarkdownSection } from '../upgrade-decision/presentation.js';
 
 function inlineCode(value) {
   return `\`${String(value).replaceAll('`', '\\`')}\``;
@@ -59,6 +60,7 @@ function renderDependency(dependency) {
 
 export function renderMarkdownReport({
   viewModel,
+  upgradeDecision,
   migrationChecklistViewModel
 }) {
   requireViewModel(viewModel);
@@ -111,6 +113,9 @@ export function renderMarkdownReport({
   if (viewModel.dependencies.length === 0) lines.push('No dependency impact records.', '');
   else for (const dependency of viewModel.dependencies) lines.push(...renderDependency(dependency));
   let output = `${lines.join('\n')}\n`;
+  if (upgradeDecision) {
+    output += `\n${renderUpgradeDecisionMarkdownSection(upgradeDecision)}`;
+  }
   if (migrationChecklistViewModel) {
     output += `\n${renderMigrationChecklistMarkdownSection({ viewModel: migrationChecklistViewModel })}`;
   }
