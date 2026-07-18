@@ -34,6 +34,7 @@ function evidenceId(seed) {
 function projectManifest({
   ecosystem = 'node',
   declaredVersion = '^1.0.0',
+  installedVersion,
   dependencyName = 'react',
   normalizedName = dependencyName,
   dependencyType = ecosystem === 'node' ? 'dependency' : 'runtime',
@@ -47,6 +48,19 @@ function projectManifest({
     type: dependencyType,
     manifest: manifestPath
   };
+  if (installedVersion !== undefined) {
+    Object.assign(dependency, {
+      installedVersion,
+      installedVersionStatus: 'resolved',
+      installedVersionSource: {
+        type: 'package-lock',
+        path: 'package-lock.json',
+        lockfileVersion: 3,
+        packagePath: `node_modules/${dependencyName}`
+      },
+      installedVersionReason: null
+    });
+  }
   const dependencySummary = {
     status: 'parsed',
     declarationCount: 1,
@@ -413,6 +427,45 @@ test('builds exactBaseline context from an exact declared version without guessi
   assert.deepEqual(context.knowledge.relevantReleases, ['1.1.0', '2.0.0']);
 });
 
+test('installed version takes precedence while declared range and registry target remain distinct', async () => {
+  const artifacts = await loadedArtifacts({
+    declaredVersion: '^1.0.0',
+    installedVersion: '1.1.0'
+  });
+  const context = buildDependencyAiContext(artifacts, {
+    currentVersion: '9.9.9',
+    targetVersion: '2.0.0'
+  });
+
+  assert.equal(context.versions.analysisMode, 'exactBaseline');
+  assert.equal(context.versions.declaredVersion, '^1.0.0');
+  assert.equal(context.versions.installedVersion, '1.1.0');
+  assert.equal(context.versions.installedVersionStatus, 'resolved');
+  assert.equal(context.versions.installedVersionReason, null);
+  assert.deepEqual(context.versions.installedVersionSource, {
+    type: 'package-lock',
+    path: 'package-lock.json',
+    lockfileVersion: 3,
+    packagePath: 'node_modules/react'
+  });
+  assert.equal(context.versions.currentVersion, '1.1.0');
+  assert.equal(context.versions.currentVersionSource, 'resolvedArtifact');
+  assert.equal(context.versions.targetVersion, '2.0.0');
+  assert.deepEqual(context.versions.delta, { direction: 'upgrade', classification: 'major' });
+});
+
+test('installed and target equality is retained as deterministic same-version data', async () => {
+  const artifacts = await loadedArtifacts({
+    declaredVersion: '^1.0.0',
+    installedVersion: '2.0.0'
+  });
+  const context = buildDependencyAiContext(artifacts, { targetVersion: '2.0.0' });
+
+  assert.equal(context.versions.installedVersion, '2.0.0');
+  assert.equal(context.versions.targetVersion, '2.0.0');
+  assert.deepEqual(context.versions.delta, { direction: 'same', classification: 'other' });
+});
+
 test('builds declaredConstraint context with null current version and unknown delta', async () => {
   const artifacts = await loadedArtifacts({ declaredVersion: '^1.0.0' });
   const context = buildDependencyAiContext(artifacts, { target: { policy: 'registryLatest' } });
@@ -420,6 +473,9 @@ test('builds declaredConstraint context with null current version and unknown de
   assert.equal(context.versions.analysisMode, 'declaredConstraint');
   assert.equal(context.versions.currentVersion, null);
   assert.equal(context.versions.currentVersionSource, null);
+  assert.equal(context.versions.installedVersion, null);
+  assert.equal(context.versions.installedVersionStatus, 'unresolved');
+  assert.equal(context.versions.installedVersionReason, 'RESOLVED_VERSION_UNAVAILABLE');
   assert.deepEqual(context.versions.delta, { direction: 'unknown', classification: 'unknown' });
   assert.deepEqual(context.knowledge.relevantReleases, ['2.0.0']);
 });

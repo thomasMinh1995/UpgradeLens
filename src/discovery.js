@@ -9,6 +9,7 @@ import {
 import { createCooperativeScheduler } from './cooperative-scheduler.js';
 import { definitionForFile, inspectProjectGroup } from './detectors.js';
 import { collectCandidateFiles, relativePath } from './files.js';
+import { attachInstalledVersionBaselines } from './installed-version-baseline.js';
 
 async function assertDirectory(inputPath) {
   const absolutePath = path.resolve(inputPath);
@@ -208,6 +209,10 @@ export async function discoverProject(inputPath = '.', options = {}) {
   projects.sort((left, right) => left.id.localeCompare(right.id));
   await addPnpmWorkspacePatterns(root, files, projects, warnings, cooperativeScheduler);
   await addWorkspaceRelationships(projects, cooperativeScheduler);
+  await attachInstalledVersionBaselines(root, projects, {
+    ...options,
+    cooperativeScheduler
+  });
   warnings.sort((left, right) => left.path.localeCompare(right.path) || left.code.localeCompare(right.code));
 
   cooperativeScheduler.checkpoint();

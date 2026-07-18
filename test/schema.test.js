@@ -36,4 +36,22 @@ test('generated manifests validate against the JSON Schema dependency contract',
   const invalidParsed = structuredClone(manifest);
   delete invalidParsed.projects[0].dependencySummary.uniqueCount;
   assert.equal(validate(invalidParsed), false);
+
+  const incompleteBaseline = structuredClone(manifest);
+  delete incompleteBaseline.projects[0].dependencies[0].installedVersionReason;
+  assert.equal(validate(incompleteBaseline), false);
+
+  const absoluteProvenance = structuredClone(manifest);
+  Object.assign(absoluteProvenance.projects[0].dependencies[0], {
+    installedVersion: '19.2.7',
+    installedVersionStatus: 'resolved',
+    installedVersionSource: {
+      type: 'package-lock',
+      path: '/private/package-lock.json',
+      lockfileVersion: 3,
+      packagePath: 'node_modules/react'
+    },
+    installedVersionReason: null
+  });
+  assert.equal(validate(absoluteProvenance), false);
 });

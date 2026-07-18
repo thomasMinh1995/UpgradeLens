@@ -187,6 +187,32 @@ test('manifest builder preserves deterministic facts, AI reasoning, evidence ref
   assert.equal(built.evidence[0].sourceId, ctx.knowledge.evidence[0].sourceId);
 });
 
+test('manifest preserves installed, declared, and target versions as separate deterministic facts', () => {
+  const ctx = context();
+  Object.assign(ctx.versions, {
+    declaredVersion: '^1.0.0',
+    installedVersion: '1.1.0',
+    installedVersionStatus: 'resolved',
+    installedVersionSource: {
+      type: 'package-lock',
+      path: 'package-lock.json',
+      lockfileVersion: 3,
+      packagePath: 'node_modules/react'
+    },
+    installedVersionReason: null,
+    currentVersion: '1.1.0',
+    currentVersionSource: 'resolvedArtifact'
+  });
+  const manifest = manifestFrom([{ context: ctx, result: result(ctx) }]);
+  const versions = manifest.results[0].versions;
+
+  assert.equal(versions.declaredVersion, '^1.0.0');
+  assert.equal(versions.installedVersion, '1.1.0');
+  assert.equal(versions.currentVersion, '1.1.0');
+  assert.equal(versions.targetVersion, '2.0.0');
+  assert.equal(versions.installedVersionSource.path, 'package-lock.json');
+});
+
 test('manifest builder preserves source conflict validation state and review reason', () => {
   const ctx = context();
   const analysis = result(ctx, {

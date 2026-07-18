@@ -87,6 +87,36 @@
         "optionalDependencies": { "type": "integer", "minimum": 0 }
       }
     },
+    "installedVersionSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "path", "lockfileVersion", "packagePath"],
+      "properties": {
+        "type": { "const": "package-lock" },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+        },
+        "lockfileVersion": { "enum": [1, 2, 3] },
+        "packagePath": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+        }
+      }
+    },
+    "installedVersionReason": {
+      "enum": [
+        "INVALID_LOCKFILE",
+        "LOCKFILE_NOT_FOUND",
+        "LOCKFILE_UNSUPPORTED",
+        "NON_REGISTRY_DEPENDENCY",
+        "PACKAGE_NOT_RESOLVED",
+        "RESOLVED_VERSION_UNAVAILABLE",
+        "WORKSPACE_RESOLUTION_AMBIGUOUS"
+      ]
+    },
     "dependencySummary": {
       "type": "object",
       "additionalProperties": false,
@@ -126,6 +156,20 @@
         "name": { "type": "string", "minLength": 1 },
         "normalizedName": { "type": "string", "minLength": 1 },
         "declaredVersion": { "type": ["string", "null"] },
+        "installedVersion": { "type": ["string", "null"] },
+        "installedVersionStatus": { "enum": ["resolved", "unresolved"] },
+        "installedVersionSource": {
+          "anyOf": [
+            { "$ref": "#/$defs/installedVersionSource" },
+            { "type": "null" }
+          ]
+        },
+        "installedVersionReason": {
+          "anyOf": [
+            { "$ref": "#/$defs/installedVersionReason" },
+            { "type": "null" }
+          ]
+        },
         "type": {
           "enum": [
             "constraint",
@@ -139,7 +183,53 @@
           ]
         },
         "manifest": { "type": "string", "minLength": 1 }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              { "required": ["installedVersion"] },
+              { "required": ["installedVersionStatus"] },
+              { "required": ["installedVersionSource"] },
+              { "required": ["installedVersionReason"] }
+            ]
+          },
+          "then": {
+            "required": [
+              "installedVersion",
+              "installedVersionStatus",
+              "installedVersionSource",
+              "installedVersionReason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": { "installedVersionStatus": { "const": "resolved" } },
+            "required": ["installedVersionStatus"]
+          },
+          "then": {
+            "properties": {
+              "installedVersion": { "type": "string", "minLength": 1 },
+              "installedVersionSource": { "$ref": "#/$defs/installedVersionSource" },
+              "installedVersionReason": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "installedVersionStatus": { "const": "unresolved" } },
+            "required": ["installedVersionStatus"]
+          },
+          "then": {
+            "properties": {
+              "installedVersion": { "type": "null" },
+              "installedVersionSource": { "type": "null" },
+              "installedVersionReason": { "$ref": "#/$defs/installedVersionReason" }
+            }
+          }
+        }
+      ]
     },
     "project": {
       "type": "object",

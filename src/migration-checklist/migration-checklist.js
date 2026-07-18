@@ -214,12 +214,41 @@ function normalizeDependency(record) {
 
 function validateVersionSemantics(record, errors) {
   const versions = record.versions;
+  const installedFields = [
+    'installedVersion',
+    'installedVersionStatus',
+    'installedVersionSource',
+    'installedVersionReason'
+  ];
+  const installedFieldCount = installedFields.filter((field) => field in versions).length;
+  if (installedFieldCount !== 0 && installedFieldCount !== installedFields.length) {
+    errors.push(`Dependency ${record.analysisResultId} has an incomplete installed-version baseline.`);
+  }
   if (versions.analysisMode === 'exactBaseline') {
     if (versions.currentVersion === null || versions.currentVersionSource === null) {
       errors.push(`Dependency ${record.analysisResultId} exact baseline requires current version and source.`);
     }
   } else if (versions.currentVersion !== null || versions.currentVersionSource !== null) {
     errors.push(`Dependency ${record.analysisResultId} uncertain baseline cannot contain an exact current version.`);
+  }
+  if (versions.installedVersionStatus === 'resolved') {
+    if (
+      versions.currentVersion !== versions.installedVersion
+      || versions.currentVersionSource !== 'resolvedArtifact'
+      || versions.installedVersionSource === null
+      || versions.installedVersionReason !== null
+    ) {
+      errors.push(`Dependency ${record.analysisResultId} does not preserve its resolved installed-version baseline.`);
+    }
+  } else if (
+    versions.installedVersionStatus === 'unresolved'
+    && (
+      versions.installedVersion !== null
+      || versions.installedVersionSource !== null
+      || versions.installedVersionReason === null
+    )
+  ) {
+    errors.push(`Dependency ${record.analysisResultId} has inconsistent unresolved installed-version fields.`);
   }
 }
 

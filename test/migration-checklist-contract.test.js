@@ -330,6 +330,37 @@ test('nullable current version remains an uncertain constraint baseline', () => 
   assert.deepEqual(versions.delta, { direction: 'unknown', classification: 'unknown' });
 });
 
+test('Migration Checklist preserves installed-version provenance without changing occurrence identity', () => {
+  const versions = {
+    ...exactVersions(),
+    declaredVersion: '^1.0.0',
+    installedVersion: '1.1.0',
+    installedVersionStatus: 'resolved',
+    installedVersionSource: {
+      type: 'package-lock',
+      path: 'package-lock.json',
+      lockfileVersion: 3,
+      packagePath: 'node_modules/antd'
+    },
+    installedVersionReason: null,
+    currentVersion: '1.1.0',
+    currentVersionSource: 'resolvedArtifact'
+  };
+  const checklist = build([record({
+    versions,
+    selectedEvidenceRefs: [],
+    findings: [fallbackFinding('NO_GROUNDED_ACTION')]
+  })]);
+  const stored = checklist.dependencies[0];
+
+  assert.equal(stored.dependency.projectId, 'node:.');
+  assert.equal(stored.dependency.manifest, 'package.json');
+  assert.equal(stored.versions.declaredVersion, '^1.0.0');
+  assert.equal(stored.versions.installedVersion, '1.1.0');
+  assert.equal(stored.versions.targetVersion, '2.0.0');
+  assert.equal(stored.versions.installedVersionSource.path, 'package-lock.json');
+});
+
 test('registry latest is a target fact and cannot be marked recommended', () => {
   const checklist = build([record({
     versions: constraintVersions(),
