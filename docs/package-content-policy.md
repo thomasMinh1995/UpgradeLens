@@ -15,8 +15,10 @@ The package guard additionally requires critical assets such as:
 - Migration Planning v1 and v2 golden datasets;
 - CLI progress, qualification-resolution, and package-policy documentation.
 
-The guard reads actual gzip tar entries from a fresh `npm pack --json`; it does
-not infer package contents from the working tree.
+The guard reads actual gzip tar entries from a fresh
+`npm pack --json --ignore-scripts`; it does not infer package contents from the
+working tree. Lifecycle scripts are disabled for manifest production so a future
+`prepack` hook cannot recurse into the guard.
 
 ## Repository-only CLI capture evidence
 
@@ -52,13 +54,30 @@ npm run check:package
 
 The check fails when an actual tarball:
 
-- contains a capture evidence path or capture helper; or
-- omits any required public asset.
+- contains a capture, environment, credential-file, local-machine, or private
+  qualification artifact;
+- omits any required public asset;
+- contains an invalid, traversing, absolute, or duplicate normalized entry;
+- contains numeric-copy, parenthesized-copy, copy/duplicate-label, or backup
+  filenames in packaged runtime, executable, schema, or evaluation areas; or
+- contains a protected implementation file that is not tracked by Git during a
+  strict release check.
+
+Git correlation is supplemental. In a source archive without Git metadata, the
+structural tarball rules still run and Git absence does not fail by itself. The
+filename grammar is copy-suffix-specific: legitimate names such as `sha256.js`,
+`oauth2.js`, `v2-runtime.js`, and `schema-v2.json` remain valid. Documentation is
+outside strict copy-name matching so intentional historical document identities are
+preserved.
 
 `npm run check` runs the repository tests and this package check. Focused guard
 tests also verify stable path normalization, the future capture convention,
-missing-required-asset failures, injected forbidden-path failures, and the
-actual npm tarball.
+missing-required-asset failures, invalid paths, deterministic diagnostics,
+tracked/untracked policy, valid numeric-name false positives, and an isolated npm
+tarball that contains an untracked numeric-copy artifact.
+
+The guard reports findings and exits non-zero; it never deletes or rewrites them.
+Investigate ownership and content before cleanup.
 
 Package validation for a release should inspect the real tar entries, perform
 an isolated install of the produced tarball, and smoke-test the packaged

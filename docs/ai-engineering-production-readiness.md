@@ -87,16 +87,16 @@ Known extensibility gaps:
 Validation used a temporary copy of the real UpgradeLens repository:
 
 ```text
-/private/tmp/upgradelens-ae05-uxjQUI/UpgradeLens
+<TEMPORARY_UPGRADELENS_CHECKOUT>
 ```
 
 ### Commands run
 
 ```bash
-node bin/upgradelens.js discover /private/tmp/upgradelens-ae05-uxjQUI/UpgradeLens
-node bin/upgradelens.js research /private/tmp/upgradelens-ae05-uxjQUI/UpgradeLens --offline
-node bin/upgradelens.js analyze-version /private/tmp/upgradelens-ae05-uxjQUI/UpgradeLens --stdout
-node bin/upgradelens.js eval --dataset /Users/nguyenducminh/Desktop/UpgradeLens/eval/datasets --output evaluation-report.json
+node bin/upgradelens.js discover <TEMPORARY_UPGRADELENS_CHECKOUT>
+node bin/upgradelens.js research <TEMPORARY_UPGRADELENS_CHECKOUT> --offline
+node bin/upgradelens.js analyze-version <TEMPORARY_UPGRADELENS_CHECKOUT> --stdout
+node bin/upgradelens.js eval --dataset eval/datasets --output evaluation-report.json
 node bin/upgradelens.js scorecard --report evaluation-report.json --metrics-output metrics.json --output ai-scorecard.json
 node bin/upgradelens.js benchmark --config benchmark.json --output benchmark-report.json
 ```
@@ -137,7 +137,7 @@ Knowledge Research offline result:
 The analysis blocker was:
 
 ```text
-ENOENT: no such file or directory, open '/private/tmp/upgradelens-ae05-uxjQUI/UpgradeLens/.upgradelens/knowledge-evidence-bundle.json'
+ENOENT: no such file or directory, open '<TEMPORARY_UPGRADELENS_CHECKOUT>/.upgradelens/knowledge-evidence-bundle.json'
 ```
 
 This is not an AI Runtime, prompt, or benchmark failure. It is a missing upstream artifact producer.

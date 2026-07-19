@@ -35,45 +35,45 @@ cd <UPGRADELENS_REPO>
 git branch --show-current
 git status --short
 npm test
-npm_config_cache=/tmp/upgradelens-npm-cache npm run check
+npm_config_cache="$TMPDIR/upgradelens-npm-cache" npm run check
 git diff --check
 node <UPGRADELENS_REPO>/bin/upgradelens.js --version
 node <UPGRADELENS_REPO>/bin/upgradelens.js --help
 
 cd <VINGRADE_REPO>
 find .upgradelens -maxdepth 5 -type f 2>/dev/null | sort
-rm -rf /tmp/vingrade-upgradelens-before-rc02
+rm -rf "$TMPDIR/vingrade-upgradelens-before-rc02"
 if [ -d .upgradelens ]; then
-  cp -R .upgradelens /tmp/vingrade-upgradelens-before-rc02
+  cp -R .upgradelens "$TMPDIR/vingrade-upgradelens-before-rc02"
 fi
 rm -rf .upgradelens
 node <UPGRADELENS_REPO>/bin/upgradelens.js discover .
 
 /usr/bin/time -p node <UPGRADELENS_REPO>/bin/upgradelens.js research . \
-  > /tmp/vingrade-rc02-online.stdout \
-  2> /tmp/vingrade-rc02-online.stderr
+  > "$TMPDIR/vingrade-rc02-online.stdout" \
+  2> "$TMPDIR/vingrade-rc02-online.stderr"
 pgrep -af "bin/upgradelens.js research"
 lsof -nP -p <PID>
 
 /usr/bin/time -p node <UPGRADELENS_REPO>/bin/upgradelens.js research . \
-  > /tmp/vingrade-rc02-second.stdout \
-  2> /tmp/vingrade-rc02-second.stderr
+  > "$TMPDIR/vingrade-rc02-second.stdout" \
+  2> "$TMPDIR/vingrade-rc02-second.stderr"
 
 /usr/bin/time -p node <UPGRADELENS_REPO>/bin/upgradelens.js research . --offline \
-  > /tmp/vingrade-rc02-offline.stdout \
-  2> /tmp/vingrade-rc02-offline.stderr
+  > "$TMPDIR/vingrade-rc02-offline.stdout" \
+  2> "$TMPDIR/vingrade-rc02-offline.stderr"
 
-rm -rf /tmp/vingrade-rc02-cache-backup
-mv .upgradelens/cache /tmp/vingrade-rc02-cache-backup
+rm -rf "$TMPDIR/vingrade-rc02-cache-backup"
+mv .upgradelens/cache "$TMPDIR/vingrade-rc02-cache-backup"
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . --offline \
-  > /tmp/vingrade-rc02-offline-empty.stdout \
-  2> /tmp/vingrade-rc02-offline-empty.stderr
+  > "$TMPDIR/vingrade-rc02-offline-empty.stdout" \
+  2> "$TMPDIR/vingrade-rc02-offline-empty.stderr"
 rm -rf .upgradelens/cache
-mv /tmp/vingrade-rc02-cache-backup .upgradelens/cache
+mv "$TMPDIR/vingrade-rc02-cache-backup" .upgradelens/cache
 
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . --stdout \
-  > /tmp/vingrade-rc02-stdout.json \
-  2> /tmp/vingrade-rc02-stdout.stderr
+  > "$TMPDIR/vingrade-rc02-stdout.json" \
+  2> "$TMPDIR/vingrade-rc02-stdout.stderr"
 
 mkdir -p artifacts
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . \
@@ -81,9 +81,9 @@ node <UPGRADELENS_REPO>/bin/upgradelens.js research . \
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . \
   --output artifacts/vingrade-knowledge-rc02.json
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . \
-  --output /tmp/vingrade-invalid-output.json
+  --output "$TMPDIR/vingrade-invalid-output.json"
 rm -rf artifacts
-rm -f /tmp/vingrade-invalid-output.json
+rm -f "$TMPDIR/vingrade-invalid-output.json"
 ```
 
 The first online command ran under a bounded observer. The observer detected the `Wrote:` completion line, then used `ps` and `lsof` to record exact UpgradeLens process and established-TCP counts immediately, after 5 seconds, after 15 seconds, and after 30 seconds. It was authorized to terminate only if the CLI was still alive after the final observation; no termination was needed.
@@ -224,7 +224,7 @@ The Project Manifest digest, policy, source facts, warnings, and canonical order
 
 - `--stdout` exited 0 naturally in 5.87 seconds and emitted 8,565,466 bytes of JSON only. JSON parsing, Knowledge Manifest schema validation, and runtime invariants passed. No progress, Agent-close, dispatcher-cleanup, or other message contaminated stdout.
 - The repository-relative custom output exited 0 naturally and validated. Repeating the command changed the target inode (`17879684` to `17879906`), left only the final manifest, and left no temporary file, confirming atomic replacement.
-- Absolute output rejection exited 1 before writing `/tmp/vingrade-invalid-output.json`. No final or partial file remained. The known stack-trace UX was observed only on stderr and was not changed.
+- Absolute output rejection exited 1 before writing the `$TMPDIR/vingrade-invalid-output.json` acceptance target. No final or partial file remained. The known stack-trace UX was observed only on stderr and was not changed.
 - The temporary `artifacts/` directory was removed.
 
 ## 11. Privacy and portability

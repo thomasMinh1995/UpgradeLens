@@ -29,34 +29,34 @@ The endpoint URL path and authorization value are intentionally not recorded. `U
 No command contained a key or authorization value.
 
 ```bash
-git -C /Users/nguyenducminh/github-classroom/C2-App-008 status --short
-git -C /Users/nguyenducminh/github-classroom/C2-App-008 diff --name-only
+git -C <VINGRADE_REPO> status --short
+git -C <VINGRADE_REPO> diff --name-only
 
 node ./bin/upgradelens.js discover \
-  /Users/nguyenducminh/github-classroom/C2-App-008
+  <VINGRADE_REPO>
 
 node ./bin/upgradelens.js research \
-  /Users/nguyenducminh/github-classroom/C2-App-008
+  <VINGRADE_REPO>
 
 node --env-file=.env ./bin/upgradelens.js analyze-version \
-  /Users/nguyenducminh/github-classroom/C2-App-008 \
+  <VINGRADE_REPO> \
   --package npm:react-router-dom
 
 node --env-file=.env ./bin/upgradelens.js analyze-version \
-  /Users/nguyenducminh/github-classroom/C2-App-008 \
+  <VINGRADE_REPO> \
   --package npm:react \
   --output .upgradelens/validation/version-analysis-react.json
 
 node --env-file=.env ./bin/upgradelens.js analyze-version \
-  /Users/nguyenducminh/github-classroom/C2-App-008 \
+  <VINGRADE_REPO> \
   --package npm:axios \
   --output .upgradelens/validation/version-analysis-axios.json
 
 node --env-file=.env ./bin/upgradelens.js analyze \
-  /Users/nguyenducminh/github-classroom/C2-App-008
+  <VINGRADE_REPO>
 ```
 
-Read-only `jq`, `rg`, `sed`, and `find` checks were then used to inspect artifact references, evidence content, report states, source usages, and Git safety. UpgradeLens verification used `npm test`, `npm pack --dry-run --cache /tmp/upgradelens-npm-cache`, and `git diff --check`.
+Read-only `jq`, `rg`, `sed`, and `find` checks were then used to inspect artifact references, evidence content, report states, source usages, and Git safety. UpgradeLens verification used `npm test`, `npm pack --dry-run --cache "$TMPDIR/upgradelens-npm-cache"`, and `git diff --check`.
 
 ## 4. Progressive validation
 
@@ -229,7 +229,7 @@ MVP-05 can begin provided product claims continue to state the current language-
 ## 13. Verification
 
 - `npm test`: 403 tests, 402 passed, zero failed, one existing sandbox-related skip because local loopback listeners were unavailable.
-- `npm pack --dry-run --cache /tmp/upgradelens-npm-cache`: passed; 132 files, approximately 321.3 kB packed.
+- `npm pack --dry-run --cache "$TMPDIR/upgradelens-npm-cache"`: passed; 132 files, approximately 321.3 kB packed.
 - `git diff --check`: passed with no output.
 - Secret check: the configured authorization value was absent from all 113 generated/report files inspected.
 - VinGrade post-run `git diff --name-only`: only the pre-existing deleted `Makefile`; validation artifacts remained untracked under `.upgradelens/`.

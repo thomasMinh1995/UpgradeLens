@@ -1,7 +1,7 @@
 {
   "name": "upgradelens",
   "version": "0.5.0",
-  "description": "Discover the structure and technology footprint of a software project.",
+  "description": "Decision-first CLI for evidence-bounded dependency upgrade analysis.",
   "type": "module",
   "bin": {
     "upgradelens": "./bin/upgradelens.js"
@@ -32,15 +32,20 @@
     "node": ">=20"
   },
   "keywords": [
-    "discovery",
-    "migration",
-    "modernization",
-    "cli"
+    "cli",
+    "dependency-upgrades",
+    "migration-planning",
+    "repository-analysis",
+    "developer-tools"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/thomasMinh1995/UpgradeLens.git"
+  },
+  "homepage": "https://github.com/thomasMinh1995/UpgradeLens#readme",
+  "bugs": {
+    "url": "https://github.com/thomasMinh1995/UpgradeLens/issues"
   },
   "dependencies": {
     "@babel/parser": "^7.29.7",
