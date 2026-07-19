@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  UPGRADELENS_AI_PROVIDER: ""
+  UPGRADELENS_AI_ENDPOINT: ""
+  UPGRADELENS_AI_MODEL: ""
+  UPGRADELENS_AI_AUTHORIZATION: ""
+  UPGRADELENS_AI_TIMEOUT_MS: ""
+  UPGRADELENS_AI_TIMEOUT_SECONDS: ""
+  UPGRADELENS_AI_MAX_RESPONSE_BYTES: ""
+  UPGRADELENS_AI_DEBUG: ""
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - 20
+          - 22
+          - 24
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run canonical tests with bounded Node 20 concurrency
+        if: matrix.node == 20
+        run: npm test -- --test-concurrency=2
+      - name: Run canonical tests
+        if: matrix.node != 20
+        run: npm test
+      - name: Validate package boundary
+        run: npm run check:package
+
+  package-smoke:
+    name: Package smoke (Node 24)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Preview npm package manifest
+        run: npm pack --dry-run --json --ignore-scripts
+      - name: Build, inspect, install, and exercise package
+        run: node scripts/ci-package-smoke.mjs

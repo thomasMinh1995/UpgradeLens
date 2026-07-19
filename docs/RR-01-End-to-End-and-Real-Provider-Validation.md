@@ -22,10 +22,10 @@ Facts, observations, and decisions in this report use these labels:
 
 | Item | Result |
 | --- | --- |
-| UpgradeLens path | `/Users/nguyenducminh/Desktop/UpgradeLens` |
+| UpgradeLens path | current UpgradeLens checkout |
 | UpgradeLens package | `upgradelens@0.4.0` |
 | Node.js | `v26.0.0`; package requirement `>=20` |
-| VinGrade path | `/Users/nguyenducminh/github-classroom/C2-App-008` |
+| VinGrade path | isolated VinGrade checkout |
 | VinGrade branch | `feat/knowledege-rubric-criteria` |
 | VinGrade commit | `25811ef997fcf45810105e89e4500688f28f7ba5` |
 | Validation date | 2026-07-17, Asia/Ho_Chi_Minh |
@@ -342,9 +342,9 @@ No command contained an API key or authorization value.
 ```bash
 node --version
 git status --short
-git -C /Users/nguyenducminh/github-classroom/C2-App-008 status --short
-git -C /Users/nguyenducminh/github-classroom/C2-App-008 branch --show-current
-git -C /Users/nguyenducminh/github-classroom/C2-App-008 rev-parse HEAD
+git -C <VINGRADE_REPO> status --short
+git -C <VINGRADE_REPO> branch --show-current
+git -C <VINGRADE_REPO> rev-parse HEAD
 
 node --test \
   test/migration-checklist-contract.test.js \
@@ -355,11 +355,11 @@ node --test \
   test/analysis-orchestration.test.js
 
 node --input-type=module -e '<MP-04 fake evaluation summary>'
-env npm_config_cache=/tmp/upgradelens-npm-cache npm run check
+env npm_config_cache="$TMPDIR/upgradelens-npm-cache" npm run check
 node ./bin/upgradelens.js --help
 git diff --check
 
-node --env-file=.env /private/tmp/upgradelens-rr01-real-evaluation.mjs
+node --env-file=.env "$TMPDIR/upgradelens-rr01-real-evaluation.mjs"
 node --env-file=.env --input-type=module -e '<sanitized secret/prompt/path scan>'
 node --input-type=module -e '<qualification guard check against the real record>'
 

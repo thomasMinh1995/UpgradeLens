@@ -27,9 +27,9 @@ The substantive commands below were executed without credentials. Repository pat
 cd <UPGRADELENS_REPO>
 git status
 npm test
-npm_config_cache=/tmp/upgradelens-npm-cache npm run check
+npm_config_cache="$TMPDIR/upgradelens-npm-cache" npm run check
 git diff --check
-npm_config_cache=/tmp/upgradelens-npm-cache npm pack --dry-run --json
+npm_config_cache="$TMPDIR/upgradelens-npm-cache" npm pack --dry-run --json
 which upgradelens
 node <UPGRADELENS_REPO>/bin/upgradelens.js --version
 node <UPGRADELENS_REPO>/bin/upgradelens.js --help
@@ -40,17 +40,17 @@ node <UPGRADELENS_REPO>/bin/upgradelens.js discover .
 node <UPGRADELENS_REPO>/bin/upgradelens.js research .
 node <UPGRADELENS_REPO>/bin/upgradelens.js research .
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . --offline
-mv .upgradelens/cache /tmp/vingrade-knowledge-cache
+mv .upgradelens/cache "$TMPDIR/vingrade-knowledge-cache"
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . --offline
-mv /tmp/vingrade-knowledge-cache .upgradelens/cache
+mv "$TMPDIR/vingrade-knowledge-cache" .upgradelens/cache
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . --stdout \
-  > /tmp/vingrade-knowledge-stdout.json \
-  2> /tmp/vingrade-knowledge-stdout.stderr
+  > "$TMPDIR/vingrade-knowledge-stdout.json" \
+  2> "$TMPDIR/vingrade-knowledge-stdout.stderr"
 mkdir -p artifacts
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . \
   --output artifacts/vingrade-knowledge.json
 node <UPGRADELENS_REPO>/bin/upgradelens.js research . \
-  --output /tmp/knowledge.json
+  --output "$TMPDIR/knowledge.json"
 node <UPGRADELENS_REPO>/bin/upgradelens.js discover .
 node <UPGRADELENS_REPO>/bin/upgradelens.js research .
 ```
@@ -248,7 +248,7 @@ All 5,119 URL occurrences in the online Knowledge Manifest used HTTPS. No releas
 - Default discovery and research paths were created as documented.
 - `--stdout` wrote 1,713,123 bytes of JSON only. JSON parsing, schema validation, and invariants passed. Stderr was empty, and the default Knowledge Manifest SHA-256 remained unchanged.
 - Custom relative output `artifacts/vingrade-knowledge.json` was created and validated. It did not replace the default artifact. The temporary `artifacts/` directory was removed after validation.
-- Absolute output `/tmp/knowledge.json` failed before writing with exit code 1. No partial output remained. The error escaped as a full Node stack trace rather than a concise CLI error.
+- Absolute output under `$TMPDIR` failed before writing with exit code 1. No partial output remained. The error escaped as a full Node stack trace rather than a concise CLI error.
 - Online default, stdout, and custom-output runs exhibited long post-completion process lifetimes with established HTTPS sockets. Two online file runs and the stdout/custom runs were interrupted only after their complete validated outputs were confirmed. A later equivalent final online run exited 0, but substantially later than its 1.627-second manifest duration. Offline runs exited promptly.
 
 ### Atomic replacement
@@ -359,7 +359,7 @@ VinGrade had no pre-existing `.upgradelens/` files at the start of this retest. 
 ### Automated gate
 
 - `npm test`: 115 tests passed; 0 failed, skipped, cancelled, or todo.
-- `npm_config_cache=/tmp/upgradelens-npm-cache npm run check`: passed; it reran all 115 tests and completed `npm pack --dry-run` with 44 files, a 90.1 kB tarball, and 347.3 kB unpacked size.
+- `npm_config_cache="$TMPDIR/upgradelens-npm-cache" npm run check`: passed; it reran all 115 tests and completed `npm pack --dry-run` with 44 files, a 90.1 kB tarball, and 347.3 kB unpacked size.
 - `git diff --check`: passed with no output.
 - Direct CLI version/help: `0.1.1`; commands `discover` and `research`, plus documented discovery/research options.
 
@@ -453,7 +453,7 @@ React, Pydantic, Ruff, and SQLAlchemy are no longer unavailable because of the f
 - The offline populated-cache warning was one `OFFLINE_CACHE_MISS` for Vite. The empty-cache run produced 46 `OFFLINE_CACHE_MISS` warnings. Neither offline run had network permission or online fallback, and both exited naturally with valid manifests. The 45-entry cache was restored afterward.
 - `--stdout` exited 0 in 6.69 seconds, emitted JSON only, parsed successfully, and passed schema and runtime invariants. No progress text entered stdout; stderr contained timing output only.
 - Repository-relative custom output was created and validated. Replacing the existing target changed its inode, left only the final file, and left no temporary file. The temporary `artifacts/` directory was removed.
-- Absolute output rejection exited 1 before writing `/tmp/vingrade-invalid-output.json`; no partial output remained. The existing full-stack-trace CLI error behavior remains, but no stack trace entered a public artifact.
+- Absolute output rejection exited 1 before writing the `$TMPDIR/vingrade-invalid-output.json` acceptance target; no partial output remained. The existing full-stack-trace CLI error behavior remains, but no stack trace entered a public artifact.
 
 ### Determinism
 

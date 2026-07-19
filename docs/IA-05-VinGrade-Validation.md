@@ -19,12 +19,12 @@ No UpgradeLens or VinGrade source fix was made during IA-05.
 
 | Item | Value |
 | --- | --- |
-| UpgradeLens repository | `/Users/nguyenducminh/Desktop/UpgradeLens` |
+| UpgradeLens repository | current UpgradeLens checkout |
 | UpgradeLens branch | `feat/mv-04-knowledge-evidence` |
 | UpgradeLens commit | `e0f0e447aa7d43defb0d97a1c1439fb858634804` |
 | UpgradeLens state | IA-04 working-tree implementation present and uncommitted |
 | UpgradeLens package | `upgradelens@0.2.0` |
-| VinGrade repository | `/Users/nguyenducminh/github-classroom/C2-App-008` |
+| VinGrade repository | isolated VinGrade checkout |
 | VinGrade identity | README title `VinGrade`; package `vingrade-frontend` |
 | VinGrade branch | `feat/knowledege-rubric-criteria` |
 | VinGrade commit | `25811ef997fcf45810105e89e4500688f28f7ba5` |
@@ -63,13 +63,13 @@ The deleted tracked `Makefile` and all unrelated untracked paths predated IA-05.
 Four old UpgradeLens artifacts existed. Their timestamps were from 2026-07-16 01:24–01:32 local time, and the old Version Analysis contained only one result. The complete old `.upgradelens` directory was moved intact to:
 
 ```text
-/private/tmp/vingrade-ia05-before-20260716-validated
+$TMPDIR/vingrade-ia05-before-20260716-validated
 ```
 
 The online research cache generated during IA-05 was later moved intact to:
 
 ```text
-/private/tmp/vingrade-ia05-online-cache-20260716
+$TMPDIR/vingrade-ia05-online-cache-20260716
 ```
 
 This allowed the final two runs to exercise the same clean offline cache-miss state without mixing old artifacts.
@@ -79,7 +79,7 @@ This allowed the final two runs to exercise the same clean offline cache-miss st
 The CLI was invoked directly from the current UpgradeLens working tree:
 
 ```bash
-node ./bin/upgradelens.js analyze /Users/nguyenducminh/github-classroom/C2-App-008
+node ./bin/upgradelens.js analyze <VINGRADE_REPO>
 ```
 
 | Run | Mode | Result | Exit | Details |

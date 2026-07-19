@@ -32,7 +32,7 @@ Fallback repository: `UpgradeLens`
 Validation root:
 
 ```text
-/private/tmp/upgradelens-live-ai-validation/repo
+<TEMPORARY_LIVE_VALIDATION_REPOSITORY>
 ```
 
 The fallback repository was a temporary copy containing the real `UpgradeLens` package manifest. This avoided modifying the working repository while still exercising the production CLI against real npm registry metadata.
@@ -88,18 +88,18 @@ Source: `VERSION_ANALYSIS_PROMPT_VERSION` in `src/ai-version-analysis.js`.
 Command evidence:
 
 ```text
-node bin/upgradelens.js discover /private/tmp/upgradelens-live-ai-validation/repo
+node bin/upgradelens.js discover <TEMPORARY_LIVE_VALIDATION_REPOSITORY>
 ```
 
 Result:
 
 ```text
 Discovered 1 project(s).
-Manifest: /private/tmp/upgradelens-live-ai-validation/repo/.upgradelens/project-manifest.json
+Manifest: <TEMPORARY_LIVE_VALIDATION_REPOSITORY>/.upgradelens/project-manifest.json
 ```
 
 ```text
-node bin/upgradelens.js research /private/tmp/upgradelens-live-ai-validation/repo
+node bin/upgradelens.js research <TEMPORARY_LIVE_VALIDATION_REPOSITORY>
 ```
 
 Result:
@@ -110,14 +110,14 @@ Result:
 ✓ Research complete
 ✓ Knowledge Manifest validated
 ✓ Wrote:
-/private/tmp/upgradelens-live-ai-validation/repo/.upgradelens/knowledge-manifest.json
+<TEMPORARY_LIVE_VALIDATION_REPOSITORY>/.upgradelens/knowledge-manifest.json
 ✓ Knowledge Evidence Bundle validated
 ✓ Wrote:
-/private/tmp/upgradelens-live-ai-validation/repo/.upgradelens/knowledge-evidence-bundle.json
+<TEMPORARY_LIVE_VALIDATION_REPOSITORY>/.upgradelens/knowledge-evidence-bundle.json
 ```
 
 ```text
-node bin/upgradelens.js analyze-version /private/tmp/upgradelens-live-ai-validation/repo
+node bin/upgradelens.js analyze-version <TEMPORARY_LIVE_VALIDATION_REPOSITORY>
 ```
 
 Result:
@@ -133,7 +133,7 @@ upgradelens: AI runtime is not configured. Set UPGRADELENS_AI_ENDPOINT or provid
 Generated:
 
 ```text
-/private/tmp/upgradelens-live-ai-validation/repo/.upgradelens/project-manifest.json
+<TEMPORARY_LIVE_VALIDATION_REPOSITORY>/.upgradelens/project-manifest.json
 ```
 
 ### Knowledge Manifest
@@ -141,7 +141,7 @@ Generated:
 Generated:
 
 ```text
-/private/tmp/upgradelens-live-ai-validation/repo/.upgradelens/knowledge-manifest.json
+<TEMPORARY_LIVE_VALIDATION_REPOSITORY>/.upgradelens/knowledge-manifest.json
 ```
 
 Package resolution:
@@ -159,7 +159,7 @@ Warnings: `0`
 Generated:
 
 ```text
-/private/tmp/upgradelens-live-ai-validation/repo/.upgradelens/knowledge-evidence-bundle.json
+<TEMPORARY_LIVE_VALIDATION_REPOSITORY>/.upgradelens/knowledge-evidence-bundle.json
 ```
 
 Summary:
@@ -297,4 +297,3 @@ Reason:
 - Therefore there is no evidence yet that structured model output, trust validation, human-review policy, evaluation, scorecard, and benchmark work end-to-end with a real model.
 
 This is not a source-code blocker discovered in UpgradeLens. It is an environment/configuration blocker for live validation.
-

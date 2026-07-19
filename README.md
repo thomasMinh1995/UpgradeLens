@@ -149,6 +149,29 @@ Use `--progress auto|interactive|plain` to control progress rendering. `auto` se
 TTY-friendly or stable line-oriented output as appropriate. Heartbeats report real
 elapsed time but never invent a percentage or ETA.
 
+### Zero-secret Technical Preview sample
+
+The source repository includes a small public-safe Node sample with a declared
+dependency, a lockfile-installed baseline, and real source usage. Run deterministic
+discovery without provider configuration:
+
+```sh
+upgradelens discover examples/technical-preview-node --stdout
+```
+
+Run the bounded offline workflow:
+
+```sh
+upgradelens analyze examples/technical-preview-node --offline --stdout
+```
+
+Without a fresh local knowledge cache, the honest expected result is
+`INSUFFICIENT_DATA`: UpgradeLens preserves the installed baseline but does not
+invent a registry target, evidence, or recommendation. See the
+[sample guide](examples/technical-preview-node/README.md) for the expected boundary
+and the optional provider-configured next level. The sample is repository-only and
+is not included in the npm tarball.
+
 ## Explicit target selection
 
 A caller-owned target is repeatable and applies only to the matching dependency
@@ -420,7 +443,7 @@ npm run check
 npm run check:package
 ```
 
-The v0.5.0 release verification baseline is 615 tests passed, 0 failed, and 1 known
+The v0.5.0 release verification baseline is 632 tests passed, 0 failed, and 1 known
 sandbox-loopback skip.
 
 Design and contract references:
@@ -452,6 +475,24 @@ Potential follow-ups, not current supported features:
 - reviewed CI verification execution;
 - broader model/provider evaluation and offline knowledge support;
 - IDE or MCP integrations.
+
+## Community
+
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
+- [Support](SUPPORT.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+
+### Technical Preview feedback
+
+When reporting feedback, tell us whether decisions are understandable and
+actionable; whether `INVESTIGATE` is too frequent or too rare; whether installed
+baselines and ambiguity selectors work in real npm workspaces; whether coverage
+limitations prevent false confidence; whether the migration handoff reduces
+re-research; whether completion states and exit codes work in CI; and which
+artifacts help code review or team planning. Use the feature or bug form described
+in [Support](SUPPORT.md), and never include credentials, private source, or raw
+provider payloads.
 
 ## License
 
