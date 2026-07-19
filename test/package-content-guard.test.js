@@ -15,6 +15,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 import {
+  EXCLUDED_PACKAGE_DOCUMENT_PREFIXES,
   FORBIDDEN_CAPTURE_PREFIXES,
   PACKAGE_GUARD_REASON_CODES,
   PROTECTED_PACKAGE_PREFIXES,
@@ -214,6 +215,8 @@ test('source archive mode without Git metadata preserves structural checks witho
 
 test('existing exclusions cover captures, env, credentials, local, and qualification artifacts', () => {
   const cases = [
+    ['package/docs/announcements/preview.md', 'FORBIDDEN_ANNOUNCEMENT_DOCUMENT'],
+    ['package/docs/reviews/release-gate.md', 'FORBIDDEN_MAINTAINER_REVIEW_DOCUMENT'],
     ['package/docs/rr02-rerun-cli-captures/manifest.json', 'FORBIDDEN_CAPTURE_EVIDENCE'],
     ['package/.env', 'FORBIDDEN_ENV_FILE'],
     ['package/docs/.env.local', 'FORBIDDEN_ENV_FILE'],
@@ -234,6 +237,10 @@ test('existing exclusions cover captures, env, credentials, local, and qualifica
     ),
     null
   );
+  assert.deepEqual(EXCLUDED_PACKAGE_DOCUMENT_PREFIXES, {
+    announcement: 'package/docs/announcements/',
+    maintainerReview: 'package/docs/reviews/'
+  });
 });
 
 test('required assets and forbidden entries fail independently', () => {
@@ -317,14 +324,14 @@ test('authoritative required list covers runtime, schemas, datasets, and user do
     'package/bin/depverdict.js',
     'package/bin/upgradelens.js',
     'package/docs/architecture-overview.md',
+    'package/docs/community/technical-preview-feedback-guide.md',
     'package/docs/decisions/diff-02-identity-compatibility-contract.md',
     'package/docs/decisions/diff-03-repository-docs-community-migration.md',
     'package/docs/decisions/diff-04-release-evidence-gap-acceptance.md',
+    'package/docs/decisions/rel-03-package-documentation-policy.md',
+    'package/docs/decisions/rel-03-packaged-qualification-evidence.md',
     'package/docs/migrations/upgradelens-to-depverdict.md',
     'package/docs/releases/v0.6.0-alpha.1-depverdict-preview.md',
-    'package/docs/reviews/diff-02-identity-contract-compatibility.md',
-    'package/docs/reviews/diff-03-repository-docs-community-migration.md',
-    'package/docs/reviews/diff-04-fix-post-rename-identity-release-remediation.md',
     'package/src/artifact-root-compatibility.js',
     'package/src/environment-compatibility.js',
     'package/src/index.js',
@@ -342,6 +349,11 @@ test('authoritative required list covers runtime, schemas, datasets, and user do
   ]) {
     assert.ok(REQUIRED_PACKAGE_PATHS.includes(value), value);
   }
+  assert.equal(REQUIRED_PACKAGE_PATHS.length, 32);
+  assert.equal(
+    REQUIRED_PACKAGE_PATHS.some((value) => value.startsWith('package/docs/reviews/')),
+    false
+  );
 });
 
 test('actual npm boundary includes and rejects an untracked OSS-01 numeric copy', async () => {
@@ -448,6 +460,8 @@ test('package scripts have no pack/install recursion or consumer lifecycle hook'
     await readFile(path.join(repositoryRoot, 'package.json'), 'utf8')
   );
   assert.equal(packageJson.scripts['check:package'], 'node scripts/package-content-guard.mjs');
+  assert.ok(packageJson.files.includes('!docs/reviews/**'));
+  assert.ok(packageJson.files.includes('!docs/announcements/**'));
   for (const hook of [
     'prepack',
     'prepare',

@@ -1,51 +1,82 @@
 # npm package content policy
 
-DepVerdict treats the tarball produced by `npm pack` as the authoritative
-public package boundary. Repository evidence can remain tracked without
-becoming npm consumer content.
+DepVerdict treats the tarball produced by `npm pack` as the authoritative public
+package boundary. Repository evidence can remain tracked without becoming npm
+consumer content.
+
+## Documentation categories
+
+Documentation has an explicit ownership and distribution category:
+
+| Category | Purpose | npm policy |
+| --- | --- | --- |
+| Runtime-required | Files required for executable, schema, dataset, or API behavior | Required |
+| User-operational | Installation, CLI, compatibility, troubleshooting, and feedback help useful without GitHub access | Included when current and sanitized |
+| Trust/provenance evidence | Stable architecture, identity, release, and package-boundary decisions needed to interpret shipped behavior | Included selectively and may be required |
+| Maintainer review | Readiness reports, rerun inventories, release gates, and operational evidence | Repository-only under `docs/reviews/` |
+| Announcement/promotional | Reusable launch copy and community announcements | Repository-only under `docs/announcements/` |
+| Capture/private/transient | Screenshots, transcripts, environment captures, secrets, local artifacts, and runtime output | Forbidden |
+
+New maintainer reviews and announcements must use their category directories.
+Historical technical studies at the root of `docs/` retain their existing paths
+as bounded trust/provenance records; this decision does not rename historical
+evidence.
 
 ## Included content
 
-`package.json.files` explicitly includes the executable, public runtime source,
-schemas, evaluation datasets, user-facing documentation, license, and README.
-The package guard additionally requires critical assets such as:
+`package.json.files` includes executables, public runtime source, schemas,
+evaluation datasets, user-facing documentation, stable trust/provenance
+documents, the license, and README. It explicitly excludes maintainer reviews,
+announcements, and CLI capture trees.
+
+The package guard requires 32 critical assets, including:
 
 - `bin/depverdict.js`, the bounded `bin/upgradelens.js` compatibility wrapper,
-  and the public runtime entry points;
-- the current architecture overview, identity-migration decision,
-  UpgradeLens-to-DepVerdict guide, preview release draft, and migration report;
-- Migration Planning qualification and extractive-candidate schemas;
-- Migration Planning v1 and v2 golden datasets;
-- CLI progress, qualification-resolution, and package-policy documentation.
+  and public runtime entry points;
+- schemas and datasets required for runtime validation and offline evaluation;
+- current architecture, CLI progress, package policy, release, compatibility,
+  and qualification-resolution documentation;
+- the Technical Preview feedback guide;
+- the REL-03 package-documentation and qualification-evidence decisions.
 
 The guard reads actual gzip tar entries from a fresh
 `npm pack --json --ignore-scripts`; it does not infer package contents from the
-working tree. Lifecycle scripts are disabled for manifest production so a future
-`prepack` hook cannot recurse into the guard.
+working tree. Lifecycle scripts are disabled for manifest production so a
+future `prepack` hook cannot recurse into the guard.
 
-## Repository-only CLI capture evidence
+## Repository-only documents and captures
 
-CLI transcripts, screenshots, environment summaries, and manifests use the
-direct-child convention:
+These paths are repository-only:
 
 ```text
+docs/reviews/**
+docs/announcements/**
 docs/*-cli-captures/
 ```
 
-They are retained in Git for release review but excluded by the path-specific
-`package.json.files` rule:
+The matching `package.json.files` exclusions are:
 
 ```text
+!docs/reviews/**
+!docs/announcements/**
 !docs/*-cli-captures
 ```
 
-The rule intentionally does not exclude all documentation. User-facing
-Markdown remains package-visible.
+The package guard independently rejects those categories if a future manifest
+change leaks them into a tarball. Capture helper programs under `scripts/` or
+`tools/` are also repository-only because those directories are outside the
+package allowlist.
 
-Capture helper programs under `scripts/` or `tools/` are also repository-only.
-Those directories are outside the package allowlist. The guard recognizes
-known release capture trees, the future direct-child naming convention, and
-capture-helper path patterns as forbidden tarball entries.
+## Qualification evidence
+
+The public qualification-record schema and resolution documentation are shipped.
+A live or project-local machine-readable qualification record is not. Until a
+separate provenance contract is accepted, the guard rejects qualification JSON
+outside schema directories.
+
+See
+[`rel-03-packaged-qualification-evidence.md`](decisions/rel-03-packaged-qualification-evidence.md)
+for the architecture decision.
 
 ## Validation
 
@@ -57,8 +88,8 @@ npm run check:package
 
 The check fails when an actual tarball:
 
-- contains a capture, environment, credential-file, local-machine, or private
-  qualification artifact;
+- contains a maintainer review, announcement, capture, environment, credential,
+  local-machine, or private qualification artifact;
 - omits any required public asset;
 - contains an invalid, traversing, absolute, or duplicate normalized entry;
 - contains numeric-copy, parenthesized-copy, copy/duplicate-label, or backup
@@ -67,32 +98,28 @@ The check fails when an actual tarball:
   strict release check.
 
 Git correlation is supplemental. In a source archive without Git metadata, the
-structural tarball rules still run and Git absence does not fail by itself. The
-filename grammar is copy-suffix-specific: legitimate names such as `sha256.js`,
-`oauth2.js`, `v2-runtime.js`, and `schema-v2.json` remain valid. Documentation is
-outside strict copy-name matching so intentional historical document identities are
-preserved.
+structural tarball rules still run and Git absence does not fail by itself.
+Documentation is outside strict copy-name matching so intentional historical
+document identities remain valid.
 
 `npm run check` runs the repository tests and this package check. Focused guard
-tests also verify stable path normalization, the future capture convention,
-missing-required-asset failures, invalid paths, deterministic diagnostics,
-tracked/untracked policy, valid numeric-name false positives, and an isolated npm
-tarball that contains an untracked numeric-copy artifact.
+tests verify category exclusions, stable path normalization, capture conventions,
+missing required assets, invalid paths, deterministic diagnostics,
+tracked/untracked policy, valid numeric-name false positives, and isolated actual
+tarballs.
 
 The guard reports findings and exits non-zero; it never deletes or rewrites them.
-Investigate ownership and content before cleanup.
-
-Package validation for a release should inspect the real tar entries, perform
-an isolated install of the produced tarball, and smoke-test the packaged
-version, help, public import, and default analysis command. Generated tarballs,
-installation directories, caches, and raw provider data are never committed.
+Package validation should inspect real tar entries, perform an isolated install,
+and smoke-test both CLI names, the ESM API, exports, and schemas. Generated
+tarballs, installation directories, caches, and raw provider data are never
+committed.
 
 ## Privacy and compatibility
 
-Capture evidence must be sanitized before staging: no credentials,
-authorization material, private endpoints, raw provider payloads, hidden
-reasoning, or machine-specific absolute paths. Exclusion from npm is a package
-size and privacy boundary, not a substitute for repository privacy review.
+Repository evidence must still be sanitized before staging. Exclusion from npm is
+a package-size and privacy boundary, not a substitute for repository privacy
+review.
 
-This policy changes only package composition. It does not alter qualification,
-progress, impact, evidence, migration-planning, or provider semantics.
+This policy affects future packages only. It does not modify the already published
+`0.6.0-alpha.1` artifact and does not alter qualification, progress, impact,
+evidence, migration-planning, provider, or CLI semantics.

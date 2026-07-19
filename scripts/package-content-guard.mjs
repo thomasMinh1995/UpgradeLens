@@ -14,24 +14,29 @@ export const FORBIDDEN_CAPTURE_PREFIXES = Object.freeze([
   'package/docs/rr02-fix-03a-cli-captures/'
 ]);
 
+export const EXCLUDED_PACKAGE_DOCUMENT_PREFIXES = Object.freeze({
+  announcement: 'package/docs/announcements/',
+  maintainerReview: 'package/docs/reviews/'
+});
+
 export const REQUIRED_PACKAGE_PATHS = Object.freeze([
   'package/LICENSE',
   'package/README.md',
   'package/bin/depverdict.js',
   'package/bin/upgradelens.js',
   'package/docs/architecture-overview.md',
+  'package/docs/community/technical-preview-feedback-guide.md',
   'package/docs/decisions/diff-02-identity-compatibility-contract.md',
   'package/docs/decisions/diff-03-repository-docs-community-migration.md',
   'package/docs/decisions/diff-04-release-evidence-gap-acceptance.md',
+  'package/docs/decisions/rel-03-package-documentation-policy.md',
+  'package/docs/decisions/rel-03-packaged-qualification-evidence.md',
   'package/docs/IA-04-CLI-Orchestration.md',
   'package/docs/cli-progress.md',
   'package/docs/migrations/upgradelens-to-depverdict.md',
   'package/docs/migration-planning-qualification-resolution.md',
   'package/docs/package-content-policy.md',
   'package/docs/releases/v0.6.0-alpha.1-depverdict-preview.md',
-  'package/docs/reviews/diff-02-identity-contract-compatibility.md',
-  'package/docs/reviews/diff-03-repository-docs-community-migration.md',
-  'package/docs/reviews/diff-04-fix-post-rename-identity-release-remediation.md',
   'package/eval/migration-planning/golden-dataset-v2.json',
   'package/eval/migration-planning/golden-dataset.json',
   'package/package.json',
@@ -60,10 +65,12 @@ export const PROTECTED_PACKAGE_PREFIXES = Object.freeze([
 
 export const PACKAGE_GUARD_REASON_CODES = Object.freeze({
   DUPLICATE_NORMALIZED_PACKAGE_ENTRY: 'DUPLICATE_NORMALIZED_PACKAGE_ENTRY',
+  FORBIDDEN_ANNOUNCEMENT_DOCUMENT: 'FORBIDDEN_ANNOUNCEMENT_DOCUMENT',
   FORBIDDEN_CAPTURE_EVIDENCE: 'FORBIDDEN_CAPTURE_EVIDENCE',
   FORBIDDEN_CREDENTIAL_FILE: 'FORBIDDEN_CREDENTIAL_FILE',
   FORBIDDEN_ENV_FILE: 'FORBIDDEN_ENV_FILE',
   FORBIDDEN_LOCAL_ARTIFACT: 'FORBIDDEN_LOCAL_ARTIFACT',
+  FORBIDDEN_MAINTAINER_REVIEW_DOCUMENT: 'FORBIDDEN_MAINTAINER_REVIEW_DOCUMENT',
   FORBIDDEN_QUALIFICATION_ARTIFACT: 'FORBIDDEN_QUALIFICATION_ARTIFACT',
   INVALID_PACKAGE_ENTRY_PATH: 'INVALID_PACKAGE_ENTRY_PATH',
   MISSING_REQUIRED_PACKAGE_ASSET: 'MISSING_REQUIRED_PACKAGE_ASSET',
@@ -162,6 +169,12 @@ export function isForbiddenPackagePath(value) {
 
 export function forbiddenPackageReason(value) {
   const packagePath = normalizeTarPath(value);
+  if (packagePath.startsWith(EXCLUDED_PACKAGE_DOCUMENT_PREFIXES.announcement)) {
+    return PACKAGE_GUARD_REASON_CODES.FORBIDDEN_ANNOUNCEMENT_DOCUMENT;
+  }
+  if (packagePath.startsWith(EXCLUDED_PACKAGE_DOCUMENT_PREFIXES.maintainerReview)) {
+    return PACKAGE_GUARD_REASON_CODES.FORBIDDEN_MAINTAINER_REVIEW_DOCUMENT;
+  }
   if (isForbiddenPackagePath(packagePath)) {
     return PACKAGE_GUARD_REASON_CODES.FORBIDDEN_CAPTURE_EVIDENCE;
   }
