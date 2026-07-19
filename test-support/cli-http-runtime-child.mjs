@@ -67,7 +67,7 @@ const code = await runCli(['research', root], {
   })
 });
 await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-const manifest = JSON.parse(await fs.readFile(`${root}/.upgradelens/knowledge-manifest.json`, 'utf8'));
+const manifest = JSON.parse(await fs.readFile(`${root}/.depverdict/knowledge-manifest.json`, 'utf8'));
 const expectedRegistryRequests = manifest.research.cacheMissCount + manifest.research.cacheRevalidationCount;
 const expectedEvidenceRequests = manifest.sources.filter((source) =>
   source.kind !== 'registry' && source.status !== 'unverified').length;

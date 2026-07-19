@@ -14,6 +14,7 @@ async function workflowText() {
 
 test('CI triggers pull requests and intended long-lived branches only', async () => {
   const workflow = await workflowText();
+  assert.match(workflow, /^name: DepVerdict CI$/m);
   assert.match(workflow, /^on:\n/m);
   assert.match(workflow, /^  pull_request:\n/m);
   assert.match(workflow, /^  push:\n    branches:\n      - main\n      - develop\n/m);
@@ -85,16 +86,28 @@ test('CI has no publication, release, push, writeback, or provider secret depend
     assert.doesNotMatch(workflow, prohibited);
   }
   for (const key of [
+    'DEPVERDICT_AI_PROVIDER',
+    'DEPVERDICT_AI_ENDPOINT',
+    'DEPVERDICT_AI_MODEL',
+    'DEPVERDICT_AI_AUTHORIZATION',
+    'DEPVERDICT_AI_TIMEOUT_MS',
+    'DEPVERDICT_AI_TIMEOUT_SECONDS',
+    'DEPVERDICT_AI_MAX_RESPONSE_BYTES',
+    'DEPVERDICT_AI_DEBUG',
     'UPGRADELENS_AI_PROVIDER',
     'UPGRADELENS_AI_ENDPOINT',
     'UPGRADELENS_AI_MODEL',
-    'UPGRADELENS_AI_AUTHORIZATION'
+    'UPGRADELENS_AI_AUTHORIZATION',
+    'UPGRADELENS_AI_TIMEOUT_MS',
+    'UPGRADELENS_AI_TIMEOUT_SECONDS',
+    'UPGRADELENS_AI_MAX_RESPONSE_BYTES',
+    'UPGRADELENS_AI_DEBUG'
   ]) {
     assert.match(workflow, new RegExp(`^  ${key}: \"\"$`, 'm'));
   }
 });
 
-test('npm metadata matches the UpgradeLens Technical Preview contract', async () => {
+test('npm metadata matches the DepVerdict preview identity contract', async () => {
   const packageJson = JSON.parse(
     await readFile(path.join(repositoryRoot, 'package.json'), 'utf8')
   );
@@ -102,22 +115,26 @@ test('npm metadata matches the UpgradeLens Technical Preview contract', async ()
     await readFile(path.join(repositoryRoot, 'package-lock.json'), 'utf8')
   );
 
-  assert.equal(packageJson.name, 'upgradelens');
-  assert.equal(packageJson.version, '0.5.0');
+  assert.equal(packageJson.name, '@thomasminh1995/depverdict');
+  assert.equal(packageJson.version, '0.6.0-alpha.1');
+  assert.deepEqual(packageJson.bin, {
+    depverdict: 'bin/depverdict.js',
+    upgradelens: 'bin/upgradelens.js'
+  });
   assert.equal(
     packageJson.description,
-    'Decision-first CLI for evidence-bounded dependency upgrade analysis.'
+    'DepVerdict is a decision-first CLI for evidence-bounded dependency upgrade analysis.'
   );
   assert.deepEqual(packageJson.repository, {
     type: 'git',
-    url: 'git+https://github.com/thomasMinh1995/UpgradeLens.git'
+    url: 'git+https://github.com/thomasMinh1995/DepVerdict.git'
   });
   assert.equal(
     packageJson.homepage,
-    'https://github.com/thomasMinh1995/UpgradeLens#readme'
+    'https://github.com/thomasMinh1995/DepVerdict#readme'
   );
   assert.deepEqual(packageJson.bugs, {
-    url: 'https://github.com/thomasMinh1995/UpgradeLens/issues'
+    url: 'https://github.com/thomasMinh1995/DepVerdict/issues'
   });
   assert.deepEqual(packageJson.keywords, [
     'cli',
@@ -127,6 +144,11 @@ test('npm metadata matches the UpgradeLens Technical Preview contract', async ()
     'developer-tools'
   ]);
   assert.deepEqual(packageJson.engines, { node: '>=20' });
-  assert.equal(lockfile.version, '0.5.0');
-  assert.equal(lockfile.packages[''].version, '0.5.0');
+  assert.equal(lockfile.name, '@thomasminh1995/depverdict');
+  assert.equal(lockfile.version, '0.6.0-alpha.1');
+  assert.equal(lockfile.packages[''].version, '0.6.0-alpha.1');
+  assert.deepEqual(lockfile.packages[''].bin, {
+    depverdict: 'bin/depverdict.js',
+    upgradelens: 'bin/upgradelens.js'
+  });
 });

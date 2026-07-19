@@ -133,19 +133,19 @@ function inputLineage() {
   return {
     projectManifest: {
       schemaVersion: '2.0.0',
-      artifact: '.upgradelens/project-manifest.json',
+      artifact: '.depverdict/project-manifest.json',
       artifactDigest: digest('project'),
       repository: { name: 'fixture', root: '.' }
     },
     knowledgeManifest: {
       schemaVersion: '1.0.0',
-      artifact: '.upgradelens/knowledge-manifest.json',
+      artifact: '.depverdict/knowledge-manifest.json',
       artifactDigest: digest('knowledge'),
       researchId: digest('research')
     },
     evidenceArtifact: {
       schemaVersion: '1.0.0',
-      artifact: '.upgradelens/knowledge-evidence-bundle.json',
+      artifact: '.depverdict/knowledge-evidence-bundle.json',
       artifactDigest: digest('bundle')
     }
   };
@@ -332,7 +332,7 @@ test('manifest writer serializes and atomically writes pretty JSON', async (t) =
   t.after(() => rm(root, { recursive: true, force: true }));
   const ctx = context();
   const manifest = manifestFrom([{ context: ctx, result: result(ctx) }]);
-  const output = path.join(root, '.upgradelens', 'version-analysis.json');
+  const output = path.join(root, '.depverdict', 'version-analysis.json');
 
   const target = await writeVersionAnalysisManifest(output, manifest);
   const contents = await readFile(target, 'utf8');
@@ -398,7 +398,7 @@ function knowledgeManifest(projectBytes) {
     input: {
       projectManifest: {
         schemaVersion: '2.0.0',
-        artifact: '.upgradelens/project-manifest.json',
+        artifact: '.depverdict/project-manifest.json',
         artifactDigest: digestBytes(projectBytes),
         repository: { name: 'cli-fixture', root: '.' }
       }
@@ -556,7 +556,7 @@ function evidenceBundle(knowledge, knowledgeBytes) {
     input: {
       knowledgeManifest: {
         schemaVersion: '1.0.0',
-        artifact: '.upgradelens/knowledge-manifest.json',
+        artifact: '.depverdict/knowledge-manifest.json',
         artifactDigest: digestBytes(knowledgeBytes),
         researchId: knowledge.research.researchId
       }
@@ -573,11 +573,11 @@ async function writeCliArtifacts(root) {
   const knowledge = knowledgeManifest(projectBytes);
   const knowledgeBytes = bytes(knowledge);
   const bundle = evidenceBundle(knowledge, knowledgeBytes);
-  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
+  await mkdir(path.join(root, '.depverdict'), { recursive: true });
   await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'cli-fixture' }));
-  await writeFile(path.join(root, '.upgradelens', 'project-manifest.json'), projectBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), knowledgeBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
+  await writeFile(path.join(root, '.depverdict', 'project-manifest.json'), projectBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-manifest.json'), knowledgeBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-evidence-bundle.json'), bytes(bundle));
 }
 
 async function writeCliArtifactsWithTwoAnalyzableOccurrences(root) {
@@ -607,11 +607,11 @@ async function writeCliArtifactsWithTwoAnalyzableOccurrences(root) {
   const knowledgeBytes = bytes(knowledge);
   const bundle = evidenceBundle(knowledge, knowledgeBytes);
 
-  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
+  await mkdir(path.join(root, '.depverdict'), { recursive: true });
   await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'cli-fixture' }));
-  await writeFile(path.join(root, '.upgradelens', 'project-manifest.json'), projectBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), knowledgeBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
+  await writeFile(path.join(root, '.depverdict', 'project-manifest.json'), projectBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-manifest.json'), knowledgeBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-evidence-bundle.json'), bytes(bundle));
 }
 
 async function writeCliArtifactsWithSameManifestDuplicates(root) {
@@ -643,11 +643,11 @@ async function writeCliArtifactsWithSameManifestDuplicates(root) {
   const knowledgeBytes = bytes(knowledge);
   const bundle = evidenceBundle(knowledge, knowledgeBytes);
 
-  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
+  await mkdir(path.join(root, '.depverdict'), { recursive: true });
   await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'cli-fixture' }));
-  await writeFile(path.join(root, '.upgradelens', 'project-manifest.json'), projectBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), knowledgeBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
+  await writeFile(path.join(root, '.depverdict', 'project-manifest.json'), projectBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-manifest.json'), knowledgeBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-evidence-bundle.json'), bytes(bundle));
 }
 
 async function writeCliArtifactsWithMissingTarget(root) {
@@ -755,11 +755,11 @@ async function writeCliArtifactsWithMissingTarget(root) {
     || left.message.localeCompare(right.message)
   );
   bundle.summary.warningCount = bundle.warnings.length;
-  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
+  await mkdir(path.join(root, '.depverdict'), { recursive: true });
   await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'cli-fixture' }));
-  await writeFile(path.join(root, '.upgradelens', 'project-manifest.json'), projectBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), knowledgeBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
+  await writeFile(path.join(root, '.depverdict', 'project-manifest.json'), projectBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-manifest.json'), knowledgeBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-evidence-bundle.json'), bytes(bundle));
 }
 
 async function writeCliArtifactsWithMissingBaseline(root) {
@@ -864,11 +864,11 @@ async function writeCliArtifactsWithMissingBaseline(root) {
   knowledge.sources.sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
   const knowledgeBytes = bytes(knowledge);
   const bundle = evidenceBundle(knowledge, knowledgeBytes);
-  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
+  await mkdir(path.join(root, '.depverdict'), { recursive: true });
   await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'cli-fixture' }));
-  await writeFile(path.join(root, '.upgradelens', 'project-manifest.json'), projectBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), knowledgeBytes);
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
+  await writeFile(path.join(root, '.depverdict', 'project-manifest.json'), projectBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-manifest.json'), knowledgeBytes);
+  await writeFile(path.join(root, '.depverdict', 'knowledge-evidence-bundle.json'), bytes(bundle));
 }
 
 function cliRuntime() {
@@ -912,7 +912,7 @@ test('CLI analyze-version writes the default artifact with a fake runtime', asyn
     aiRuntime: cliRuntime(),
     clock: () => new Date('2026-07-15T00:00:00.000Z')
   });
-  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8'));
+  const artifact = JSON.parse(await readFile(path.join(root, '.depverdict', 'version-analysis.json'), 'utf8'));
 
   assert.equal(code, 0);
   assert.equal(artifact.schemaVersion, '1.0.0');
@@ -945,7 +945,7 @@ test('public CLI explicit target persists caller intent after ecosystem validati
     clock: () => new Date('2026-07-15T00:00:00.000Z')
   });
   const artifact = JSON.parse(
-    await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8')
+    await readFile(path.join(root, '.depverdict', 'version-analysis.json'), 'utf8')
   );
 
   assert.equal(code, 0);
@@ -1029,10 +1029,10 @@ test('public CLI same-manifest ambiguity emits unique retries and each selects o
       clock: () => new Date('2026-07-18T00:00:00.000Z')
     });
     const artifact = JSON.parse(
-      await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8')
+      await readFile(path.join(root, '.depverdict', 'version-analysis.json'), 'utf8')
     );
     const firstBytes = await readFile(
-      path.join(root, '.upgradelens', 'version-analysis.json'),
+      path.join(root, '.depverdict', 'version-analysis.json'),
       'utf8'
     );
     const policies = new Map(artifact.results.map((result) => [
@@ -1066,7 +1066,7 @@ test('public CLI same-manifest ambiguity emits unique retries and each selects o
       clock: () => new Date('2026-07-18T00:00:00.000Z')
     });
     const replayBytes = await readFile(
-      path.join(root, '.upgradelens', 'version-analysis.json'),
+      path.join(root, '.depverdict', 'version-analysis.json'),
       'utf8'
     );
     assert.equal(replayCode, 0);
@@ -1138,7 +1138,7 @@ test('public analyze explicit-target workflow reaches decision-first actionable 
     "import { oldApi } from 'react';\nexport const result = oldApi();\n"
   );
   const project = JSON.parse(
-    await readFile(path.join(root, '.upgradelens/project-manifest.json'), 'utf8')
+    await readFile(path.join(root, '.depverdict/project-manifest.json'), 'utf8')
   );
   const stdout = capture();
   let versionCalls = 0;
@@ -1159,7 +1159,7 @@ test('public analyze explicit-target workflow reaches decision-first actionable 
     stderr: capture().stream,
     analysisStageRunners: {
       projectDiscovery: async () => project,
-      knowledgeResearch: async () => '.upgradelens/knowledge-manifest.json'
+      knowledgeResearch: async () => '.depverdict/knowledge-manifest.json'
     },
     aiRuntime: {
       async generateStructured(request) {
@@ -1171,7 +1171,7 @@ test('public analyze explicit-target workflow reaches decision-first actionable 
       async generateStructured() {
         migrationCalls += 1;
         const bundle = JSON.parse(
-          await readFile(path.join(root, '.upgradelens/knowledge-evidence-bundle.json'), 'utf8')
+          await readFile(path.join(root, '.depverdict/knowledge-evidence-bundle.json'), 'utf8')
         );
         return {
           output: {
@@ -1197,10 +1197,10 @@ test('public analyze explicit-target workflow reaches decision-first actionable 
   });
   const completion = JSON.parse(stdout.value());
   const upgradeDecision = JSON.parse(
-    await readFile(path.join(root, '.upgradelens/upgrade-decision.json'), 'utf8')
+    await readFile(path.join(root, '.depverdict/upgrade-decision.json'), 'utf8')
   );
   const checklist = JSON.parse(
-    await readFile(path.join(root, '.upgradelens/migration-checklist.json'), 'utf8')
+    await readFile(path.join(root, '.depverdict/migration-checklist.json'), 'utf8')
   );
 
   assert.equal(code, 0);
@@ -1227,7 +1227,7 @@ test('public analyze default registry workflow remains investigation with explic
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeCliArtifacts(root);
   const project = JSON.parse(
-    await readFile(path.join(root, '.upgradelens/project-manifest.json'), 'utf8')
+    await readFile(path.join(root, '.depverdict/project-manifest.json'), 'utf8')
   );
   const stdout = capture();
   let calls = 0;
@@ -1239,7 +1239,7 @@ test('public analyze default registry workflow remains investigation with explic
     stderr: capture().stream,
     analysisStageRunners: {
       projectDiscovery: async () => project,
-      knowledgeResearch: async () => '.upgradelens/knowledge-manifest.json'
+      knowledgeResearch: async () => '.depverdict/knowledge-manifest.json'
     },
     aiRuntime: {
       async generateStructured(request) {
@@ -1251,7 +1251,7 @@ test('public analyze default registry workflow remains investigation with explic
   });
   const completion = JSON.parse(stdout.value());
   const upgradeDecision = JSON.parse(
-    await readFile(path.join(root, '.upgradelens/upgrade-decision.json'), 'utf8')
+    await readFile(path.join(root, '.depverdict/upgrade-decision.json'), 'utf8')
   );
 
   assert.equal(code, 0);
@@ -1283,7 +1283,7 @@ test('CLI analyze-version skips a package with missing registry latest while ana
     clock: () => new Date('2026-07-15T00:00:00.000Z')
   });
   assert.equal(code, 0, stderr.value());
-  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8'));
+  const artifact = JSON.parse(await readFile(path.join(root, '.depverdict', 'version-analysis.json'), 'utf8'));
   const react = artifact.results.find((item) => item.dependency.packageId === 'npm:react');
   const vite = artifact.results.find((item) => item.dependency.packageId === 'npm:vite');
 
@@ -1323,7 +1323,7 @@ test('CLI analyze-version skips a package with missing baseline while analyzing 
     clock: () => new Date('2026-07-15T00:00:00.000Z')
   });
   assert.equal(code, 0, stderr.value());
-  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8'));
+  const artifact = JSON.parse(await readFile(path.join(root, '.depverdict', 'version-analysis.json'), 'utf8'));
   const analyzed = artifact.results.find((item) => item.dependency.packageId === 'npm:react');
   const skipped = artifact.results.find((item) => item.dependency.packageId === 'npm:langchain-core');
 
@@ -1363,7 +1363,7 @@ test('CLI analyze-version supports stdout without writing the default artifact',
 
   assert.equal(code, 0);
   assert.equal(JSON.parse(stdout.value()).results[0].dependency.packageId, 'npm:react');
-  await assert.rejects(readFile(path.join(root, '.upgradelens', 'version-analysis.json')));
+  await assert.rejects(readFile(path.join(root, '.depverdict', 'version-analysis.json')));
 });
 
 test('CLI debug records use injected stderr and never contaminate --stdout artifact JSON', async (t) => {
@@ -1378,11 +1378,11 @@ test('CLI debug records use injected stderr and never contaminate --stdout artif
     stdout: stdout.stream,
     stderr: stderr.stream,
     env: {
-      UPGRADELENS_AI_PROVIDER: 'openai-compatible',
-      UPGRADELENS_AI_ENDPOINT: 'https://provider.example.test/v1/chat/completions?private=query',
-      UPGRADELENS_AI_MODEL: 'exact-model-slug',
-      UPGRADELENS_AI_AUTHORIZATION: 'Bearer sk-or-v1-private-test-key',
-      UPGRADELENS_AI_DEBUG: '1'
+      DEPVERDICT_AI_PROVIDER: 'openai-compatible',
+      DEPVERDICT_AI_ENDPOINT: 'https://provider.example.test/v1/chat/completions?private=query',
+      DEPVERDICT_AI_MODEL: 'exact-model-slug',
+      DEPVERDICT_AI_AUTHORIZATION: 'Bearer sk-or-v1-private-test-key',
+      DEPVERDICT_AI_DEBUG: '1'
     },
     fetch: async (_url, init) => {
       calls += 1;
@@ -1419,7 +1419,7 @@ test('CLI debug records use injected stderr and never contaminate --stdout artif
   assert.equal(stdout.value().includes('ai.runtime.request'), false);
   assert.deepEqual(debugRecords.map((record) => record.event), ['ai.runtime.request', 'ai.runtime.response']);
   assert.doesNotMatch(stderr.value(), /private=query|sk-or-|Bearer |Dependency AI Context|Documented release behavior/);
-  await assert.rejects(readFile(path.join(root, '.upgradelens', 'version-analysis.json')));
+  await assert.rejects(readFile(path.join(root, '.depverdict', 'version-analysis.json')));
 });
 
 test('CLI selects the OpenAI-compatible provider and sends Chat Completions mapping from environment configuration', async (t) => {
@@ -1506,7 +1506,7 @@ test('CLI applies UPGRADELENS_AI_TIMEOUT_MS without retry, fallback, or schema c
 
   assert.equal(code, 0);
   assert.equal(calls, 1);
-  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens/version-analysis.json'), 'utf8'));
+  const artifact = JSON.parse(await readFile(path.join(root, '.depverdict/version-analysis.json'), 'utf8'));
   assert.equal(artifact.summary.failedCount, 1);
   assert.deepEqual(artifact.results[0].limitations.map((item) => item.code), ['TIMEOUT']);
 });
@@ -1535,7 +1535,7 @@ test('CLI rejects invalid UPGRADELENS_AI_TIMEOUT_MS before transport', async (t)
 
   assert.equal(code, 1);
   assert.equal(calls, 0);
-  assert.match(stderr.value(), /UPGRADELENS_AI_TIMEOUT_MS must be a positive integer/);
+  assert.match(stderr.value(), /DEPVERDICT_AI_TIMEOUT_MS must be a positive integer/);
 });
 
 test('CLI retains the legacy generic HTTP provider path for other provider labels', async (t) => {
@@ -1615,7 +1615,7 @@ test('CLI writes a package-local typed provider failure instead of failing the w
     },
     clock: () => new Date('2026-07-15T00:00:00.000Z')
   });
-  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8'));
+  const artifact = JSON.parse(await readFile(path.join(root, '.depverdict', 'version-analysis.json'), 'utf8'));
 
   assert.equal(code, 0, stderr.value());
   assert.equal(artifact.summary.failedCount, 1);
@@ -1662,7 +1662,7 @@ test('one package-local runtime failure does not prevent another dependency occu
     },
     clock: () => new Date('2026-07-15T00:00:00.000Z')
   });
-  const artifact = JSON.parse(await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8'));
+  const artifact = JSON.parse(await readFile(path.join(root, '.depverdict', 'version-analysis.json'), 'utf8'));
 
   assert.equal(code, 0);
   assert.equal(calls, 2);
@@ -1680,9 +1680,9 @@ test('CLI analyze-version fails clearly for invalid input manifests', async (t) 
   const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-invalid-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeCliArtifacts(root);
-  const invalid = JSON.parse(await readFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), 'utf8'));
+  const invalid = JSON.parse(await readFile(path.join(root, '.depverdict', 'knowledge-manifest.json'), 'utf8'));
   invalid.schemaVersion = '9.0.0';
-  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), JSON.stringify(invalid));
+  await writeFile(path.join(root, '.depverdict', 'knowledge-manifest.json'), JSON.stringify(invalid));
 
   const stderr = capture();
   const code = await runCli(['analyze-version', root], {

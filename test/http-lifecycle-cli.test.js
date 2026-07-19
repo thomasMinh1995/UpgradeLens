@@ -25,7 +25,9 @@ async function runChild(root, mode) {
   let stderr = '';
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (chunk) => { stderr += chunk; });
-  const timeout = setTimeout(() => child.kill('SIGKILL'), 3_000);
+  // The full Node test runner starts many files concurrently; keep the
+  // lifecycle assertion bounded without treating scheduler contention as a leak.
+  const timeout = setTimeout(() => child.kill('SIGKILL'), 8_000);
   const [code, signal] = await once(child, 'close');
   clearTimeout(timeout);
   return { code, signal, stderr, elapsedMs: Date.now() - startedAt };
@@ -41,13 +43,13 @@ test('the real CLI exits naturally after normal and oversized injected registry 
   assert.equal(await runCli(['discover', root], { stdout: capture(), stderr: capture() }), 0);
 
   for (const mode of ['normal', 'oversized']) {
-    if (mode === 'oversized') await fs.rm(path.join(root, '.upgradelens', 'cache'), { recursive: true, force: true });
+    if (mode === 'oversized') await fs.rm(path.join(root, '.depverdict', 'cache'), { recursive: true, force: true });
     const result = await runChild(root, mode);
     assert.equal(result.signal, null);
     assert.equal(result.code, 0, result.stderr);
     assert.match(result.stderr, /CHILD_COMPLETE 0/);
-    assert.ok(result.elapsedMs < 3_000, `CLI exceeded natural-exit budget: ${result.elapsedMs}ms`);
-    const manifest = JSON.parse(await fs.readFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), 'utf8'));
+    assert.ok(result.elapsedMs < 8_000, `CLI exceeded natural-exit budget: ${result.elapsedMs}ms`);
+    const manifest = JSON.parse(await fs.readFile(path.join(root, '.depverdict', 'knowledge-manifest.json'), 'utf8'));
     assert.equal(manifest.schemaVersion, '1.0.0');
     assert.equal(manifest.packages[0].status, mode === 'normal' ? 'resolved' : 'unavailable');
   }

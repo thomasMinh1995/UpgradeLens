@@ -1,10 +1,11 @@
 {
-  "name": "upgradelens",
-  "version": "0.5.0",
-  "description": "Decision-first CLI for evidence-bounded dependency upgrade analysis.",
+  "name": "@thomasminh1995/depverdict",
+  "version": "0.6.0-alpha.1",
+  "description": "DepVerdict is a decision-first CLI for evidence-bounded dependency upgrade analysis.",
   "type": "module",
   "bin": {
-    "upgradelens": "./bin/upgradelens.js"
+    "depverdict": "bin/depverdict.js",
+    "upgradelens": "bin/upgradelens.js"
   },
   "exports": {
     ".": "./src/index.js"
@@ -41,11 +42,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/thomasMinh1995/UpgradeLens.git"
+    "url": "git+https://github.com/thomasMinh1995/DepVerdict.git"
   },
-  "homepage": "https://github.com/thomasMinh1995/UpgradeLens#readme",
+  "homepage": "https://github.com/thomasMinh1995/DepVerdict#readme",
   "bugs": {
-    "url": "https://github.com/thomasMinh1995/UpgradeLens/issues"
+    "url": "https://github.com/thomasMinh1995/DepVerdict/issues"
   },
   "dependencies": {
     "@babel/parser": "^7.29.7",

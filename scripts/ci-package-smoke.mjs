@@ -22,9 +22,17 @@ import {
 const execFileAsync = promisify(execFile);
 const repositoryRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const expectedVersion = '0.5.0';
+const expectedVersion = '0.6.0-alpha.1';
 const expectedPublicExports = 438;
 const providerEnvironmentKeys = [
+  'DEPVERDICT_AI_PROVIDER',
+  'DEPVERDICT_AI_ENDPOINT',
+  'DEPVERDICT_AI_MODEL',
+  'DEPVERDICT_AI_AUTHORIZATION',
+  'DEPVERDICT_AI_TIMEOUT_MS',
+  'DEPVERDICT_AI_TIMEOUT_SECONDS',
+  'DEPVERDICT_AI_MAX_RESPONSE_BYTES',
+  'DEPVERDICT_AI_DEBUG',
   'UPGRADELENS_AI_PROVIDER',
   'UPGRADELENS_AI_ENDPOINT',
   'UPGRADELENS_AI_MODEL',
@@ -83,7 +91,7 @@ async function extractedFiles(root, relative = '') {
 
 async function main() {
   const temporaryRoot = await mkdtemp(
-    path.join(os.tmpdir(), 'upgradelens-ci-package-smoke-')
+    path.join(os.tmpdir(), 'depverdict-ci-package-smoke-')
   );
   const packRoot = path.join(temporaryRoot, 'pack');
   const extractRoot = path.join(temporaryRoot, 'extract');
@@ -111,7 +119,7 @@ async function main() {
       env: packEnvironment
     });
     const metadata = JSON.parse(packed.stdout)?.[0];
-    assert.equal(metadata?.name, 'upgradelens');
+    assert.equal(metadata?.name, '@thomasminh1995/depverdict');
     assert.equal(metadata?.version, expectedVersion);
     assert.equal(typeof metadata?.filename, 'string');
 
@@ -135,7 +143,7 @@ async function main() {
 
     await writeFile(
       path.join(installRoot, 'package.json'),
-      '{"name":"upgradelens-package-smoke","private":true,"type":"module"}\n'
+      '{"name":"depverdict-package-smoke","private":true,"type":"module"}\n'
     );
     await runChecked(npmCommand, [
       'install',
@@ -149,30 +157,46 @@ async function main() {
       env: consumerEnvironment
     });
 
-    const installedCli = path.join(
+    const installedBinDirectory = path.join(
       installRoot,
       'node_modules',
-      'upgradelens',
-      'bin',
-      'upgradelens.js'
+      '.bin'
     );
-    const version = await runChecked(process.execPath, [installedCli, '--version'], {
+    const installedCli = path.join(
+      installedBinDirectory,
+      process.platform === 'win32' ? 'depverdict.cmd' : 'depverdict'
+    );
+    const version = await runChecked(installedCli, ['--version'], {
       cwd: installRoot,
       env: consumerEnvironment
     });
     assert.equal(version.stdout.trim(), expectedVersion);
+    assert.equal(version.stderr, '');
 
-    const help = await runChecked(process.execPath, [installedCli, '--help'], {
+    const help = await runChecked(installedCli, ['--help'], {
       cwd: installRoot,
       env: consumerEnvironment
     });
-    assert.match(help.stdout, /UpgradeLens/);
+    assert.match(help.stdout, /DepVerdict/);
     assert.match(help.stdout, /analyze/);
+    assert.equal(help.stderr, '');
+
+    const installedLegacyCli = path.join(
+      installedBinDirectory,
+      process.platform === 'win32' ? 'upgradelens.cmd' : 'upgradelens'
+    );
+    const legacyVersion = await runChecked(
+      installedLegacyCli,
+      ['--version'],
+      { cwd: installRoot, env: consumerEnvironment }
+    );
+    assert.equal(legacyVersion.stdout.trim(), expectedVersion);
+    assert.match(legacyVersion.stderr, /deprecated.*depverdict/is);
 
     const imported = await runChecked(process.execPath, [
       '--input-type=module',
       '--eval',
-      "const api = await import('upgradelens'); console.log(Object.keys(api).length);"
+      "const api = await import('@thomasminh1995/depverdict'); console.log(Object.keys(api).length);"
     ], {
       cwd: installRoot,
       env: consumerEnvironment

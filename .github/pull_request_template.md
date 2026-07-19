@@ -1,5 +1,7 @@
 ## Summary
 
+<!-- Describe the DepVerdict behavior or repository contract affected. -->
+
 ## Problem / Root cause
 
 ## Changes
@@ -21,3 +23,4 @@
 - [ ] Deterministic, portable, lineage-aware, and fail-closed behavior is preserved.
 - [ ] Target, command, source-change, approval, recovery, and human-review boundaries are preserved.
 - [ ] Breaking changes, limitations, and follow-ups are disclosed above.
+- [ ] New examples use `depverdict`, `.depverdict/`, and `DEPVERDICT_*`; legacy names appear only for compatibility or historical truth.

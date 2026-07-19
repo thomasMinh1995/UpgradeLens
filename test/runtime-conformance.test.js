@@ -231,7 +231,7 @@ test('CLI supports --stdout without invoking analysis, evaluation, or benchmark 
   assert.equal(stderr.value(), '');
 });
 
-test('CLI defaults to .upgradelens/conformance-report.json and supports --output', async () => {
+test('CLI defaults to .depverdict/conformance-report.json and supports --output', async () => {
   const report = await runConformance({ runtime, generatedAt: FIXED_TIME });
   const writes = [];
   const commonIo = {
@@ -246,7 +246,7 @@ test('CLI defaults to .upgradelens/conformance-report.json and supports --output
   };
 
   assert.equal(await runCli(['conformance'], commonIo), 0);
-  assert.equal(writes[0].target, path.resolve('.upgradelens/conformance-report.json'));
+  assert.equal(writes[0].target, path.resolve('.depverdict/conformance-report.json'));
   assert.equal(writes[0].value, report);
 
   assert.equal(await runCli(['conformance', '--output', 'artifacts/custom.json'], commonIo), 0);

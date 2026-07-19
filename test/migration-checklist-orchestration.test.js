@@ -264,7 +264,7 @@ test('writer creates parents, returns portable path, preserves target on validat
   const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-mp05-writer-'));
   temporaryDirectories.push(root);
   const artifactPath = await writeMigrationChecklist(root, checklist);
-  assert.equal(artifactPath, '.upgradelens/migration-checklist.json');
+  assert.equal(artifactPath, '.depverdict/migration-checklist.json');
   const target = path.join(root, artifactPath);
   assert.equal(await readFile(target, 'utf8'), serializeMigrationChecklist(checklist));
 
@@ -281,11 +281,11 @@ test('writer creates parents, returns portable path, preserves target on validat
 
   const failureRoot = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-mp05-rename-'));
   temporaryDirectories.push(failureRoot);
-  await mkdir(path.join(failureRoot, '.upgradelens/migration-checklist.json'), { recursive: true });
+  await mkdir(path.join(failureRoot, '.depverdict/migration-checklist.json'), { recursive: true });
   await assert.rejects(writeMigrationChecklist(failureRoot, checklist), (error) => (
     error.code === 'MIGRATION_CHECKLIST_WRITE_FAILED'
   ));
-  const entries = await readdir(path.join(failureRoot, '.upgradelens'));
+  const entries = await readdir(path.join(failureRoot, '.depverdict'));
   assert.deepEqual(entries, ['migration-checklist.json']);
 });
 
@@ -473,7 +473,7 @@ test('experimental stage runs offline end to end, isolates fallback outcomes, va
   assert.deepEqual(events.filter((item) => item.type === 'migration:context-start').length, 2);
   assert.ok(events.some((item) => item.type === 'migration:abstained'));
   assert.ok(events.some((item) => item.type === 'migration:artifact-written'
-    && item.artifactPath === '.upgradelens/migration-checklist.json'));
+    && item.artifactPath === '.depverdict/migration-checklist.json'));
   const serializedEvents = JSON.stringify(events);
   assert.doesNotMatch(serializedEvents, /systemPrompt|userPrompt|evidenceAllowlist|supportingExcerpts|authorization|network forbidden/);
 });
@@ -572,7 +572,7 @@ test('stage remains correct without a listener and fatal preparation failure wri
   }), /lineage mismatch/);
   assert.equal(events.at(-1).type, 'stage:failed');
   assert.equal(events.at(-1).reasonCode, 'LINEAGE_INVALID');
-  await assert.rejects(readFile(path.join(failedRoot, '.upgradelens/migration-checklist.json')),
+  await assert.rejects(readFile(path.join(failedRoot, '.depverdict/migration-checklist.json')),
     { code: 'ENOENT' });
 });
 

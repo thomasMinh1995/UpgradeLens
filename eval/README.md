@@ -1,6 +1,11 @@
-# UpgradeLens Golden Evaluation Dataset
+# DepVerdict Golden Evaluation Dataset
 
 This directory contains provider-independent golden cases for AI Version Analysis quality evaluation.
+
+Historical fixture, prompt, schema, and qualification identifiers may retain the
+UpgradeLens protocol name under the `0.6.x` compatibility contract. They are not
+current product branding and must not be renamed without a versioned evaluation and
+qualification migration.
 
 AE-01 only defines dataset contracts and sample cases. It does not add an evaluation runner, metrics, telemetry, prompt optimization, or model comparison.
 

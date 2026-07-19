@@ -5,7 +5,11 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
 import { canonicalJson } from './canonical-json.js';
-import { KNOWLEDGE_MANIFEST_SCHEMA_VERSION, PRODUCT_NAME, VERSION } from './constants.js';
+import {
+  ARTIFACT_GENERATOR_NAME,
+  KNOWLEDGE_MANIFEST_SCHEMA_VERSION,
+  VERSION
+} from './constants.js';
 import { validateKnowledgeManifestInvariants } from './knowledge-manifest.js';
 
 const schema = JSON.parse(await readFile(
@@ -136,7 +140,7 @@ export function buildKnowledgeManifest(researchResult, { policy, generatedAt } =
   const manifest = {
     schemaVersion: KNOWLEDGE_MANIFEST_SCHEMA_VERSION,
     generatedAt: generatedAt ? date(generatedAt, 'generatedAt') : completedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     input: { projectManifest: clone(researchResult.input.projectManifest) },
     policy: publicPolicy,
     research: {

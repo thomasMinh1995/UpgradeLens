@@ -255,7 +255,7 @@ test('governance CLI writes three files to the default or custom output director
   };
 
   assert.equal(await runCli(['governance'], io), 0);
-  assert.equal(writes[0].directory, path.resolve('.upgradelens'));
+  assert.equal(writes[0].directory, path.resolve('.depverdict'));
   assert.equal(await runCli(['governance', '--output', 'artifacts/governance'], io), 0);
   assert.equal(writes[1].directory, path.resolve('artifacts/governance'));
 });

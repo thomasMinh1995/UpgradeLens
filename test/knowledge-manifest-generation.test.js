@@ -171,8 +171,8 @@ test('research CLI writes the default/custom artifact and --stdout prints only J
 
   const stderr = capture();
   assert.equal(await runCli(['research', root], { stdout: capture().stream, stderr: stderr.stream, fetch }), 0);
-  const defaultPath = path.join(root, '.upgradelens', 'knowledge-manifest.json');
-  const evidencePath = path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json');
+  const defaultPath = path.join(root, '.depverdict', 'knowledge-manifest.json');
+  const evidencePath = path.join(root, '.depverdict', 'knowledge-evidence-bundle.json');
   assert.equal(JSON.parse(await fs.readFile(defaultPath, 'utf8')).schemaVersion, '1.0.0');
   const evidenceBundle = JSON.parse(await fs.readFile(evidencePath, 'utf8'));
   assert.equal(evidenceBundle.schemaVersion, '1.0.0');
@@ -205,7 +205,7 @@ test('research CLI writes the default/custom artifact and --stdout prints only J
   });
   assert.equal(analyzeCode, 0);
   assert.equal(
-    JSON.parse(await fs.readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8')).schemaVersion,
+    JSON.parse(await fs.readFile(path.join(root, '.depverdict', 'version-analysis.json'), 'utf8')).schemaVersion,
     '1.0.0'
   );
 
@@ -276,8 +276,8 @@ test('research CLI enriches the portable bundle from a registry-qualified offici
     fetch,
     evidenceSourceAdapter
   }), 0);
-  const manifest = JSON.parse(await fs.readFile(path.join(root, '.upgradelens/knowledge-manifest.json'), 'utf8'));
-  const bundle = JSON.parse(await fs.readFile(path.join(root, '.upgradelens/knowledge-evidence-bundle.json'), 'utf8'));
+  const manifest = JSON.parse(await fs.readFile(path.join(root, '.depverdict/knowledge-manifest.json'), 'utf8'));
+  const bundle = JSON.parse(await fs.readFile(path.join(root, '.depverdict/knowledge-evidence-bundle.json'), 'utf8'));
   assert.ok(manifest.sources.some((source) => source.kind === 'releaseFeed' && source.status === 'available'));
   assert.ok(bundle.evidence.some((item) => item.kind === 'releaseNotes'
     && item.releaseVersions.includes('19.2.0')));

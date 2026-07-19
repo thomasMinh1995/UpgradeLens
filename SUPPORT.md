@@ -1,10 +1,10 @@
-# UpgradeLens Support
+# DepVerdict Support
 
 ## Preview support boundary
 
-UpgradeLens is a Public Technical Preview / Alpha. Community support is best effort;
+DepVerdict is a Public Technical Preview / Alpha. Community support is best effort;
 there is no production support or response SLA. Maintainers do not guarantee an
-upgrade or migration outcome, and UpgradeLens is not a substitute for developer,
+upgrade or migration outcome, and DepVerdict is not a substitute for developer,
 security, or Coding Agent review.
 
 The CLI produces evidence-bounded decisions and an optional experimental,
@@ -15,12 +15,12 @@ execute suggested commands, or autonomously migrate a repository.
 
 | Request | Route |
 | --- | --- |
-| Reproducible UpgradeLens bug | Use the GitHub bug report form |
+| Reproducible DepVerdict bug | Use the GitHub bug report form |
 | Feature or product feedback | Use the GitHub feature request form |
 | Usage question | Read the [README](README.md) and search issues; there is no dedicated Discussions/support channel yet |
 | Security vulnerability | Use GitHub Private Vulnerability Reporting through [SECURITY.md](SECURITY.md); never disclose sensitive details in a public issue |
 | Conduct concern | Use the private conduct email in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md); do not post sensitive details publicly |
-| Provider outage, account, quota, or billing | Contact the provider unless UpgradeLens itself mishandles the condition |
+| Provider outage, account, quota, or billing | Contact the provider unless DepVerdict itself mishandles the condition |
 | Private repository debugging | Reduce to a synthetic/public fixture; do not post proprietary source or secrets |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a code or documentation
@@ -34,7 +34,7 @@ path, and provider identifiers. Include:
 
 - operating system;
 - Node.js and npm versions;
-- UpgradeLens version or commit and installation method;
+- DepVerdict package version or commit and installation method;
 - sanitized repository shape and ecosystem;
 - exact command with secrets and private paths removed;
 - completion state and exit code;
@@ -42,7 +42,8 @@ path, and provider identifiers. Include:
 - the smallest sanitized error or artifact fragment needed to demonstrate the
   issue.
 
-Do not upload an entire proprietary repository or `.upgradelens/` directory.
+Do not upload an entire proprietary repository or a `.depverdict/` or
+`.upgradelens/` artifact directory.
 
 ## Never post publicly
 

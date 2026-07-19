@@ -1,9 +1,9 @@
 {
-  "name": "upgradelens-technical-preview-node",
+  "name": "depverdict-technical-preview-node",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Public-safe UpgradeLens Technical Preview sample",
+  "description": "Public-safe DepVerdict Technical Preview sample",
   "dependencies": {
     "fast-deep-equal": "3.1.3"
   }

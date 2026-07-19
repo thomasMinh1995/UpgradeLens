@@ -1,6 +1,6 @@
 # npm package content policy
 
-UpgradeLens treats the tarball produced by `npm pack` as the authoritative
+DepVerdict treats the tarball produced by `npm pack` as the authoritative
 public package boundary. Repository evidence can remain tracked without
 becoming npm consumer content.
 
@@ -10,7 +10,10 @@ becoming npm consumer content.
 schemas, evaluation datasets, user-facing documentation, license, and README.
 The package guard additionally requires critical assets such as:
 
-- `bin/upgradelens.js` and the public runtime entry points;
+- `bin/depverdict.js`, the bounded `bin/upgradelens.js` compatibility wrapper,
+  and the public runtime entry points;
+- the current architecture overview, identity-migration decision,
+  UpgradeLens-to-DepVerdict guide, preview release draft, and migration report;
 - Migration Planning qualification and extractive-candidate schemas;
 - Migration Planning v1 and v2 golden datasets;
 - CLI progress, qualification-resolution, and package-policy documentation.

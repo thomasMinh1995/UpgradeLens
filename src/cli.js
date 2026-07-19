@@ -27,6 +27,8 @@ import {
   PRODUCT_NAME,
   VERSION
 } from './constants.js';
+import { resolveArtifactRootChain } from './artifact-root-compatibility.js';
+import { resolveIdentityEnvironment } from './environment-compatibility.js';
 import {
   buildAiScorecard,
   serializeAiScorecard,
@@ -79,7 +81,10 @@ import {
   writeMetrics
 } from './metrics-engine.js';
 import { createCliHttpRuntime } from './http/cli-http-runtime.js';
-import { createKnowledgeCache } from './knowledge-cache.js';
+import {
+  DEFAULT_KNOWLEDGE_CACHE_DIRECTORY,
+  createKnowledgeCache
+} from './knowledge-cache.js';
 import {
   buildKnowledgeEvidenceBundle,
   writeKnowledgeEvidenceBundle
@@ -128,6 +133,8 @@ import { writeUsageIndex } from './usage/writer.js';
 import { runMigrationChecklistStage } from './migration-checklist/runtime.js';
 import { runUpgradeDecisionStage } from './upgrade-decision/runtime.js';
 import { resolveMigrationQualification } from './migration-checklist/qualification-resolution.js';
+
+const legacyInvocationWarnings = new Set();
 
 const HELP = `${PRODUCT_NAME} ${VERSION}
 
@@ -239,6 +246,24 @@ function takeValue(args, index, option) {
 function outputPath(root, output) {
   if (!isPortableRelativePath(output)) throw new Error('--output must be a portable path relative to the repository root');
   return path.resolve(root, output);
+}
+
+function compatibilityDiagnostic(io, message) {
+  (io.stderr ?? process.stderr).write(`${message}\n`);
+}
+
+function withResolvedEnvironment(io) {
+  if (io.environmentResolved) return io;
+  const env = Object.hasOwn(io, 'env') ? io.env : process.env;
+  return {
+    ...io,
+    env: resolveIdentityEnvironment(env, {
+      overrides: io.environmentOverrides,
+      diagnosticState: io.environmentDiagnosticState,
+      onDiagnostic: (message) => compatibilityDiagnostic(io, message)
+    }),
+    environmentResolved: true
+  };
 }
 
 export function parseArguments(argv) {
@@ -418,7 +443,7 @@ function researchComponents(root, options, io) {
   }
   const clock = io.clock ?? (() => new Date());
   const cache = createKnowledgeCache({
-    rootDirectory: path.join(root, '.upgradelens/cache/knowledge/v1'),
+    rootDirectory: path.join(root, DEFAULT_KNOWLEDGE_CACHE_DIRECTORY),
     clock
   });
   const adapterOptions = { cache, clock, fetch: io.fetch, offline: options.offline };
@@ -470,8 +495,12 @@ async function runResearch(options, io) {
 
 async function executeResearch(options, io) {
   const root = path.resolve(options.root);
-  const loaded = await loadProjectManifestInput(path.join(root, DEFAULT_MANIFEST_PATH), {
-    artifact: DEFAULT_MANIFEST_PATH
+  const selection = await resolveArtifactRootChain(root, [DEFAULT_MANIFEST_PATH], {
+    onDiagnostic: (message) => compatibilityDiagnostic(io, message)
+  });
+  const [projectManifestArtifact] = selection.artifacts;
+  const loaded = await loadProjectManifestInput(path.join(root, projectManifestArtifact), {
+    artifact: projectManifestArtifact
   });
   const plan = createResearchPlan(loaded);
   const clock = io.clock ?? (() => new Date());
@@ -519,31 +548,32 @@ async function executeResearch(options, io) {
 }
 
 function createDefaultAiRuntime(io) {
-  const env = io.env ?? process.env;
-  const providerName = env.UPGRADELENS_AI_PROVIDER ?? 'http-json';
-  if (!env.UPGRADELENS_AI_ENDPOINT) {
-    throw new Error('AI runtime is not configured. Set UPGRADELENS_AI_ENDPOINT or provide an AiRuntime.');
+  const normalizedIo = withResolvedEnvironment(io);
+  const env = normalizedIo.env;
+  const providerName = env.DEPVERDICT_AI_PROVIDER ?? 'http-json';
+  if (!env.DEPVERDICT_AI_ENDPOINT) {
+    throw new Error('AI runtime is not configured. Set DEPVERDICT_AI_ENDPOINT or provide an AiRuntime.');
   }
   if (providerName === 'openai-compatible') {
     const provider = createOpenAiCompatibleProvider({
-      endpoint: env.UPGRADELENS_AI_ENDPOINT,
-      model: env.UPGRADELENS_AI_MODEL,
-      authorization: env.UPGRADELENS_AI_AUTHORIZATION,
-      fetchImplementation: io.fetch,
+      endpoint: env.DEPVERDICT_AI_ENDPOINT,
+      model: env.DEPVERDICT_AI_MODEL,
+      authorization: env.DEPVERDICT_AI_AUTHORIZATION,
+      fetchImplementation: normalizedIo.fetch,
       timeoutMs: configuredAiTimeoutMs(env),
       debug: isAiRuntimeDebugEnabled(env),
-      debugWriter: io.aiDebugWriter ?? io.stderr ?? process.stderr
+      debugWriter: normalizedIo.aiDebugWriter ?? normalizedIo.stderr ?? process.stderr
     });
     return createProviderAiRuntime({ provider });
   }
   const headers = {};
-  if (env.UPGRADELENS_AI_AUTHORIZATION) headers.authorization = env.UPGRADELENS_AI_AUTHORIZATION;
+  if (env.DEPVERDICT_AI_AUTHORIZATION) headers.authorization = env.DEPVERDICT_AI_AUTHORIZATION;
   const provider = createHttpJsonAiProvider({
-    endpoint: env.UPGRADELENS_AI_ENDPOINT,
-    fetchImplementation: io.fetch,
+    endpoint: env.DEPVERDICT_AI_ENDPOINT,
+    fetchImplementation: normalizedIo.fetch,
     headers,
     provider: providerName,
-    model: env.UPGRADELENS_AI_MODEL ?? 'unknown'
+    model: env.DEPVERDICT_AI_MODEL ?? 'unknown'
   });
   return createProviderAiRuntime({
     provider,
@@ -552,11 +582,11 @@ function createDefaultAiRuntime(io) {
 }
 
 function configuredAiTimeoutMs(env) {
-  const raw = env.UPGRADELENS_AI_TIMEOUT_MS;
+  const raw = env.DEPVERDICT_AI_TIMEOUT_MS;
   if (raw === undefined) return DEFAULT_AI_TIMEOUT_MS;
   const timeoutMs = Number(raw);
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
-    throw new Error('UPGRADELENS_AI_TIMEOUT_MS must be a positive integer.');
+    throw new Error('DEPVERDICT_AI_TIMEOUT_MS must be a positive integer.');
   }
   return timeoutMs;
 }
@@ -564,10 +594,10 @@ function configuredAiTimeoutMs(env) {
 function failureRecoveryGuidance(stage, error) {
   const message = error?.message ?? '';
   const code = error?.code ?? '';
-  if (/UPGRADELENS_AI_(?:ENDPOINT|MODEL)|AI runtime/i.test(message)) {
+  if (/(?:DEPVERDICT|UPGRADELENS)_AI_(?:ENDPOINT|MODEL)|AI runtime/i.test(message)) {
     return [
       `Stage: ${stage?.label ?? 'Version Analysis'}`,
-      'Required configuration: UPGRADELENS_AI_ENDPOINT and UPGRADELENS_AI_MODEL; authorization is optional.',
+      'Required configuration: DEPVERDICT_AI_ENDPOINT and DEPVERDICT_AI_MODEL; authorization is optional.',
       'Next action: configure one supported provider runtime and rerun. No credential value was printed.'
     ];
   }
@@ -575,25 +605,42 @@ function failureRecoveryGuidance(stage, error) {
     return [
       `Stage: ${stage?.label ?? 'Artifact validation'}`,
       'The input artifact chain is stale or mismatched.',
-      'Next action: rerun the upstream UpgradeLens workflow to regenerate the affected artifacts.'
+      'Next action: rerun the upstream DepVerdict workflow to regenerate the affected artifacts.'
     ];
   }
   if (code === 'ENOENT' || /ENOENT|not found|missing artifact/i.test(message)) {
     return [
       `Stage: ${stage?.label ?? 'Artifact loading'}`,
       'A required upstream artifact is missing.',
-      'Next action: run `upgradelens analyze <repository>` to regenerate the supported artifact chain.'
+      'Next action: run `depverdict analyze <repository>` to regenerate the supported artifact chain.'
     ];
   }
   return [];
 }
 
 async function executeAnalyzeVersion(options, io) {
+  io = withResolvedEnvironment(io);
   const root = path.resolve(options.root);
+  const selection = await resolveArtifactRootChain(root, [
+    DEFAULT_MANIFEST_PATH,
+    DEFAULT_KNOWLEDGE_MANIFEST_PATH,
+    DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH
+  ], {
+    onDiagnostic: (message) => compatibilityDiagnostic(io, message)
+  });
+  const [
+    projectManifestArtifact,
+    knowledgeManifestArtifact,
+    evidenceBundleArtifact
+  ] = selection.artifacts;
   const artifacts = await loadVersionAnalysisArtifacts({
-    projectManifest: path.join(root, DEFAULT_MANIFEST_PATH),
-    knowledgeManifest: path.join(root, DEFAULT_KNOWLEDGE_MANIFEST_PATH),
-    evidenceBundle: path.join(root, DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH)
+    projectManifest: path.join(root, projectManifestArtifact),
+    knowledgeManifest: path.join(root, knowledgeManifestArtifact),
+    evidenceBundle: path.join(root, evidenceBundleArtifact)
+  }, {
+    projectManifestArtifact,
+    knowledgeManifestArtifact,
+    evidenceBundleArtifact
   });
   const allInputs = resolveDependencyAnalysisInputs(artifacts);
   let inputs = allInputs;
@@ -667,13 +714,13 @@ function evaluationRuntime(options, io) {
     runtime: io.aiRuntime,
     model: io.model ?? { provider: 'injected', name: 'injected' }
   };
-  const env = io.env ?? process.env;
-  if (env.UPGRADELENS_AI_ENDPOINT) {
+  const env = withResolvedEnvironment(io).env;
+  if (env.DEPVERDICT_AI_ENDPOINT) {
     return {
       runtime: createDefaultAiRuntime(io),
       model: {
-        provider: env.UPGRADELENS_AI_PROVIDER ?? 'http-json',
-        name: env.UPGRADELENS_AI_MODEL ?? 'unknown'
+        provider: env.DEPVERDICT_AI_PROVIDER ?? 'http-json',
+        name: env.DEPVERDICT_AI_MODEL ?? 'unknown'
       }
     };
   }
@@ -757,11 +804,11 @@ async function executeBenchmark(options, io) {
 }
 
 async function executeConformance(options, io) {
-  const env = io.env ?? process.env;
+  const env = withResolvedEnvironment(io).env;
   const report = await (io.runConformance ?? runConformance)({
     runtime: {
-      provider: env.UPGRADELENS_AI_PROVIDER ?? 'openai-compatible',
-      model: env.UPGRADELENS_AI_MODEL ?? 'offline-fixture'
+      provider: env.DEPVERDICT_AI_PROVIDER ?? 'openai-compatible',
+      model: env.DEPVERDICT_AI_MODEL ?? 'offline-fixture'
     },
     generatedAt: io.clock ? io.clock() : new Date()
   });
@@ -791,20 +838,20 @@ function governancePositiveInteger(value, fallback, name) {
 }
 
 async function executeGovernance(options, io) {
-  const env = io.env ?? process.env;
+  const env = withResolvedEnvironment(io).env;
   const artifacts = (io.createDefaultGovernanceArtifacts ?? createDefaultGovernanceArtifacts)({
-    provider: env.UPGRADELENS_AI_PROVIDER ?? 'openai-compatible',
-    endpoint: env.UPGRADELENS_AI_ENDPOINT,
-    model: env.UPGRADELENS_AI_MODEL ?? 'offline-fixture',
+    provider: env.DEPVERDICT_AI_PROVIDER ?? 'openai-compatible',
+    endpoint: env.DEPVERDICT_AI_ENDPOINT,
+    model: env.DEPVERDICT_AI_MODEL ?? 'offline-fixture',
     timeoutSeconds: governancePositiveInteger(
-      env.UPGRADELENS_AI_TIMEOUT_SECONDS,
+      env.DEPVERDICT_AI_TIMEOUT_SECONDS,
       180,
-      'UPGRADELENS_AI_TIMEOUT_SECONDS'
+      'DEPVERDICT_AI_TIMEOUT_SECONDS'
     ),
     maxResponseBytes: governancePositiveInteger(
-      env.UPGRADELENS_AI_MAX_RESPONSE_BYTES,
+      env.DEPVERDICT_AI_MAX_RESPONSE_BYTES,
       1_048_576,
-      'UPGRADELENS_AI_MAX_RESPONSE_BYTES'
+      'DEPVERDICT_AI_MAX_RESPONSE_BYTES'
     )
   });
   if (options.stdout) {
@@ -828,11 +875,11 @@ function silentStream() {
 
 function migrationRuntimeMetadata(io) {
   if (io.migrationRuntimeMetadata) return io.migrationRuntimeMetadata;
-  const env = io.env ?? process.env;
-  const provider = env.UPGRADELENS_AI_PROVIDER ?? 'unknown';
+  const env = withResolvedEnvironment(io).env;
+  const provider = env.DEPVERDICT_AI_PROVIDER ?? 'unknown';
   return {
     provider,
-    model: env.UPGRADELENS_AI_MODEL ?? 'unknown',
+    model: env.DEPVERDICT_AI_MODEL ?? 'unknown',
     adapter: provider === 'openai-compatible' ? 'openai-compatible' : provider
   };
 }
@@ -988,7 +1035,8 @@ export function createCliAnalysisStageRunners(options, io) {
       if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const decision = await (io.runUpgradeDecisionStage ?? runUpgradeDecisionStage)({
         repositoryRoot: root,
-        artifactPath: DEFAULT_UPGRADE_DECISION_PATH
+        artifactPath: DEFAULT_UPGRADE_DECISION_PATH,
+        onCompatibilityDiagnostic: (message) => compatibilityDiagnostic(io, message)
       });
       if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       progress?.({
@@ -1006,7 +1054,8 @@ export function createCliAnalysisStageRunners(options, io) {
         repositoryRoot: root,
         runtimeMetadata,
         allowExperimental: true,
-        qualificationPath: options.migrationQualificationPath
+        qualificationPath: options.migrationQualificationPath,
+        onCompatibilityDiagnostic: (message) => compatibilityDiagnostic(io, message)
       };
       if (Object.hasOwn(io, 'migrationQualification')) {
         qualificationOptions.qualification = io.migrationQualification;
@@ -1021,6 +1070,7 @@ export function createCliAnalysisStageRunners(options, io) {
         allowExperimental: true,
         generatedAt: io.clock ? io.clock() : new Date(),
         artifactPath: DEFAULT_MIGRATION_CHECKLIST_PATH,
+        onCompatibilityDiagnostic: (message) => compatibilityDiagnostic(io, message),
         onEvent: onMigrationEvent,
         signal
       });
@@ -1069,6 +1119,7 @@ export function createCliAnalysisStageRunners(options, io) {
 }
 
 export async function executeAnalyze(options, io) {
+  io = withResolvedEnvironment(io);
   const root = path.resolve(options.root);
   const runners = {
     ...createCliAnalysisStageRunners(options, io),
@@ -1113,7 +1164,7 @@ export async function executeAnalyze(options, io) {
   } catch (error) {
     if (error instanceof PipelineCancellationError || signal.aborted) {
       io.stderr.write(
-        '\nUpgradeLens product outcome: CANCELLED\n'
+        `\n${PRODUCT_NAME} product outcome: CANCELLED\n`
         + 'Next action: rerun when you are ready; no successful completion was published.\n'
       );
       return 130;
@@ -1124,7 +1175,7 @@ export async function executeAnalyze(options, io) {
       logTarget = await (io.writeAnalysisFailureLog ?? writeAnalysisFailureLog)(root, error);
     } catch {
       io.stderr.write(
-        `\nUpgradeLens product outcome: FAILED\n${error.stage.label} failed.\n\n`
+        `\n${PRODUCT_NAME} product outcome: FAILED\n${error.stage.label} failed.\n\n`
         + 'Unable to write analysis log.\n'
       );
       return 1;
@@ -1134,7 +1185,7 @@ export async function executeAnalyze(options, io) {
     if (decision) {
       const lines = [
         '',
-        'UpgradeLens product outcome: FAILED',
+        `${PRODUCT_NAME} product outcome: FAILED`,
         `${error.stage.label} failed.`,
         '',
         `Qualification status: ${decision.status}`,
@@ -1154,7 +1205,7 @@ export async function executeAnalyze(options, io) {
       const guidance = failureRecoveryGuidance(error.stage, error.cause);
       const guidanceText = guidance.length > 0 ? `\n${guidance.join('\n')}\n` : '';
       io.stderr.write(
-        `\nUpgradeLens product outcome: FAILED\n${error.stage.label} failed.\n`
+        `\n${PRODUCT_NAME} product outcome: FAILED\n${error.stage.label} failed.\n`
         + `${guidanceText}\nSee:\n`
         + `${displayLog || DEFAULT_ANALYSIS_LOG_PATH}\n`
       );
@@ -1184,6 +1235,15 @@ export async function executeAnalyze(options, io) {
 export async function runCli(argv, io = {}) {
   const stdout = io.stdout ?? process.stdout;
   const stderr = io.stderr ?? process.stderr;
+  const invocationName = io.invocationName ?? CLI_NAME;
+  const deprecationState = io.deprecationState ?? legacyInvocationWarnings;
+  if (invocationName === 'upgradelens' && !deprecationState.has('legacy-cli')) {
+    deprecationState.add('legacy-cli');
+    stderr.write(
+      'The `upgradelens` command is deprecated and will be removed after the '
+      + '0.6.x preview compatibility window. Use `depverdict` instead.\n'
+    );
+  }
   try {
     const options = parseArguments(argv);
     if (options.help) {
@@ -1194,17 +1254,27 @@ export async function runCli(argv, io = {}) {
       stdout.write(`${VERSION}\n`);
       return 0;
     }
-    if (options.command === 'analyze') return await executeAnalyze(options, { ...io, stdout, stderr });
+    const commandIo = [
+      'analyze',
+      'analyze-version',
+      'eval',
+      'benchmark',
+      'conformance',
+      'governance'
+    ].includes(options.command)
+      ? withResolvedEnvironment({ ...io, stdout, stderr })
+      : { ...io, stdout, stderr };
+    if (options.command === 'analyze') return await executeAnalyze(options, commandIo);
     if (options.command === 'research') return await runResearch(options, { ...io, stdout, stderr });
     if (options.command === 'analyze-version') {
-      await executeAnalyzeVersion(options, { ...io, stdout, stderr });
+      await executeAnalyzeVersion(options, commandIo);
       return 0;
     }
-    if (options.command === 'eval') return await executeEval(options, { ...io, stdout, stderr });
+    if (options.command === 'eval') return await executeEval(options, commandIo);
     if (options.command === 'scorecard') return await executeScorecard(options, { ...io, stdout, stderr });
-    if (options.command === 'benchmark') return await executeBenchmark(options, { ...io, stdout, stderr });
-    if (options.command === 'conformance') return await executeConformance(options, { ...io, stdout, stderr });
-    if (options.command === 'governance') return await executeGovernance(options, { ...io, stdout, stderr });
+    if (options.command === 'benchmark') return await executeBenchmark(options, commandIo);
+    if (options.command === 'conformance') return await executeConformance(options, commandIo);
+    if (options.command === 'governance') return await executeGovernance(options, commandIo);
 
     const manifest = await discoverProject(options.root, { maxDepth: options.maxDepth });
     const contents = `${JSON.stringify(manifest, null, options.pretty ? 2 : 0)}\n`;

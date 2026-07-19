@@ -62,10 +62,10 @@ export function sanitizeDebugText(value, maxCharacters = MAX_DEBUG_TEXT_CHARACTE
 }
 
 export function isAiRuntimeDebugEnabled(env = {}) {
-  const raw = env?.UPGRADELENS_AI_DEBUG;
+  const raw = env?.DEPVERDICT_AI_DEBUG ?? env?.UPGRADELENS_AI_DEBUG;
   if (raw === undefined || raw === '0' || String(raw).toLowerCase() === 'false') return false;
   if (raw === '1' || String(raw).toLowerCase() === 'true') return true;
-  throw new TypeError('UPGRADELENS_AI_DEBUG must be one of: 1, true, 0, false.');
+  throw new TypeError('DEPVERDICT_AI_DEBUG must be one of: 1, true, 0, false.');
 }
 
 function boundedSchemaSnapshot(value, state, depth = 0) {
