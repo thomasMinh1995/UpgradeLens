@@ -1,8 +1,8 @@
-# Contributing to UpgradeLens
+# Contributing to DepVerdict
 
 ## Welcome and preview status
 
-UpgradeLens is a **Public Technical Preview / Alpha**. Its contracts may change as
+DepVerdict is a **Public Technical Preview / Alpha**. Its contracts may change as
 maintainers learn from real repositories and contributor feedback. Bug reports, CLI
 and decision-clarity feedback, documentation fixes, focused tests, and bounded code
 contributions are welcome.
@@ -11,14 +11,14 @@ By participating, follow the [Code of Conduct](CODE_OF_CONDUCT.md). Use the
 [Security Policy](SECURITY.md) for vulnerabilities and the [Support Policy](SUPPORT.md)
 to choose the right channel.
 
-UpgradeLens is a decision-first CLI for evidence-bounded dependency upgrade
+DepVerdict is a decision-first CLI for evidence-bounded dependency upgrade
 analysis. It is not production-stable, an autonomous migration tool, a security
 scanner, or a substitute for developer review.
 
 ## Before opening an issue
 
 1. Search existing issues for the same behavior.
-2. Record the UpgradeLens version or commit you tested.
+2. Record the DepVerdict package version or commit you tested.
 3. Decide whether the report is a product bug, an unsupported ecosystem or
    repository shape, or a provider/model quality or availability issue.
 4. Reduce the case to a public or synthetic repository shape where possible.
@@ -31,16 +31,19 @@ Reporting route.
 
 ## Development setup
 
-UpgradeLens requires Node.js 20 or newer and uses npm with a committed
+DepVerdict requires Node.js 20 or newer and uses npm with a committed
 `package-lock.json`.
+
+The product has been renamed to DepVerdict, but the GitHub repository rename is
+pending. The current clone URL and checkout directory therefore remain:
 
 ```sh
 git clone https://github.com/thomasMinh1995/UpgradeLens.git
 cd UpgradeLens
-npm install
+npm ci
 npm test
 npm run check:package
-node ./bin/upgradelens.js --help
+node ./bin/depverdict.js --help
 ```
 
 `npm run check` runs the canonical tests and package guard together. The repository
@@ -72,10 +75,11 @@ Preserve these invariants:
 - AI does not own targets, repository paths, commands, approval, recovery, or
   source changes.
 - Migration Checklist v2 is experimental, opt-in, and human-reviewed.
-- UpgradeLens does not modify source or execute suggested verification commands.
+- DepVerdict does not modify source or execute suggested verification commands.
 - Artifacts remain deterministic, schema-validated, lineage-aware, and portable.
 
-Start with the [Version Analysis architecture](docs/version-analysis-architecture.md),
+Start with the [current architecture overview](docs/architecture-overview.md),
+[Version Analysis architecture](docs/version-analysis-architecture.md),
 [Upgrade Decision architecture](docs/mp-r03-deterministic-upgrade-decision-architecture.md),
 [Migration Checklist contract](docs/mvp-05-migration-checklist-contract.md), and
 [package content policy](docs/package-content-policy.md).
@@ -118,5 +122,5 @@ Useful feedback and contributions include:
 - CI completion and exit semantics;
 - documentation and contributor experience.
 
-Autonomous migration safety is outside the v0.5.0 contract because UpgradeLens does
-not autonomously migrate source.
+Autonomous migration safety is outside the `0.6.0-alpha.1` contract because
+DepVerdict does not autonomously migrate source.

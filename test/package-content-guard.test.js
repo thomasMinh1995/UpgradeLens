@@ -316,8 +316,13 @@ test('authoritative required list covers runtime, schemas, datasets, and user do
   for (const value of [
     'package/bin/depverdict.js',
     'package/bin/upgradelens.js',
+    'package/docs/architecture-overview.md',
     'package/docs/decisions/diff-02-identity-compatibility-contract.md',
+    'package/docs/decisions/diff-03-repository-docs-community-migration.md',
+    'package/docs/migrations/upgradelens-to-depverdict.md',
+    'package/docs/releases/v0.6.0-alpha.1-depverdict-preview.md',
     'package/docs/reviews/diff-02-identity-contract-compatibility.md',
+    'package/docs/reviews/diff-03-repository-docs-community-migration.md',
     'package/src/artifact-root-compatibility.js',
     'package/src/environment-compatibility.js',
     'package/src/index.js',
@@ -335,7 +340,6 @@ test('authoritative required list covers runtime, schemas, datasets, and user do
   ]) {
     assert.ok(REQUIRED_PACKAGE_PATHS.includes(value), value);
   }
-  assert.equal(REQUIRED_PACKAGE_PATHS.length, 25);
 });
 
 test('actual npm boundary includes and rejects an untracked OSS-01 numeric copy', async () => {

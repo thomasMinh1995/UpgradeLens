@@ -14,6 +14,7 @@ async function workflowText() {
 
 test('CI triggers pull requests and intended long-lived branches only', async () => {
   const workflow = await workflowText();
+  assert.match(workflow, /^name: DepVerdict CI$/m);
   assert.match(workflow, /^on:\n/m);
   assert.match(workflow, /^  pull_request:\n/m);
   assert.match(workflow, /^  push:\n    branches:\n      - main\n      - develop\n/m);

@@ -6,18 +6,18 @@ contact a provider or re-run evaluation.
 
 ## When resolution runs
 
-The normal `upgradelens analyze <repository>` pipeline does not include the
+The normal `depverdict analyze <repository>` pipeline does not include the
 Migration Checklist and does not resolve a qualification record. Resolution
 runs only when the user explicitly enables:
 
 ```text
-upgradelens analyze <repository> --experimental-migration-checklist
+depverdict analyze <repository> --experimental-migration-checklist
 ```
 
 The default persisted record is repository-local:
 
 ```text
-.upgradelens/migration-planning-qualification.json
+.depverdict/migration-planning-qualification.json
 ```
 
 An alternative portable path relative to the repository may be selected with:
@@ -73,7 +73,7 @@ those inputs requires a matching record; it is not silently accepted.
 Use the public writer to persist a completed qualification:
 
 ```js
-import { writeMigrationPlanningQualificationRecord } from 'upgradelens';
+import { writeMigrationPlanningQualificationRecord } from '@thomasminh1995/depverdict';
 
 await writeMigrationPlanningQualificationRecord(
   repositoryRoot,
@@ -85,6 +85,11 @@ The writer validates first and publishes atomically. Qualification status,
 reason, source kind, source path, runtime identity, limitations, and next
 action come from the same frozen decision used by the guard, progress events,
 console presentation, failure log, and migration artifact assembly.
+
+During the `0.6.x` preview compatibility window, a complete default record under
+`.upgradelens/` may be selected only through the whole-root fallback contract.
+DepVerdict never merges qualification or workflow inputs across artifact roots.
+An explicit legacy path remains caller-owned and is honored as written.
 
 ## Limitations
 

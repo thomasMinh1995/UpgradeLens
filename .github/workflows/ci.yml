@@ -1,4 +1,4 @@
-name: CI
+name: DepVerdict CI
 
 on:
   pull_request:
