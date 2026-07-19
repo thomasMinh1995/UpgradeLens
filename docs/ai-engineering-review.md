@@ -174,15 +174,15 @@ Overall assessment: **MVP-03 is conditionally ready for MVP-04 implementation**,
 Validation used a temporary copy of the real UpgradeLens repository at:
 
 ```text
-/tmp/upgradelens-va05-ibrdGK/UpgradeLens
+<TEMPORARY_UPGRADELENS_CHECKOUT>
 ```
 
 Commands run:
 
 ```bash
-node bin/upgradelens.js discover /tmp/upgradelens-va05-ibrdGK/UpgradeLens
-node bin/upgradelens.js research /tmp/upgradelens-va05-ibrdGK/UpgradeLens --offline
-node bin/upgradelens.js analyze-version /tmp/upgradelens-va05-ibrdGK/UpgradeLens --stdout
+node bin/upgradelens.js discover <TEMPORARY_UPGRADELENS_CHECKOUT>
+node bin/upgradelens.js research <TEMPORARY_UPGRADELENS_CHECKOUT> --offline
+node bin/upgradelens.js analyze-version <TEMPORARY_UPGRADELENS_CHECKOUT> --stdout
 ```
 
 Observed result:
@@ -194,7 +194,7 @@ Observed result:
 - `analyze-version` failed before AI runtime invocation:
 
 ```text
-ENOENT: no such file or directory, open '/tmp/upgradelens-va05-ibrdGK/UpgradeLens/.upgradelens/knowledge-evidence-bundle.json'
+ENOENT: no such file or directory, open '<TEMPORARY_UPGRADELENS_CHECKOUT>/.upgradelens/knowledge-evidence-bundle.json'
 ```
 
 Assessment:
@@ -249,4 +249,3 @@ Recommended readiness decision:
 Proceed with MVP-04 implementation using schema-valid fixtures and generated artifacts.
 Do not claim real end-to-end user readiness until the Evidence Bundle producer and runtime hardening backlog are addressed.
 ```
-
