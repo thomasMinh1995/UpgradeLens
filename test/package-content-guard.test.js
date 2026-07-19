@@ -134,6 +134,8 @@ test('portable path validation rejects absolute, traversal, outside-root, and du
     '/package/src/absolute.js',
     'C:\\package\\src\\drive.js',
     'package/src/../escape.js',
+    'package/src//empty.js',
+    'package/src/./dot.js',
     'src/outside.js',
     'package/src/index.js',
     './package/src/index.js'
@@ -142,7 +144,7 @@ test('portable path validation rejects absolute, traversal, outside-root, and du
     result.violations.filter(
       (item) => item.code === PACKAGE_GUARD_REASON_CODES.INVALID_PACKAGE_ENTRY_PATH
     ).length,
-    4
+    6
   );
   assert.deepEqual(
     result.violations.filter(

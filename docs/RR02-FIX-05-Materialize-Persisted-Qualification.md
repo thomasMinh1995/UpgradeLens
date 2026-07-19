@@ -18,7 +18,7 @@ supported atomic writer.
 ## 3. Source Search and Provenance
 
 Search was limited to repository artifacts, report-referenced RR-01 outputs
-and scoped `/private/tmp/upgradelens-rr01*` locations.
+and scoped temporary RR-01 acceptance locations that were not retained.
 
 | Candidate source | Machine-readable | Runtime mode | Identity match | Verdict | Selected |
 | --- | --- | --- | --- | --- | --- |

@@ -420,7 +420,7 @@ npm run check
 npm run check:package
 ```
 
-The v0.5.0 release verification baseline is 615 tests passed, 0 failed, and 1 known
+The v0.5.0 release verification baseline is 626 tests passed, 0 failed, and 1 known
 sandbox-loopback skip.
 
 Design and contract references:
@@ -452,6 +452,13 @@ Potential follow-ups, not current supported features:
 - reviewed CI verification execution;
 - broader model/provider evaluation and offline knowledge support;
 - IDE or MCP integrations.
+
+## Community
+
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
+- [Support](SUPPORT.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ## License
 

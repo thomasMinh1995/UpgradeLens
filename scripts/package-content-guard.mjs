@@ -120,6 +120,9 @@ function invalidPathReason(value) {
   const withoutLeadingDot = portable.replace(/^\.\/+/, '');
   const segments = withoutLeadingDot.split('/');
   if (segments.includes('..')) return 'entry contains parent traversal';
+  if (segments.some((segment) => segment === '' || segment === '.')) {
+    return 'entry contains an empty or dot segment';
+  }
   if (!withoutLeadingDot.startsWith('package/')) return 'entry is outside the package root';
   const normalized = normalizeTarPath(value);
   if (!normalized || normalized === 'package') return 'entry does not name a package file';

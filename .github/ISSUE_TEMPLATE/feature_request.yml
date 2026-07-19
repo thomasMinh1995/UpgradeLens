@@ -1,0 +1,82 @@
+name: Feature request
+description: Propose a bounded product, workflow, or developer-experience improvement.
+title: "[Feature]: "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        UpgradeLens is a decision-first, evidence-bounded CLI in Public Technical Preview / Alpha. It does not autonomously migrate source.
+
+        Do not include provider secrets, private repository source, private identifiers, or raw provider payloads.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and user workflow
+      description: Describe the decision or workflow problem before proposing a solution.
+    validations:
+      required: true
+  - type: input
+    id: target-user
+    attributes:
+      label: Target user
+      placeholder: "Developer, maintainer, release engineer, or Coding Agent reviewer"
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Proposed outcome
+      description: Describe the observable result, not an implementation mandate.
+    validations:
+      required: true
+  - type: textarea
+    id: ecosystem-shape
+    attributes:
+      label: Ecosystem and sanitized repository shape
+      description: Do not include private organization, repository, package, or path names.
+    validations:
+      required: true
+  - type: textarea
+    id: trust
+    attributes:
+      label: Trust and human-review implications
+      description: Explain effects on evidence, target ownership, commands, source changes, approval, coverage, or fail-closed behavior.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope-fit
+    attributes:
+      label: Current contract fit
+      options:
+        - Decision clarity or evidence quality
+        - Installed baseline or selector behavior
+        - Analyzer coverage
+        - Human-reviewed migration handoff
+        - CI or exit semantics
+        - Documentation or developer experience
+        - Outside or uncertain
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: I removed credentials, private source, private identifiers, and raw provider payloads.
+          required: true
+        - label: I understand autonomous source migration is outside the current UpgradeLens contract.
+          required: true

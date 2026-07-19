@@ -539,13 +539,13 @@ node --test \
   test/migration-checklist-orchestration.test.js \
   test/analysis-orchestration.test.js
 
-env npm_config_cache=/tmp/upgradelens-npm-cache npm run check
-npm pack --dry-run --cache /tmp/upgradelens-npm-cache
+env npm_config_cache="$TMPDIR/upgradelens-npm-cache" npm run check
+npm pack --dry-run --cache "$TMPDIR/upgradelens-npm-cache"
 git diff --check
 
-node --env-file=.env /private/tmp/upgradelens-rr01-rerun-real-evaluation.mjs
-node --env-file=.env /private/tmp/upgradelens-rr01-controlled-runner.mjs
-node --env-file=.env /private/tmp/upgradelens-rr01-vingrade-runner.mjs
+node --env-file=.env "$TMPDIR/upgradelens-rr01-rerun-real-evaluation.mjs"
+node --env-file=.env "$TMPDIR/upgradelens-rr01-controlled-runner.mjs"
+node --env-file=.env "$TMPDIR/upgradelens-rr01-vingrade-runner.mjs"
 ```
 
 The controlled and VinGrade runners called the public application/runtime APIs, injected the exact qualification record, disabled provider debug output, retained only sanitized request metadata, and used the ordinary pipeline scheduler and stage runtimes.

@@ -1,0 +1,102 @@
+name: Bug report
+description: Report a reproducible UpgradeLens CLI or artifact defect.
+title: "[Bug]: "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        UpgradeLens is a Public Technical Preview / Alpha.
+
+        Do not paste `.env` content, API keys, tokens, private repository source, full `.upgradelens/` artifacts, or raw provider payloads. If this may be a vulnerability, stop and use [GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/UpgradeLens/security/advisories/new); do not disclose it in this public form.
+  - type: input
+    id: version
+    attributes:
+      label: UpgradeLens version or commit
+      description: Use the package version or exact commit you tested.
+      placeholder: "0.5.0 or a commit SHA"
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - npm package
+        - source checkout
+        - npm link
+        - other
+    validations:
+      required: true
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system
+      placeholder: "Linux, macOS, or Windows and version"
+    validations:
+      required: true
+  - type: input
+    id: node-npm
+    attributes:
+      label: Node.js and npm versions
+      placeholder: "node --version; npm --version"
+    validations:
+      required: true
+  - type: textarea
+    id: repository-shape
+    attributes:
+      label: Sanitized repository shape and ecosystem
+      description: Describe workspaces, manifests, lockfiles, and languages without private identifiers.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Remove credentials, authorization values, private paths, package names, and provider identifiers.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: completion-exit
+    attributes:
+      label: Completion state and exit code
+      placeholder: "COMPLETED_WITH_REVIEW, exit 0"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal public or synthetic reproduction
+      description: Link a minimal public fixture or provide sanitized steps. Do not upload a private repository.
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Relevant sanitized artifact fragments
+      description: Include only the minimum fragment needed. Remove private source, paths, identifiers, and provider data.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy and security confirmation
+      options:
+        - label: I removed credentials, tokens, `.env` content, private source, private identifiers, and raw provider payloads.
+          required: true
+        - label: This report does not contain vulnerability or exploit details; I will use the private route in `SECURITY.md` if security-sensitive.
+          required: true
+        - label: I searched existing issues for the same problem.
+          required: true
