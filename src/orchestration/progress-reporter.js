@@ -1,3 +1,5 @@
+import { PRODUCT_NAME } from '../constants.js';
+
 const MODES = new Set(['auto', 'interactive', 'plain']);
 
 export function selectProgressMode(stream, mode) {
@@ -72,7 +74,7 @@ function interactiveLine(event, noColor) {
       }[event.type];
   switch (event.type) {
     case 'RUN_STARTED':
-      return `Running UpgradeLens Analysis (${event.total} stages)...`;
+      return `Running ${PRODUCT_NAME} Analysis (${event.total} stages)...`;
     case 'STAGE_STARTED':
       return `${marker} ${event.stageLabel} [${elapsed(event.elapsedMs)}]`;
     case 'STAGE_ACTIVITY':

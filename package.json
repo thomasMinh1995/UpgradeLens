@@ -1,10 +1,11 @@
 {
-  "name": "upgradelens",
-  "version": "0.5.0",
-  "description": "Decision-first CLI for evidence-bounded dependency upgrade analysis.",
+  "name": "@thomasminh1995/depverdict",
+  "version": "0.6.0-alpha.1",
+  "description": "DepVerdict is a decision-first CLI for evidence-bounded dependency upgrade analysis.",
   "type": "module",
   "bin": {
-    "upgradelens": "./bin/upgradelens.js"
+    "depverdict": "bin/depverdict.js",
+    "upgradelens": "bin/upgradelens.js"
   },
   "exports": {
     ".": "./src/index.js"

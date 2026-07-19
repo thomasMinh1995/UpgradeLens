@@ -5,7 +5,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
 import { canonicalJsonBytes } from './canonical-json.js';
-import { PRODUCT_NAME, VERSION } from './constants.js';
+import { ARTIFACT_GENERATOR_NAME, VERSION } from './constants.js';
 import { DEPENDENCY_AI_CONTEXT_VERSION } from './dependency-ai-context.js';
 import { VERSION_ANALYSIS_PROMPT_VERSION } from './ai-version-analysis.js';
 import { compareText } from './portable.js';
@@ -296,7 +296,7 @@ export function buildVersionAnalysisManifest({
   const manifest = {
     schemaVersion: VERSION_ANALYSIS_SCHEMA_VERSION,
     generatedAt: generatedAt instanceof Date ? generatedAt.toISOString() : generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     input: structuredClone(input),
     analysis: {
       promptVersion,

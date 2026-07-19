@@ -34,10 +34,10 @@ test.after(async () => {
 });
 
 test('exports the required product conventions', () => {
-  assert.equal(PRODUCT_NAME, 'UpgradeLens');
-  assert.equal(PACKAGE_NAME, 'upgradelens');
-  assert.equal(DEFAULT_OUTPUT_DIRECTORY, '.upgradelens');
-  assert.equal(DEFAULT_MANIFEST_PATH, '.upgradelens/project-manifest.json');
+  assert.equal(PRODUCT_NAME, 'DepVerdict');
+  assert.equal(PACKAGE_NAME, '@thomasminh1995/depverdict');
+  assert.equal(DEFAULT_OUTPUT_DIRECTORY, '.depverdict');
+  assert.equal(DEFAULT_MANIFEST_PATH, '.depverdict/project-manifest.json');
   assert.equal(MANIFEST_SCHEMA_VERSION, '2.0.0');
 });
 

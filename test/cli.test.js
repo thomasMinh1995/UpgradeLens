@@ -27,14 +27,14 @@ test('writes the manifest to the required default location', async () => {
   const stderr = capture();
   try {
     const code = await runCli(['discover', root], { stdout: stdout.stream, stderr: stderr.stream });
-    const output = path.join(root, '.upgradelens/project-manifest.json');
+    const output = path.join(root, '.depverdict/project-manifest.json');
     const manifest = JSON.parse(await readFile(output, 'utf8'));
 
     assert.equal(code, 0);
     assert.equal(stdout.value(), '');
     assert.equal(manifest.projects[0].name, 'cli-fixture');
     assert.match(stderr.value(), /Discovered 1 project/);
-    assert.match(stderr.value(), /\.upgradelens\/project-manifest\.json/);
+    assert.match(stderr.value(), /\.depverdict\/project-manifest\.json/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -50,7 +50,7 @@ test('--stdout emits JSON without creating the output directory', async () => {
     assert.equal(code, 0);
     assert.equal(JSON.parse(stdout.value()).summary.projectCount, 1);
     assert.equal(stderr.value(), '');
-    await assert.rejects(access(path.join(root, '.upgradelens')));
+    await assert.rejects(access(path.join(root, '.depverdict')));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -6,7 +6,7 @@ import addFormats from 'ajv-formats';
 
 import { canonicalJsonBytes } from '../canonical-json.js';
 import {
-  PRODUCT_NAME,
+  ARTIFACT_GENERATOR_NAME,
   REPOSITORY_IMPACT_EVIDENCE_SCHEMA_VERSION,
   VERSION
 } from '../constants.js';
@@ -219,7 +219,7 @@ export function buildRepositoryImpactEvidence({
   return validateRepositoryImpactEvidence({
     schemaVersion: REPOSITORY_IMPACT_EVIDENCE_SCHEMA_VERSION,
     generatedAt: generatedAt instanceof Date ? generatedAt.toISOString() : generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     input: structuredClone(input),
     analysis: {
       evidenceGenerator: {

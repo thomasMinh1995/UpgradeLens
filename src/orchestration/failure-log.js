@@ -1,12 +1,12 @@
 import path from 'node:path';
 
-import { DEFAULT_ANALYSIS_LOG_PATH } from '../constants.js';
+import { DEFAULT_ANALYSIS_LOG_PATH, PRODUCT_NAME } from '../constants.js';
 import { writeTextArtifact } from './text-writer.js';
 
 export function renderAnalysisFailureLog(error) {
   const message = error.cause?.message ?? error.message;
   const lines = [
-    'UpgradeLens analysis failure',
+    `${PRODUCT_NAME} analysis failure`,
     `Stage: ${error.stage.label}`,
     `Message: ${message}`
   ];

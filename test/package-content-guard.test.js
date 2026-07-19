@@ -69,7 +69,10 @@ test('protected implementation areas follow the published package structure', ()
     'package/src/'
   ]);
   for (const value of [
+    'package/bin/depverdict.js',
     'package/bin/upgradelens.js',
+    'package/src/artifact-root-compatibility.js',
+    'package/src/environment-compatibility.js',
     'package/src/index.js',
     'package/schemas/upgrade-decision.schema.json',
     'package/eval/datasets/node/react-major-breaking.json',
@@ -166,7 +169,7 @@ test('normalization and ordering remain stable and POSIX-safe', () => {
   ]), ['package/a', 'package/m', 'package/z']);
 });
 
-test('strict release mode rejects any packaged protected file not tracked by Git', () => {
+test('strict release mode rejects untracked protected files outside the authoritative required list', () => {
   const entry = 'package/src/new-untracked.js';
   const result = validatePackageEntries([entry], {
     requiredPaths: [],
@@ -176,6 +179,12 @@ test('strict release mode rejects any packaged protected file not tracked by Git
     PACKAGE_GUARD_REASON_CODES.UNEXPECTED_PACKAGED_UNTRACKED_IMPLEMENTATION_FILE
   ]);
   assert.equal(result.git.status, 'available');
+
+  const explicitlyRequired = validatePackageEntries([entry], {
+    requiredPaths: [entry],
+    gitState: availableGit({ untracked: ['src/new-untracked.js'] })
+  });
+  assert.equal(explicitlyRequired.status, 'pass');
 });
 
 test('source archive mode without Git metadata preserves structural checks without crashing', () => {
@@ -211,6 +220,8 @@ test('existing exclusions cover captures, env, credentials, local, and qualifica
     ['package/credentials.json', 'FORBIDDEN_CREDENTIAL_FILE'],
     ['package/.DS_Store', 'FORBIDDEN_LOCAL_ARTIFACT'],
     ['package/node_modules/example/index.js', 'FORBIDDEN_LOCAL_ARTIFACT'],
+    ['package/.depverdict/project-manifest.json', 'FORBIDDEN_LOCAL_ARTIFACT'],
+    ['package/.upgradelens/project-manifest.json', 'FORBIDDEN_LOCAL_ARTIFACT'],
     ['package/.upgradelens/migration-planning-qualification.json',
       'FORBIDDEN_QUALIFICATION_ARTIFACT']
   ];
@@ -303,7 +314,12 @@ test('assertion and CLI contracts map policy failure to non-zero without a stack
 
 test('authoritative required list covers runtime, schemas, datasets, and user docs', () => {
   for (const value of [
+    'package/bin/depverdict.js',
     'package/bin/upgradelens.js',
+    'package/docs/decisions/diff-02-identity-compatibility-contract.md',
+    'package/docs/reviews/diff-02-identity-contract-compatibility.md',
+    'package/src/artifact-root-compatibility.js',
+    'package/src/environment-compatibility.js',
     'package/src/index.js',
     'package/src/migration-checklist/verification.js',
     'package/src/product-completion.js',
@@ -319,7 +335,7 @@ test('authoritative required list covers runtime, schemas, datasets, and user do
   ]) {
     assert.ok(REQUIRED_PACKAGE_PATHS.includes(value), value);
   }
-  assert.equal(REQUIRED_PACKAGE_PATHS.length, 20);
+  assert.equal(REQUIRED_PACKAGE_PATHS.length, 25);
 });
 
 test('actual npm boundary includes and rejects an untracked OSS-01 numeric copy', async () => {

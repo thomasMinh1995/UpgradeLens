@@ -63,6 +63,7 @@ export async function runMigrationChecklistStage({
   allowExperimental = false,
   generatedAt,
   artifactPath = DEFAULT_MIGRATION_CHECKLIST_PATH,
+  onCompatibilityDiagnostic,
   onEvent,
   signal,
   prepareContexts = prepareMigrationChecklistContexts,
@@ -85,7 +86,9 @@ export async function runMigrationChecklistStage({
       throw migrationQualificationErrorForDecision(qualificationResult);
     }
     throwIfCancelled(signal);
-    const prepared = await prepareContexts(repositoryRoot);
+    const prepared = await prepareContexts(repositoryRoot, {
+      onCompatibilityDiagnostic
+    });
     throwIfCancelled(signal);
     total = prepared.eligibleContexts.length;
     emit(onEvent, {

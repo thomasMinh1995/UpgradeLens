@@ -4,7 +4,7 @@ import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
-import { PRODUCT_NAME, VERSION } from './constants.js';
+import { ARTIFACT_GENERATOR_NAME, VERSION } from './constants.js';
 import { compareText } from './portable.js';
 
 export const BENCHMARK_REPORT_SCHEMA_VERSION = '1.0.0';
@@ -55,7 +55,7 @@ export function buildBenchmarkReport({
   const report = {
     schemaVersion: BENCHMARK_REPORT_SCHEMA_VERSION,
     generatedAt: generatedAt instanceof Date ? generatedAt.toISOString() : generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     benchmark: {
       name: benchmark.name,
       configPath: benchmark.configPath ?? null,

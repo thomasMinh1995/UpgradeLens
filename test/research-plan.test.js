@@ -296,7 +296,7 @@ test('rejects absolute artifacts, invalid JSON, unsupported Project Manifest ver
   const target = path.join(temporary, 'project-manifest.json');
   await writeFile(target, emptyBytes);
   const loaded = await loadProjectManifestInput(target);
-  assert.equal(loaded.input.projectManifest.artifact, '.upgradelens/project-manifest.json');
+  assert.equal(loaded.input.projectManifest.artifact, '.depverdict/project-manifest.json');
 });
 
 test('rejects Project Manifest dependency runtime invariant failures', async () => {

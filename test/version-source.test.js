@@ -38,7 +38,7 @@ test('package.json is the single runtime version source for CLI output and User-
 });
 
 test('the executable CLI reports the package.json version', async () => {
-  const child = spawn(process.execPath, ['bin/upgradelens.js', '--version'], { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, ['bin/depverdict.js', '--version'], { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] });
   let stdout = '';
   let stderr = '';
   child.stdout.setEncoding('utf8');

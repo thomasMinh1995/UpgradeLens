@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '../constants.js';
 import { renderMigrationChecklistConsole } from '../migration-checklist/presentation.js';
 import { renderUpgradeDecisionConsole } from '../upgrade-decision/presentation.js';
 
@@ -28,7 +29,7 @@ export function renderConsoleSummary({
       NOT_ANALYZED: 'Not analyzed'
     };
     const lines = [
-      'UpgradeLens product outcome',
+      `${PRODUCT_NAME} product outcome`,
       '',
       `Overall: ${completion.status}`,
       `Next step: ${completion.nextStep}`,

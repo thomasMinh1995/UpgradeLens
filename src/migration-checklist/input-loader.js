@@ -10,6 +10,7 @@ import {
   DEFAULT_USAGE_INDEX_PATH,
   DEFAULT_VERSION_ANALYSIS_PATH
 } from '../constants.js';
+import { resolveArtifactRootChain } from '../artifact-root-compatibility.js';
 import { validateRepositoryImpactEvidence } from '../impact-evidence/repository-impact-evidence.js';
 import {
   EXACT_SYMBOL_MATCHER_ID,
@@ -130,14 +131,20 @@ function sourceFor(descriptor, invocation) {
   if (explicit !== undefined) return explicit;
   if (invocation.sources) return undefined;
   if (invocation.rootUrl) return new URL(descriptor.artifact, invocation.rootUrl);
-  return path.resolve(invocation.repositoryRoot, descriptor.artifact);
+  return path.resolve(
+    invocation.repositoryRoot,
+    invocation.selectedArtifacts?.[descriptor.key] ?? descriptor.artifact
+  );
 }
 
 function artifactFor(descriptor, source, invocation) {
   const explicitArtifact = source && typeof source === 'object' && !(source instanceof URL)
     ? source.artifact
     : undefined;
-  const artifact = explicitArtifact ?? invocation.artifacts[descriptor.key] ?? descriptor.artifact;
+  const artifact = explicitArtifact
+    ?? invocation.artifacts[descriptor.key]
+    ?? invocation.selectedArtifacts?.[descriptor.key]
+    ?? descriptor.artifact;
   if (!isPortableRelativePath(artifact)) {
     fail(`${descriptor.label} artifact must be a portable repository-relative path.`, 'INVALID_ARTIFACT_PATH');
   }
@@ -565,7 +572,24 @@ async function validateParsedArtifacts(records) {
 
 /** Load, schema-validate, and cross-check the seven immutable MVP-05 inputs. */
 export async function loadMigrationChecklistInputs(input, options = {}) {
-  const invocation = invocationSources(input, options);
+  let invocation = invocationSources(input, options);
+  if (
+    !invocation.sources
+    && !invocation.rootUrl
+    && Object.keys(invocation.artifacts).length === 0
+  ) {
+    const selection = await resolveArtifactRootChain(
+      invocation.repositoryRoot,
+      ARTIFACTS.map(({ artifact }) => artifact),
+      { onDiagnostic: options.onCompatibilityDiagnostic }
+    );
+    invocation = {
+      ...invocation,
+      selectedArtifacts: Object.fromEntries(
+        ARTIFACTS.map(({ key }, index) => [key, selection.artifacts[index]])
+      )
+    };
+  }
   const records = {};
   for (const descriptor of ARTIFACTS) {
     const source = sourceFor(descriptor, invocation);

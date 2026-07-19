@@ -3,7 +3,7 @@ import { mkdir, open, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { canonicalJson } from './canonical-json.js';
-import { PRODUCT_NAME, VERSION } from './constants.js';
+import { ARTIFACT_GENERATOR_NAME, VERSION } from './constants.js';
 import {
   KNOWLEDGE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
   validateKnowledgeEvidenceBundle
@@ -189,7 +189,7 @@ export function buildKnowledgeEvidenceBundle(manifest, {
   const bundle = {
     schemaVersion: KNOWLEDGE_EVIDENCE_BUNDLE_SCHEMA_VERSION,
     generatedAt: generatedAt ?? manifest.generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     input: {
       knowledgeManifest: {
         schemaVersion: manifest.schemaVersion,

@@ -4,7 +4,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
 import {
-  PRODUCT_NAME,
+  ARTIFACT_GENERATOR_NAME,
   REPOSITORY_IMPACT_SCHEMA_VERSION,
   VERSION
 } from '../constants.js';
@@ -187,7 +187,7 @@ export function buildRepositoryImpact({ input, versionAnalysis, usageIndex, matc
   return validateRepositoryImpact({
     schemaVersion: REPOSITORY_IMPACT_SCHEMA_VERSION,
     generatedAt: generatedAt instanceof Date ? generatedAt.toISOString() : generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     input: structuredClone(input),
     analysis: {
       matcher: { id: matcher.id, version: matcher.version },

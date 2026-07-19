@@ -276,7 +276,7 @@ test('analyze command parses repository orchestration options', () => {
   assert.deepEqual(parseArguments(['analyze', 'fixture', '--offline', '--max-depth', '6']), {
     command: 'analyze',
     root: 'fixture',
-    output: '.upgradelens/repository-impact.md',
+    output: '.depverdict/repository-impact.md',
     dataset: 'eval/datasets',
     report: 'evaluation-report.json',
     metricsOutput: 'metrics.json',
@@ -464,25 +464,25 @@ test('analyze CLI runs the full scheduler and writes the Markdown report', async
     upgradeDecision: upgradeDecisionArtifact(),
     versionAnalysis: artifacts.versionAnalysis,
     artifactPaths: {
-      report: '.upgradelens/repository-impact.md',
-      upgradeDecision: '.upgradelens/upgrade-decision.json'
+      report: '.depverdict/repository-impact.md',
+      upgradeDecision: '.depverdict/upgrade-decision.json'
     }
   });
   assert.equal(stdout.value(), renderConsoleSummary({
     viewModel,
     completion,
-    reportPath: '.upgradelens/repository-impact.md',
+    reportPath: '.depverdict/repository-impact.md',
     upgradeDecision: upgradeDecisionArtifact(),
-    upgradeDecisionPath: '.upgradelens/upgrade-decision.json'
+    upgradeDecisionPath: '.depverdict/upgrade-decision.json'
   }));
-  const report = await readFile(path.join(root, '.upgradelens/repository-impact.md'), 'utf8');
+  const report = await readFile(path.join(root, '.depverdict/repository-impact.md'), 'utf8');
   assert.equal(report, renderMarkdownReport({
     viewModel,
     upgradeDecision: upgradeDecisionArtifact(),
     completion
   }));
   await assert.rejects(
-    readFile(path.join(root, '.upgradelens/migration-checklist.json')),
+    readFile(path.join(root, '.depverdict/migration-checklist.json')),
     { code: 'ENOENT' }
   );
 });
@@ -501,7 +501,7 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
       status: 'MISSING',
       qualificationId: null,
       sourceKind: 'defaultPath',
-      sourcePath: '.upgradelens/migration-planning-qualification.json',
+      sourcePath: '.depverdict/migration-planning-qualification.json',
       runtimeIdentity: { provider: 'unknown', model: 'unknown', adapter: 'unknown' },
       experimentalOverrideUsed: true,
       limitations: [{
@@ -553,7 +553,7 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
       impactEvidence: runner('impactEvidence', artifacts.impactEvidence),
       upgradeDecision: runner('upgradeDecision', upgradeDecisionArtifact()),
       migrationChecklist: runner('migrationChecklist', {
-        artifactPath: '.upgradelens/migration-checklist.json',
+        artifactPath: '.depverdict/migration-checklist.json',
         viewModel: migrationChecklistViewModel
       })
     }
@@ -567,7 +567,7 @@ test('experimental CLI opt-in inserts Migration Checklist before Markdown withou
   assert.match(stderr.value(), /STAGE COMPLETE id=migrationChecklist label="Migration Checklist"[\s\S]*STAGE START id=markdownReport/);
   assert.match(stdout.value(), /Migration handoff[\s\S]*Actionable with review: 0/);
   assert.match(stdout.value(), /Migration Checklist remains experimental/);
-  const report = await readFile(path.join(root, '.upgradelens/repository-impact.md'), 'utf8');
+  const report = await readFile(path.join(root, '.depverdict/repository-impact.md'), 'utf8');
   assert.match(report, /## Migration Checklist/);
   assert.match(report, /Every AI-selected official guidance item requires human review/);
 });
@@ -681,11 +681,11 @@ test('analyze CLI writes a clean failure log and does not run later stages', asy
   assert.equal(exitCode, 1);
   assert.deepEqual(calls, ['projectDiscovery', 'knowledgeResearch', 'versionAnalysis', 'usageDiscovery']);
   assert.equal(stdout.value(), '');
-  assert.match(stderr.value(), /Repository Usage Discovery failed\.\n\nSee:\n\.upgradelens\/logs\/analyze\.log/);
+  assert.match(stderr.value(), /Repository Usage Discovery failed\.\n\nSee:\n\.depverdict\/logs\/analyze\.log/);
   assert.doesNotMatch(stderr.value(), /\bat\s+.*\.js:/);
-  const log = await readFile(path.join(root, '.upgradelens/logs/analyze.log'), 'utf8');
+  const log = await readFile(path.join(root, '.depverdict/logs/analyze.log'), 'utf8');
   assert.equal(log, [
-    'UpgradeLens analysis failure',
+    'DepVerdict analysis failure',
     'Stage: Repository Usage Discovery',
     'Message: fixture failure',
     ''

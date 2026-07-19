@@ -3,9 +3,11 @@ import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { canonicalJson, canonicalJsonBytes } from './canonical-json.js';
+import { DEFAULT_OUTPUT_DIRECTORY } from './constants.js';
 import { compareText } from './portable.js';
 
-export const DEFAULT_KNOWLEDGE_CACHE_DIRECTORY = '.upgradelens/cache/knowledge/v1';
+export const DEFAULT_KNOWLEDGE_CACHE_DIRECTORY =
+  `${DEFAULT_OUTPUT_DIRECTORY}/cache/knowledge/v1`;
 
 const ENVELOPE_VERSION = '1';
 const IDENTITY_FIELDS = [

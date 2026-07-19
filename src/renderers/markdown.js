@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '../constants.js';
 import { renderMigrationChecklistMarkdownSection } from '../migration-checklist/presentation.js';
 import { renderUpgradeDecisionMarkdownSection } from '../upgrade-decision/presentation.js';
 
@@ -113,7 +114,7 @@ export function renderMarkdownReport({
   requireViewModel(viewModel);
   const summary = viewModel.summary;
   const lines = [
-    '# UpgradeLens Repository Impact Report',
+    `# ${PRODUCT_NAME} Repository Impact Report`,
     '',
     ...(completion ? renderProductCompletion(completion) : []),
     '## Repository',

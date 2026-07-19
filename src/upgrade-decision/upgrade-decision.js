@@ -6,7 +6,7 @@ import addFormats from 'ajv-formats';
 
 import { canonicalJsonBytes } from '../canonical-json.js';
 import {
-  PRODUCT_NAME,
+  ARTIFACT_GENERATOR_NAME,
   UPGRADE_DECISION_SCHEMA_VERSION,
   VERSION
 } from '../constants.js';
@@ -612,7 +612,7 @@ export function buildUpgradeDecision(artifacts, options = {}) {
   const artifact = {
     schemaVersion: UPGRADE_DECISION_SCHEMA_VERSION,
     generatedAt: artifacts.repositoryImpactEvidence.generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     input: structuredClone(artifacts.input),
     policy: {
       id: UPGRADE_DECISION_POLICY_ID,
