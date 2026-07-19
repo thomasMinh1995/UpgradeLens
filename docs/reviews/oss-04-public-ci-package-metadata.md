@@ -2,7 +2,7 @@
 
 ## 1. Executive verdict
 
-**Verdict: `PUBLIC_CI_READY_PENDING_HOSTED_RUN`**
+**Current verdict after OSS-04-FIX: `WORKFLOW_PUSH_AND_HOSTED_CI_VERIFIED`**
 
 UpgradeLens now has a read-only public CI contract for pull requests, `main`,
 `develop`, and manual dispatch. It validates Node 20, 22, and 24, runs the canonical
@@ -12,8 +12,8 @@ evidence-bounded CLI and links to the canonical repository, README, and issue
 tracker.
 
 Static validation and local matrix replay pass with the documented Node 20
-concurrency bound. The workflow has not been committed or pushed, so no GitHub
-Actions run URL or hosted commit proof exists.
+concurrency bound. OSS-04-FIX subsequently pushed the workflow commit and verified
+all intended jobs on GitHub Actions; section 22 records the hosted evidence.
 
 ## 2. Previous CI and metadata gaps
 
@@ -225,10 +225,13 @@ artifact scan are required to agree on this 234-file boundary.
 
 **Local status: `LOCAL_CI_CONTRACT_VALIDATED`**
 
-**Hosted status: `HOSTED_CI_NOT_YET_EXECUTED`**
+**Hosted status after OSS-04-FIX: `HOSTED_CI_VERIFIED`**
 
-No workflow commit was pushed, so there is no valid GitHub Actions run URL or hosted
-commit SHA. This report does not claim hosted success.
+GitHub Actions run
+`https://github.com/thomasMinh1995/UpgradeLens/actions/runs/29675936431`
+completed successfully for
+`b3f5880096ab0ddd5713d50c1dc83b32666a829d`. Section 22 records the job-level
+evidence and authentication boundary.
 
 ## 16. Branch-protection handoff
 
@@ -249,10 +252,15 @@ OSS-04 does not configure branch protection through an API.
 
 ## 17. Blocked and skipped checks
 
-Hosted CI is intentionally blocked by the no-commit/no-push task boundary, not by an
-implementation failure. One default local canonical test is skipped only because
-the restricted sandbox cannot bind its loopback listener; matrix diagnostics run
-that test successfully.
+The original OSS-04 task intentionally stopped before commit/push. OSS-04-FIX
+completed the maintainer-authenticated push and hosted run. One default local
+canonical test is skipped only because the restricted sandbox cannot bind its
+loopback listener; matrix diagnostics and hosted jobs pass.
+
+The unauthenticated public GitHub endpoint for raw job-log download returned HTTP
+403 requiring repository administration. No token was supplied to the verifier.
+Public run, job, check, step, commit, PR, workflow-content, and artifact endpoints
+provided sufficient acceptance evidence.
 
 No real provider, npm publish, GitHub Release, tag, deployment, branch-protection
 mutation, or package upload was attempted.
@@ -264,7 +272,7 @@ mutation, or package upload was attempted.
 | Blocker | 0 | None |
 | High | 0 | None after local matrix and package replay |
 | Medium | 0 | None |
-| Low/accepted limitation | 2 | Hosted proof pending; Node 20 is upstream EOL and remains only the declared compatibility floor |
+| Low/accepted limitation | 1 | Node 20 is upstream EOL and remains only the declared compatibility floor |
 
 The Node 20 concurrency bound mitigates a demonstrated test-runner resource flake
 without changing behavior or suppressing a test. A hosted failure remains a
@@ -295,14 +303,137 @@ call, target-repository mutation, or qualification regeneration was performed.
 
 ## 21. Final verdict and next gate
 
-**Verdict: `PUBLIC_CI_READY_PENDING_HOSTED_RUN`**
+**Verdict: `WORKFLOW_PUSH_AND_HOSTED_CI_VERIFIED`**
 
 The workflow contract, permissions, fork safety, provider isolation, supported Node
 matrix, package boundary, clean consumer install, CLI, import/export contract,
 metadata, lockfile consistency, and local validation pass. Package version remains
 `0.5.0`; no Blocker or High defect is open.
 
-**Gate: `PROCEED_TO_HOSTED_CI_VERIFICATION`**
+**Gate: `PROCEED_TO_OSS_05_TECHNICAL_PREVIEW_QUALIFICATION`**
 
-OSS-05 qualification must not treat CI as hosted evidence until all intended jobs
-pass on GitHub Actions at a recorded commit and run URL.
+OSS-05 may use the exact hosted evidence recorded below. This does not authorize a
+merge, tag, release, or npm publish.
+
+## 22. OSS-04-FIX workflow push and hosted verification addendum
+
+### 22.1 Original push failure
+
+GitHub rejected the first HTTPS push because the OAuth App credential selected by
+the existing credential flow could push ordinary source but could not create
+`.github/workflows/ci.yml`. The local commit remained intact; the workflow and Git
+history were not rewritten or removed.
+
+### 22.2 Root cause
+
+The rejected credential lacked permission to update GitHub Actions workflow files.
+Static YAML and focused workflow checks passed before authentication changed, so
+this was a credential-capability failure rather than a workflow-content defect.
+
+### 22.3 Authentication method
+
+The maintainer created a fine-grained personal access token limited to UpgradeLens,
+entered it directly through the protected HTTPS credential prompt, and used the
+configured macOS Keychain credential path. The token value, prefix, suffix, and
+Keychain content were never provided to or accessed by Codex.
+
+### 22.4 Granted permission names
+
+The maintainer-approved token scope was:
+
+- repository access: UpgradeLens only;
+- `Contents: Read and write`;
+- `Workflows: Read and write`;
+- `Metadata: Read` automatically.
+
+No Administration, Actions write, Packages write, Secrets, Issues write, or Pull
+requests write permission was required by this task.
+
+### 22.5 Local and remote commit identity
+
+| Location | Commit |
+| --- | --- |
+| Local `HEAD` | `b3f5880096ab0ddd5713d50c1dc83b32666a829d` |
+| Remote `fix/public-preview-readiness` | `b3f5880096ab0ddd5713d50c1dc83b32666a829d` |
+
+The exact SHA equality was verified through the public remote ref after the
+maintainer push. The canonical HTTPS remote contains no embedded username or
+credential.
+
+### 22.6 Push outcome
+
+The non-force branch push succeeded. No rebase, merge, amend, tag, release, package
+publish, or other remote write was performed. Pre-existing local capture and
+manifest changes remained outside the pushed commit.
+
+### 22.7 Workflow run and event
+
+- Workflow: `CI`
+- Run: `https://github.com/thomasMinh1995/UpgradeLens/actions/runs/29675936431`
+- Event: `pull_request`
+- Pull request: `https://github.com/thomasMinh1995/UpgradeLens/pull/9`
+- Base/head: `develop` ← `fix/public-preview-readiness`
+- Head SHA: `b3f5880096ab0ddd5713d50c1dc83b32666a829d`
+- Run status/conclusion: `completed` / `success`
+- Attempt: 1
+
+The workflow file is present on the remote branch at the expected path and blob.
+
+### 22.8 Hosted Node and job results
+
+| Job | Conclusion |
+| --- | --- |
+| `Node 20` | `success` |
+| `Node 22` | `success` |
+| `Node 24` | `success` |
+| `Package smoke (Node 24)` | `success` |
+
+The alternate Node test step skipped by each matrix condition is expected: Node 20
+runs the bounded-concurrency command, while Node 22/24 run the plain canonical
+command. No intended job or required package step was skipped.
+
+### 22.9 Hosted package, test, and smoke results
+
+The public jobs API records successful completion of:
+
+- checkout and supported Node setup;
+- deterministic `npm ci` in every job;
+- the full selected canonical test command on Node 20, 22, and 24;
+- `npm run check:package` on every Node matrix entry;
+- dry-run npm package manifest on Node 24;
+- actual pack, manifest inspection, clean install, installed CLI version/help, ESM
+  import, and export-contract smoke.
+
+No package artifact was uploaded; the run reports zero retained artifacts.
+
+### 22.10 Security checks
+
+The remote URL remains the canonical credential-free HTTPS URL. The remote workflow
+retains `contents: read`, ordinary `pull_request`, non-persisted checkout
+credentials, empty provider environment variables, immutable official action SHAs,
+and no secrets expression, publish, tag, release, push, or writeback command.
+
+No provider key, repository secret, private qualification record, `.env`, or real
+provider was required. The verifier used only public read-only GitHub API endpoints
+and never accessed the fine-grained token.
+
+### 22.11 Blocked, skipped, and report-only state
+
+Raw job-log download through the unauthenticated endpoint returned HTTP 403 and was
+not retried with maintainer credentials. This does not block acceptance because the
+public run/job/check APIs expose the exact SHA, event, terminal conclusion, all four
+jobs, and each required step conclusion.
+
+This addendum was written after the successful hosted run. It is a local report-only
+follow-up and is not part of the already verified commit. It does not require an
+immediate push-and-monitor loop and does not alter the hosted workflow evidence.
+
+### 22.12 Final verdict and gate
+
+**Verdict: `WORKFLOW_PUSH_AND_HOSTED_CI_VERIFIED`**
+
+**Gate: `PROCEED_TO_OSS_05_TECHNICAL_PREVIEW_QUALIFICATION`**
+
+Local and remote workflow SHAs match, the remote workflow exists, the exact hosted
+run succeeded across every intended job, package smoke passed, no provider secret
+was required, and no Blocker or High defect remains.
