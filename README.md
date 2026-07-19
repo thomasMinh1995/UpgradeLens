@@ -1,6 +1,9 @@
 # DepVerdict
 
 > **Public Technical Preview / Alpha**
+>
+> DepVerdict v0.6.0-alpha.1 is available as a Public Technical Preview.
+> It is not production-stable and remains human-reviewed.
 
 DepVerdict is a decision-first CLI for evidence-bounded dependency upgrade
 analysis.
@@ -12,10 +15,10 @@ also prepares an evidence-bounded migration handoff for human review.
 
 DepVerdict helps answer:
 
-- Should we keep the installed version, plan an upgrade, or investigate?
-- Why, and what evidence and repository impact support that result?
-- What is the bounded next step?
-- What still requires human review?
+- Should this dependency be upgraded?
+- Why?
+- What is the repository-specific risk?
+- What evidence-bounded handoff is available for human review?
 
 DepVerdict does not update dependencies, patch source code, authorize a Coding
 Agent, or guarantee that a migration is safe.
@@ -74,28 +77,30 @@ versioned artifacts from the preceding stages instead of inventing missing facts
 
 - Node.js 20 or newer
 
-The npm preview has not yet passed its distribution gate. The planned install
-command after publication is:
+Install the published preview explicitly:
 
 ```sh
 npm install -g @thomasminh1995/depverdict@preview
+depverdict analyze .
 ```
 
-Until then, use the canonical repository source checkout:
+For a project-local development install:
 
 ```sh
-git clone https://github.com/thomasMinh1995/DepVerdict.git
-cd DepVerdict
-npm ci
-node ./bin/depverdict.js --version
+npm install --save-dev @thomasminh1995/depverdict@preview
+npx depverdict analyze .
 ```
 
-Optionally expose the local executable:
+npm currently also exposes this first published version through `latest`.
+DepVerdict v0.6.0-alpha.1 remains an Alpha/Public Technical Preview; use
+`@preview` explicitly. See the
+[v0.6.0-alpha.1 release note](docs/releases/v0.6.0-alpha.1-depverdict-preview.md)
+and [REL-02 verification](docs/reviews/rel-02-post-release-verification-feedback-readiness.md)
+for the bounded distribution evidence.
 
-```sh
-npm link
-depverdict --version
-```
+Before testing a private repository, read the
+[Technical Preview feedback guide](docs/community/technical-preview-feedback-guide.md)
+for sanitization and public/private reporting routes.
 
 ## Provider configuration
 
@@ -501,6 +506,7 @@ Potential follow-ups, not current supported features:
 - [Security](SECURITY.md)
 - [Support](SUPPORT.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Technical Preview feedback guide](docs/community/technical-preview-feedback-guide.md)
 
 ### Technical Preview feedback
 

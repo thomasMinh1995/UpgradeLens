@@ -9,7 +9,9 @@ body:
       value: |
         DepVerdict is a decision-first, evidence-bounded CLI in Public Technical Preview / Alpha. It does not autonomously migrate source.
 
-        Do not include provider secrets, private repository source, private identifiers, or raw provider payloads.
+        Do not include API keys, npm tokens, PATs, `.env` content, signed URLs, private source, unsanitized manifests or artifacts, raw provider requests/responses, or personal or organization-confidential data.
+
+        Report vulnerabilities through [GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/DepVerdict/security/advisories/new). For a sensitive conduct report, follow the private route in the [Code of Conduct](https://github.com/thomasMinh1995/DepVerdict/blob/main/CODE_OF_CONDUCT.md). Do not disclose either through this public form.
   - type: textarea
     id: problem
     attributes:
@@ -76,7 +78,9 @@ body:
     attributes:
       label: Privacy confirmation
       options:
-        - label: I removed credentials, private source, private identifiers, and raw provider payloads.
+        - label: I removed API keys, npm tokens, PATs, `.env` content, signed URLs, authorization data, private source, unsanitized manifests/artifacts, provider payloads, and personal or organization-confidential data.
+          required: true
+        - label: This request contains no vulnerability or sensitive conduct details; I will use the private routes above when appropriate.
           required: true
         - label: I understand autonomous source migration is outside the current DepVerdict contract.
           required: true
