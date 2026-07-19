@@ -1,351 +1,457 @@
 # UpgradeLens
 
-UpgradeLens is an upgrade intelligence engine that helps developers understand software projects, analyze dependency upgrades, identify breaking changes, and generate safer migration plans.
+UpgradeLens is a decision-first CLI for evidence-bounded dependency upgrade
+analysis.
 
-Future MVPs progressively introduce AI-powered knowledge research, version analysis, impact analysis, and migration planning.
+It discovers dependency occurrences in a repository, distinguishes declared,
+installed, and target versions, checks how supported source files use those
+dependencies, and projects a deterministic upgrade decision. When requested, it
+also prepares an evidence-bounded migration handoff for human review.
 
-The current Migration Checklist application path is experimental and opt-in. It produces human-review drafts, not an autonomous migration plan or safety certification.
+UpgradeLens helps answer:
 
-MVP-01 focuses only on deterministic project discovery and dependency inventory. It provides a reliable, versioned foundation and contains no AI runtime or reasoning.
+- Should we keep the installed version, plan an upgrade, or investigate?
+- Why, and what evidence and repository impact support that result?
+- What is the bounded next step?
+- What still requires human review?
+
+UpgradeLens does not update dependencies, patch source code, authorize a Coding
+Agent, or guarantee that a migration is safe.
 
 ## Why UpgradeLens?
 
-Framework and dependency upgrades often require more investigation than implementation. Breaking changes may be scattered across long changelogs, migration guides, release notes, and source repositories. Developers must first understand what a project uses, then determine which changes matter to that specific codebase.
+A registry reporting a newer version does not mean a team should upgrade. Release
+notes do not know which dependency occurrence a repository uses, whether the
+installed version differs from the declaration, or where affected APIs appear in
+source.
 
-UpgradeLens is being built incrementally around that workflow. MVP-01 solves the first problem: producing a reproducible description of a repository and its declared dependencies. Later milestones will consume that description to research releases, compare versions, analyze impact, and prepare migration plans.
+Developers and Coding Agents can research these facts manually, but the context is
+easy to lose and expensive to rebuild. UpgradeLens produces versioned artifacts that
+teams can inspect, discuss, and hand off:
 
-## Architecture overview
+- Registry latest is candidate discovery, not a recommendation.
+- A positive upgrade recommendation requires a structured driver.
+- Negative impact conclusions require complete analyzer coverage.
+- AI-assisted output is bounded by selected official or publisher evidence.
+- Humans choose targets, approve actions, and decide whether to migrate.
 
-```text
-Repository
-    │
-    ▼
-Project Discovery
-    │
-    ▼
-Project Manifest
-    │
-    ▼
-Knowledge Research
-    │
-    ▼
-Version Analysis
-    │
-    ▼
-Impact Analysis
-    │
-    ▼
-Migration Planning
+## Current capabilities
+
+UpgradeLens `0.5.0` includes:
+
+1. Deterministic project and dependency discovery.
+2. npm and PyPI knowledge and evidence research.
+3. AI-assisted, schema-validated version analysis.
+4. Repository usage and impact analysis.
+5. Installed-version baseline resolution.
+6. Coverage-aware impact semantics.
+7. Deterministic Upgrade Decision projection.
+8. Evidence-bounded Migration Checklist v2.
+9. Decision-first product completion and CI exit semantics.
+10. Offline research using fresh cached evidence with explicit limitations.
+
+## Workflow overview
+
+```mermaid
+flowchart TD
+    A["Discover projects and dependency occurrences"] --> B["Research target knowledge and evidence"]
+    B --> C["Analyze versions"]
+    C --> D["Inspect supported source usage and impact"]
+    D --> E["Project a deterministic upgrade decision"]
+    E --> F["Report the result"]
+    E -.->|"experimental opt-in"| G["Prepare a human-reviewed migration handoff"]
+    G --> F
 ```
 
-The repository is discovered once. Every later stage consumes the Project Manifest, and future AI stages do not rescan the repository directly. This keeps discovery deterministic across the full pipeline.
+The primary command runs the stages in that order. Each stage consumes validated,
+versioned artifacts from the preceding stages instead of inventing missing facts.
 
-## Current roadmap
-
-- ✓ **MVP-01 — Project Discovery Foundation**
-- ✓ **MVP-02 — Knowledge Research**
-- ⬜ **MVP-03 — AI Version Analysis**
-- ⬜ **MVP-04 — AI Impact Analysis**
-- ⬜ **MVP-05 — AI Migration Planning**
-
-MVP-01 and MVP-02 are currently implemented. Future analysis milestones progressively introduce AI-powered reasoning over the versioned artifacts.
-
-## Officially supported in MVP-01
-
-### Node.js projects and frontends
-
-- Discovery through `package.json`
-- npm-compatible workspace relationships and `pnpm-workspace.yaml`
-- Dependency inventory across runtime, development, peer, and optional dependencies
-- Versioned dependency contract with duplicate detection
-
-### Python backends
-
-- Discovery and dependency parsing through `requirements.txt`
-- Deterministic dependency inventory
-- Package-name normalization using rules close to PEP 503
-- Duplicate declaration detection
-
-These supported paths have deterministic discovery, dependency parsing, JSON Schema validation, and regression tests.
-
-## Experimental discovery
-
-UpgradeLens also contains early manifest discovery for:
-
-- Python projects using `pyproject.toml` without `requirements.txt`
-- Java and Kotlin through Maven and Gradle files
-- .NET solutions and C#, F#, or Visual Basic project files
-- Go through `go.mod`
-- Rust through `Cargo.toml`
-- Ruby through `Gemfile`
-- PHP through `composer.json`
-- Dynamics 365 Business Central AL through `app.json`
-
-These paths are experimental. Project detection may work, but dependency parsing, version analysis, and migration support are not yet guaranteed.
-
-These detectors validate UpgradeLens's extension model and provide an incremental path toward official ecosystem support in future MVPs. They should not be treated as production-supported integrations today.
-
-## Current limitations (MVP-01)
-
-MVP-01 does not provide:
-
-- Version lookup
-- Changelog research
-- Breaking-change analysis
-- Migration generation
-- AI reasoning
-- Code transformation
-
-These capabilities belong to later MVPs and build on the deterministic discovery foundation.
-
-## Discovery capabilities
-
-### Repository discovery
-
-UpgradeLens scans a repository locally without following symbolic links. Common dependency, cache, and generated directories such as `.git`, `node_modules`, `vendor`, `dist`, and `.upgradelens` are excluded.
-
-### Polyglot repositories and workspaces
-
-Multiple ecosystems can be discovered in the same repository. Node workspace root/member relationships are detected from `package.json` and `pnpm-workspace.yaml`. UpgradeLens itself remains a single npm package and is intentionally not a monorepo.
-
-### Dependency inventory
-
-Every project contains a `dependencySummary` and a deterministic `dependencies` inventory. A parsed summary distinguishes declarations from normalized unique packages and reports duplicates explicitly:
-
-```json
-{
-  "dependencySummary": {
-    "status": "parsed",
-    "declarationCount": 28,
-    "uniqueCount": 27,
-    "duplicateCount": 1
-  }
-}
-```
-
-Each inventory record preserves the declared name, normalized name, declared version or reference, dependency type, and repository-relative manifest path. Duplicate declarations remain separate records rather than being silently discarded.
-
-The summary `status` is `parsed`, `unsupported`, or `failed`. All three counts exist only for `parsed`. Unsupported or failed parsers never produce a misleading zero or partial count, and failed parsers do not emit partial dependency inventories.
-
-### Node dependency behavior
-
-Node.js reports declaration counts for `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`. Duplicate packages are detected across all four sections. Duplicate declarations remain in the inventory and emit `DUPLICATE_DEPENDENCY_DECLARATION`.
-
-### Python dependency behavior
-
-The `requirements.txt` parser supports unversioned packages, standard version specifiers, extras, environment markers, inline comments, editable declarations, and direct URL or Git references. Unnamed references use their exact reference as a stable identity rather than being discarded.
-
-Blank lines and comments are ignored. Requirement and constraint includes (`-r` and `-c`) and package-index options are recognized but not counted; referenced files are not followed in MVP-01. A malformed requirement line keeps the project in the manifest, marks dependency parsing as `failed`, and emits `DEPENDENCY_PARSE_FAILED`.
-
-### Warning model
-
-Malformed or unreadable individual manifests become warnings instead of discarding valid results from the rest of the repository. Duplicate declarations are warnings, not parse failures. Use `--fail-on-warning` in CI when warnings should produce a non-zero status.
-
-## Project Manifest
-
-UpgradeLens generates a portable, versioned Project Manifest as the canonical intermediate representation shared by every UpgradeLens stage. Future milestones and agents consume this manifest instead of rescanning repositories, ensuring deterministic discovery across the entire pipeline.
-
-The default location is:
-
-```text
-<project>/.upgradelens/project-manifest.json
-```
-
-See the [MVP-01 design and scope](docs/MVP-01.md) and the [Project Manifest JSON Schema](schemas/project-manifest.schema.json).
-
-MVP-02 implementation includes the internal [Research Planning bridge](docs/MVP-02-Research-Planning.md), a private [Lightweight Knowledge Store](docs/MVP-02-Knowledge-Store.md), internal [npm-compatible](docs/MVP-02-npm-Registry-Adapter.md) and [PyPI](docs/MVP-02-PyPI-Registry-Adapter.md) Registry adapters, bounded [HTTP lifecycle](docs/MVP-02-HTTP-Lifecycle.md) and [CLI-owned runtime](docs/MVP-02-CLI-HTTP-Runtime.md) behavior, deterministic [Source Provenance Resolution](docs/MVP-02-Source-Provenance.md), [Knowledge Research Orchestration](docs/MVP-02-Knowledge-Research-Orchestration.md), and the public [Knowledge Manifest](docs/MVP-02-Knowledge-Manifest-Generation.md). The versioned [Knowledge Manifest contract](docs/MVP-02-Knowledge-Manifest.md) and its [JSON Schema](schemas/knowledge-manifest.schema.json) are the downstream MVP-03 contract; AI behavior is not implemented.
-
-MVP-02 now completes the deterministic public workflow. After discovery, run `upgradelens research .` to generate the validated [Knowledge Manifest](docs/MVP-02-Knowledge-Manifest-Generation.md):
-
-```text
-upgradelens discover .
-        ↓
-.upgradelens/project-manifest.json
-        ↓
-upgradelens research .
-        ↓
-.upgradelens/knowledge-manifest.json
-```
-
-## Extension model
-
-Discovery is organized around ecosystem-specific detectors. Node.js and Python `requirements.txt` are the officially supported MVP-01 paths, while other detectors can evolve independently. Contributors can implement or improve ecosystems independently while the discovery core and manifest contract remain stable. This is an implementation extension model rather than a runtime plugin system.
-
-## Installation and CLI usage
+## Installation
 
 ### Requirements
 
 - Node.js 20 or newer
-- No runtime dependencies
 
-From this repository:
+Install the package globally after the corresponding npm release is available:
+
+```sh
+npm install -g upgradelens
+```
+
+To run from a source checkout:
 
 ```sh
 npm install
 npm link
-upgradelens discover /path/to/project
+upgradelens --version
 ```
 
-Or without linking:
+Without linking:
 
 ```sh
-node ./bin/upgradelens.js discover /path/to/project
+node ./bin/upgradelens.js --version
 ```
 
-Print the manifest without writing a file:
+## Provider configuration
+
+UpgradeLens uses a provider-neutral `AiRuntime` boundary. The CLI supports a generic
+HTTP JSON adapter and an OpenAI-compatible adapter. OpenRouter can be configured as
+an OpenAI-compatible endpoint, but it is not required by the product architecture.
+
+For an OpenAI-compatible runtime, configure a full chat-completions endpoint and an
+exact model identity:
 
 ```sh
-upgradelens discover /path/to/project --stdout
+export UPGRADELENS_AI_PROVIDER="openai-compatible"
+export UPGRADELENS_AI_ENDPOINT="https://example-provider.invalid/v1/chat/completions"
+export UPGRADELENS_AI_MODEL="provider/model-name"
+export UPGRADELENS_AI_AUTHORIZATION="Bearer replace-me"
+export UPGRADELENS_AI_TIMEOUT_MS="60000"
 ```
 
-Use `upgradelens --help` for all options. The command also accepts a path without the optional `discover` verb.
+`UPGRADELENS_AI_AUTHORIZATION` is optional and must contain the complete
+Authorization header value when the endpoint requires one. Never commit a real
+credential. `UPGRADELENS_AI_DEBUG=1` enables sanitized runtime diagnostics; keep it
+off unless those diagnostics are needed.
 
-### Experimental evidence-grounded Migration Checklist
+Changing a provider or model can change output quality. Structured-output validation,
+deterministic decision policy, evidence allowlists, and human review still govern
+what UpgradeLens publishes. A provider/model is not qualified for Migration
+Checklist execution merely because it is OpenAI-compatible; qualification is bound
+to exact machine-readable runtime identity.
 
-The primary workflow is decision-first:
+Applications can also inject an `AiRuntime` through the JavaScript API rather than
+using environment configuration.
+
+## Quick start
+
+Run the complete decision-first workflow against the current repository:
 
 ```sh
-upgradelens analyze /path/to/project
+upgradelens analyze .
 ```
 
-Without a caller-selected target, registry latest remains a candidate fact and
-does not become a recommendation. Select one or more exact dependency
-occurrences with repeatable structured targets:
+The console summary reports the overall completion state, each dependency decision,
+installed and target versions, coverage, limitations, and the next step. Validated
+JSON artifacts and the Markdown report are written under `.upgradelens/`.
+
+By default, research may discover `registryLatest` as a target candidate. That fact
+does not express user intent and is not a recommendation driver. A newer registry
+target alone does not become `PLAN_UPGRADE`; it normally produces `INVESTIGATE`.
+
+Use `--stdout` to print only the machine-readable product-completion summary:
 
 ```sh
-upgradelens analyze /path/to/project \
+upgradelens analyze . --stdout
+```
+
+Use `--progress auto|interactive|plain` to control progress rendering. `auto` selects
+TTY-friendly or stable line-oriented output as appropriate. Heartbeats report real
+elapsed time but never invent a percentage or ETA.
+
+## Explicit target selection
+
+A caller-owned target is repeatable and applies only to the matching dependency
+occurrence:
+
+```sh
+upgradelens analyze . \
   --target 'package=npm:framework-a,target=2.0.0'
-
-upgradelens analyze /path/to/project \
-  --target 'package=npm:@scope/package,target=3.0.0,project=node:apps/web,manifest=apps/web/package.json,type=dependency'
 ```
 
-Unqualified selectors that match multiple projects/workspaces fail with stable
-candidate guidance. If declarations still have the same project, manifest, and
-type, copy one exact selector from that guidance:
+Qualify a monorepo occurrence when package identity alone is not unique:
 
 ```sh
-upgradelens analyze /path/to/project \
+upgradelens analyze . \
+  --target 'package=npm:framework-a,target=2.0.0,project=node:apps/web,manifest=apps/web/package.json,type=dependency'
+```
+
+Scoped npm names are parsed as canonical package IDs; the `@` is not treated as a
+version delimiter:
+
+```sh
+upgradelens analyze . \
+  --target 'package=npm:@scope/package,target=3.1.0'
+```
+
+Python targets use the Python version adapter:
+
+```sh
+upgradelens analyze . \
+  --target 'package=pypi:library-a,target=2.0.0'
+```
+
+If a selector matches multiple declarations, UpgradeLens fails before provider
+construction and prints exact candidate selectors. Copy one candidate, including its
+stable occurrence identifier:
+
+```sh
+upgradelens analyze . \
   --target 'package=pypi:library-a,target=2.0.0,project=python:.,manifest=requirements.txt,type=runtime,occurrence=sha256:<candidate-id>'
 ```
 
-`occurrence` is a deterministic identifier derived from portable declaration
-facts. It is optional when the existing fields already identify one
-occurrence. A stale ID or an ID combined with conflicting package/project/
-manifest/type fields fails before provider construction. Raw version
-constraints are displayed as human guidance but are not embedded in the
-comma-separated selector, so constraints containing commas, equals signs, or
-Python markers remain copy/paste safe.
+`<candidate-id>` is a placeholder; use the digest printed by your CLI run. A stale
+occurrence ID, or an ID that conflicts with package/project/manifest/type fields,
+fails closed before a provider call. The selected occurrence receives the explicit
+target; other occurrences continue to use `registryLatest`.
 
-Targets are validated by the owning ecosystem adapter before provider
-construction. Add `--fail-on-incomplete` when CI should exit 2 for
-review-required or insufficient-data outcomes; retained provider/output
-failures always produce `PARTIAL` and exit 2. `analyze --stdout` emits only
-the machine-readable product completion summary on stdout.
+## Deterministic Upgrade Decision
 
-After the normal analysis artifacts are available through the unified pipeline, opt in with:
+AI-assisted Version Analysis supplies bounded facts, but it does not own the final
+decision state. UpgradeLens applies a deterministic policy to installed and target
+versions, evidence, repository impact, and coverage.
+
+| Decision | User meaning |
+| --- | --- |
+| `KEEP_CURRENT` | The installed version needs no version change for the evaluated target. |
+| `UPGRADE_NOW` | Reserved for a validated structured urgency driver. No current production urgency contract emits this state. |
+| `PLAN_UPGRADE` | A structured caller-owned target and sufficient evidence support reviewed migration planning. |
+| `INVESTIGATE` | A human must resolve target intent, evidence conflict, coverage, policy, or compatibility questions. |
+| `INSUFFICIENT_EVIDENCE` | A required installed baseline, target, or target-scoped evidence is unavailable. |
+| `NOT_ANALYZED` | Version analysis was skipped, failed, or unavailable. |
+
+Important policy boundaries:
+
+- Installed version equal to the target produces `KEEP_CURRENT`.
+- A newer registry target without a structured recommendation driver produces
+  `INVESTIGATE`.
+- A validated caller-selected target can provide the `USER_SELECTED_TARGET` driver
+  for `PLAN_UPGRADE`.
+- AI prose and words such as “critical” cannot create `UPGRADE_NOW`.
+- Unsupported ecosystems and incomparable versions fail closed to manual
+  investigation.
+- Partial, unavailable, or failed source coverage cannot support a negative
+  repository-safety conclusion.
+
+## Migration Checklist v2
+
+**Experimental · Opt-in · Human-reviewed**
+
+Enable the stage explicitly:
 
 ```sh
-upgradelens analyze /path/to/project --experimental-migration-checklist
+upgradelens analyze . --experimental-migration-checklist
 ```
 
-This adds the Migration Checklist stage after Repository Impact Evidence and writes:
+The handoff can include:
 
-```text
-.upgradelens/migration-checklist.json
-```
+- decision, occurrence, and version facts;
+- official evidence provenance and exact evidence-bounded excerpts;
+- affected source areas backed by positive repository evidence;
+- verification commands derived from supported project scripts;
+- preconditions, limitations, review questions, next steps, and recovery
+  availability.
 
-The capability is provider-neutral and reuses the configured UpgradeLens `AiRuntime`. Fake-runtime qualification does not qualify a real provider/model. Until a matching task-specific real-provider qualification exists, the artifact and report identify the output as experimental and require human review for every generated instruction.
+The trust boundary is intentionally narrow:
 
-The public CLI resolves a persisted Migration Planning v2 qualification from the target repository at:
+- AI may select exact excerpts only from the occurrence's evidence allowlist.
+- AI does not own the target, repository paths, commands, approval, recovery plan,
+  rollback, or source patch.
+- Migration actions are eligible only for `PLAN_UPGRADE` or `UPGRADE_NOW`.
+- `KEEP_CURRENT`, `INVESTIGATE`, `INSUFFICIENT_EVIDENCE`, and `NOT_ANALYZED` do not
+  produce migration actions.
+- Suggested verification commands are displayed for review; UpgradeLens does not
+  execute them.
+- Every published action requires human review.
+
+By default the CLI looks for a persisted Migration Planning v2 qualification record
+at:
 
 ```text
 .upgradelens/migration-planning-qualification.json
 ```
 
-An explicit repository-relative record can be selected with
-`--migration-qualification <path>`. Resolution precedence is programmatic
-injection, explicit CLI path, the default project-local path, then a missing
-decision. The selected source is validated as one complete record; an invalid
-explicit source never falls back. Only a missing default record may use the
-existing experimental override. A corrupted, identity-mismatched, fake, or
-matching `NOT_QUALIFIED` record blocks before provider use.
+Select another repository-relative record with:
 
-Persist a completed v2 evaluation qualification through the validated public
-writer rather than copying a partial report:
-
-```js
-import { writeMigrationPlanningQualificationRecord } from 'upgradelens';
-
-await writeMigrationPlanningQualificationRecord(
-  '/path/to/project',
-  evaluationReport.report.qualification
-);
+```sh
+upgradelens analyze . \
+  --experimental-migration-checklist \
+  --migration-qualification path/to/qualification.json
 ```
 
-Full-pipeline progress rendering is controlled with
-`--progress auto|interactive|plain`. `auto` selects an append-only interactive
-view for TTYs and stable line-oriented events for non-TTY/CI output. Explicit
-`interactive` remains append-only when redirected, while explicit `plain`
-always stays plain. Every active stage shows its current activity and real
-elapsed time; quiet work emits a rate-limited heartbeat after five seconds.
-Counts appear only when the total is known deterministically. UpgradeLens does
-not infer percentages, ETA, token streaming, or provider “thinking”.
+A matching real-runtime record must preserve the exact provider, model, adapter,
+dataset, prompt, policy, schema, and deterministic presentation identity. Corrupted,
+identity-mismatched, fake-runtime, or matching `NOT_QUALIFIED` records fail closed
+before provider use. An invalid explicit path never falls back. A missing default
+record may run only under the explicitly requested experimental path and is reported
+as an experimental override, not as qualified.
 
-```text
-● Version Analysis [0.0s]
-  ↳ Version Analysis — Waiting for analysis response: react (2/7) [0.1s]
-  … Version Analysis — Waiting for analysis response: react (2/7) [5.1s]
-✓ Version Analysis completed [8.4s]
+The resulting artifact and any Coding Agent handoff are a review draft, not
+authorization to edit source and not proof that a migration completed.
+
+## Product completion and exit codes
+
+The top-level completion state distinguishes a trustworthy result from a partial or
+failed pipeline:
+
+| Completion | Meaning | Default exit | `--fail-on-incomplete` |
+| --- | --- | ---: | ---: |
+| `COMPLETED` | Evaluated targets need no additional review or version change. | 0 | 0 |
+| `COMPLETED_WITH_REVIEW` | A valid result requires human review. | 0 | 2 |
+| `INSUFFICIENT_DATA` | Required baseline, target, or evidence is missing. | 0 | 2 |
+| `PARTIAL` | Some provider, output, runtime, or action-generation result failed and was retained. | 2 | 2 |
+| `FAILED` | A fatal pipeline stage failed. | 1 | 1 |
+| `CANCELLED` | The run was cancelled. | 130 | 130 |
+
+`INVESTIGATE` is not a pipeline failure by default. Zero migration actions are not a
+failure, and an all-`KEEP_CURRENT` result is successful. Retained provider/output
+failures produce `PARTIAL` and exit 2.
+
+Use strict mode when CI should fail on review-required or insufficient-data results:
+
+```sh
+upgradelens analyze . --fail-on-incomplete
 ```
 
-Plain/CI output uses complete grep-friendly lines:
+## Offline research
 
-```text
-[5.1s] STAGE HEARTBEAT id=versionAnalysis detail="Waiting for analysis response: react (2/7)"
+Use fresh repository-local cache entries and prevent registry/evidence research
+requests:
+
+```sh
+upgradelens analyze . --offline
 ```
 
-The first `SIGINT` requests controlled cancellation, stops heartbeat timers,
-does not start another stage, omits the success summary, and returns exit code
-130. A second interrupt uses the platform's normal immediate-interrupt
-behavior. Activity labels are sanitized and bounded; they never contain raw
-prompts, evidence bodies, repository snippets, request headers, or provider
-error payloads.
+Offline research can use repository dependency/source facts, fresh knowledge-cache
+entries, and validated persisted artifacts. It does not fabricate evidence,
+confidence, or a target when external evidence is unavailable. The result retains
+limitations and may be `INSUFFICIENT_DATA` or `COMPLETED_WITH_REVIEW`, depending on
+the canonical facts.
 
-Migration Checklist does not generate source edits, code, patches, dependency ordering, inferred prerequisites, rollback plans, effort estimates, numeric confidence, or upgrade-safety claims. Schema v2 may include bounded package-manager verification commands only when they are derived deterministically from existing supported project scripts; AI cannot create or modify them. Each occurrence carries an explicit handoff status, Upgrade Decision identity, affected-area/coverage state, bounded official-evidence metadata, and human-review requirement. `COMPLETE` remains only the legacy checklist-coverage status, never migration completion. Unknown current versions remain unknown, and registry latest remains a registry fact rather than a recommendation.
+`--offline` is not equivalent to the online workflow: it prevents registry and
+evidence-source requests, but Version Analysis can still require a configured or
+injected AI runtime. Expired, missing, corrupted, or identity-mismatched cache
+entries are not treated as fresh evidence.
 
-See [Migration Checklist orchestration](docs/mvp-05-migration-checklist-orchestration.md), [contract](docs/mvp-05-migration-checklist-contract.md), [evaluation/qualification](docs/mvp-05-migration-evaluation-and-qualification.md), and [persisted qualification resolution](docs/migration-planning-qualification-resolution.md).
-The full lifecycle, heartbeat, rendering, privacy, and cancellation behavior is
-documented in the [CLI progress contract](docs/cli-progress.md).
+## Generated artifacts
+
+The unified `analyze` workflow writes these validated artifacts:
+
+| Artifact | Purpose |
+| --- | --- |
+| `.upgradelens/project-manifest.json` | Projects, dependency occurrences, declarations, and installed-version facts. |
+| `.upgradelens/knowledge-manifest.json` | Researched package, release, source, warning, and target-candidate metadata. |
+| `.upgradelens/knowledge-evidence-bundle.json` | Portable evidence records consumed by Version Analysis. |
+| `.upgradelens/version-analysis.json` | Per-occurrence version findings, evidence references, confidence, and limitations. |
+| `.upgradelens/usage-index.json` | Supported source usage plus project-level analyzer coverage. |
+| `.upgradelens/repository-impact.json` | Coverage-aware dependency and finding impact classifications. |
+| `.upgradelens/repository-impact-evidence.json` | Exact positive usage matches and impact evidence. |
+| `.upgradelens/upgrade-decision.json` | Deterministic per-occurrence decision records and reason codes. |
+| `.upgradelens/migration-checklist.json` | Optional experimental migration handoff, created only with the Checklist flag. |
+| `.upgradelens/repository-impact.md` | Human-readable assessment, decision summary, and next steps. |
+
+The qualification record is an input to the optional Checklist stage; `analyze` does
+not generate it.
+
+Individual `discover`, `research`, and `analyze-version` commands are also available
+for staged workflows. Run `upgradelens --help` for their exact options.
+
+## Supported scope and limitations
+
+Support is layered. A detector existing for an ecosystem does not imply that every
+downstream analyzer or resolver supports it.
+
+| Layer | Current production scope |
+| --- | --- |
+| Project/dependency discovery | Node `package.json` projects and workspaces; Python `requirements.txt`. |
+| Knowledge research | npm and PyPI registry adapters plus bounded evidence-source enrichment. |
+| Installed-version baseline | npm `package-lock.json` v2/v3; limited v1 root-project compatibility. |
+| Version comparison | Node SemVer and a bounded Python PEP 440 subset. |
+| Source usage analysis | Node JavaScript/TypeScript files: `.cjs`, `.cts`, `.js`, `.jsx`, `.mjs`, `.mts`, `.ts`, `.tsx`. |
+| Verification-command extraction | Safe `build`, `check`, `lint`, `test`, and `typecheck` scripts from Node `package.json`; commands are not executed. |
+
+Important v0.5.0 limitations:
+
+- pnpm and Yarn lockfiles do not currently resolve installed-version baselines.
+- Python installed versions are not resolved from an environment or lockfile.
+- npm lockfile v1 resolution is limited to root projects; workspace/member resolution
+  is fail-closed.
+- JavaScript/TypeScript is the only source usage analyzer. Python and experimental
+  ecosystem detections therefore have unavailable source coverage.
+- Partial or unavailable coverage cannot establish that an API is unused or an
+  upgrade is safe.
+- Unsupported ecosystems, declarations, or version formats require manual
+  investigation.
+- Recovery and rollback plans are not synthesized.
+- Verification commands are suggested from project metadata but never executed.
+- UpgradeLens does not modify manifests, install packages, patch code, or run a
+  migration.
+- Migration Checklist v2 remains experimental and opt-in.
+
+Early discovery exists for `pyproject.toml`, Maven/Gradle, .NET, Go, Rust, Ruby, PHP,
+and Business Central AL projects. Detection does not imply supported dependency
+parsing, installed baselines, source analysis, upgrade decisions, or migration
+handoffs for those ecosystems.
+
+## Human in the loop
+
+UpgradeLens creates an assessment and a bounded handoff. The developer or team must:
+
+1. Review target identity, evidence, risk, coverage, and affected areas.
+2. Resolve investigation questions and choose or approve the target.
+3. Approve each migration action and decide whether work should proceed.
+4. Re-open target files before patching to detect snapshot drift.
+5. Run and assess verification and define recovery or rollback steps.
+
+A Coding Agent may consume the handoff for bounded execution planning, but it must
+inspect the current source before proposing a patch. No artifact is authorization to
+change code, proof of migration completion, or a safety certification.
 
 ## JavaScript API
+
+The package exposes its public API from the root entry point:
 
 ```js
 import { discoverProject } from 'upgradelens';
 
-const manifest = await discoverProject('/path/to/project');
+const manifest = await discoverProject('.');
 ```
 
-## Development
+The CLI is the primary product workflow. Programmatic callers are responsible for
+providing the same runtime configuration and preserving artifact/qualification trust
+boundaries.
+
+## Development and validation
 
 ```sh
+npm install
 npm test
 npm run check
+npm run check:package
 ```
 
-The npm package is named `upgradelens` and exposes the `upgradelens` command.
+The v0.5.0 release verification baseline is 615 tests passed, 0 failed, and 1 known
+sandbox-loopback skip.
 
-## Future vision
+Design and contract references:
 
-UpgradeLens evolves in incremental layers:
+- [Project Manifest](docs/MVP-01.md)
+- [Knowledge Manifest](docs/MVP-02-Knowledge-Manifest.md)
+- [Version Analysis architecture](docs/version-analysis-architecture.md)
+- [Repository impact analysis](docs/IA-02-Repository-Impact-Analysis.md)
+- [Deterministic Upgrade Decision](docs/mp-r03-deterministic-upgrade-decision-architecture.md)
+- [Migration Checklist v2 contract](docs/mvp-05-migration-checklist-contract.md)
+- [Product completion and decision-first CLI](docs/mp-r05-product-completion-and-decision-first-cli-architecture.md)
+- [CLI progress contract](docs/cli-progress.md)
 
-- Deterministic discovery
-- Knowledge research
-- Version intelligence
-- Impact analysis
-- Migration planning
+## Roadmap
 
-Each MVP builds on the versioned output of the previous one.
+Completed product layers:
+
+- ✓ MVP-01 — deterministic project discovery
+- ✓ MVP-02 — knowledge and evidence research
+- ✓ MVP-03 — AI-assisted version analysis
+- ✓ MVP-04 — repository usage and impact analysis
+- ✓ MVP-05 — evidence-bounded migration planning
+
+Potential follow-ups, not current supported features:
+
+- broader installed-version resolvers and source analyzers;
+- structured security, end-of-support, and organization-policy drivers;
+- recovery and rollback evidence;
+- reviewed CI verification execution;
+- broader model/provider evaluation and offline knowledge support;
+- IDE or MCP integrations.
 
 ## License
 
