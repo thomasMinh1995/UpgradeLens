@@ -70,7 +70,7 @@ test('online CLI closes its scoped dispatcher after concurrent real keep-alive H
   assert.equal(await runCli(['discover', root], { stdout: capture(), stderr: capture() }), 0);
 
   for (const mode of ['normal', 'oversized', 'statuses']) {
-    await fs.rm(path.join(root, '.upgradelens', 'cache'), { recursive: true, force: true });
+    await fs.rm(path.join(root, '.depverdict', 'cache'), { recursive: true, force: true });
     const result = await runChild(root, mode);
     assert.equal(result.signal, null, result.stderr);
     assert.equal(result.code, 0, result.stderr);
@@ -88,7 +88,7 @@ test('online CLI closes its scoped dispatcher after concurrent real keep-alive H
       `${mode}: requests=${summary.requests}, registry=${summary.registry}, evidence=${summary.evidence}, retries=${summary.retries}`
     );
     assert.ok(result.elapsedMs < 3_000, `CLI exceeded natural-exit budget: ${result.elapsedMs}ms`);
-    const manifest = JSON.parse(await fs.readFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), 'utf8'));
+    const manifest = JSON.parse(await fs.readFile(path.join(root, '.depverdict', 'knowledge-manifest.json'), 'utf8'));
     assert.equal(manifest.schemaVersion, '1.0.0');
     if (mode === 'normal') assert.deepEqual(manifest.packages.map((item) => item.status), ['resolved', 'resolved', 'resolved']);
     else assert.ok(manifest.packages.some((item) => item.status !== 'resolved'));

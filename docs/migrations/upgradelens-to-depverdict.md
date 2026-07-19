@@ -94,4 +94,3 @@ The compatibility window is preview-bounded, not an indefinite support guarantee
 or a stable calendar deadline. Removing the CLI alias, artifact fallback, or
 environment fallback requires a separate decision, release note, consumer-usage
 review, canonical-only regression validation, and explicit release authorization.
-
