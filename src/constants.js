@@ -3,13 +3,14 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const packageMetadata = require('../package.json');
 
-export const PRODUCT_NAME = 'UpgradeLens';
-export const PACKAGE_NAME = 'upgradelens';
-export const CLI_NAME = 'upgradelens';
+export const PRODUCT_NAME = 'DepVerdict';
+export const PACKAGE_NAME = '@thomasminh1995/depverdict';
+export const CLI_NAME = 'depverdict';
+export const ARTIFACT_GENERATOR_NAME = 'UpgradeLens';
 export const VERSION = packageMetadata.version;
 export const USER_AGENT = `${PRODUCT_NAME}/${VERSION}`;
 export const MANIFEST_SCHEMA_VERSION = '2.0.0';
-export const DEFAULT_OUTPUT_DIRECTORY = '.upgradelens';
+export const DEFAULT_OUTPUT_DIRECTORY = '.depverdict';
 export const DEFAULT_MANIFEST_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/project-manifest.json`;
 export const KNOWLEDGE_MANIFEST_SCHEMA_VERSION = '1.0.0';
 export const DEFAULT_KNOWLEDGE_MANIFEST_PATH = `${DEFAULT_OUTPUT_DIRECTORY}/knowledge-manifest.json`;
@@ -46,6 +47,7 @@ export const DEFAULT_QUALIFICATION_RECORD_PATH = `${DEFAULT_GOVERNANCE_DIRECTORY
 export const DEFAULT_IGNORED_DIRECTORIES = new Set([
   '.git',
   '.cache',
+  '.depverdict',
   '.gradle',
   '.hg',
   '.idea',

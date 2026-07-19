@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible UpgradeLens CLI or artifact defect.
+description: Report a reproducible DepVerdict CLI or artifact defect.
 title: "[Bug]: "
 labels: []
 assignees: []
@@ -7,15 +7,15 @@ body:
   - type: markdown
     attributes:
       value: |
-        UpgradeLens is a Public Technical Preview / Alpha.
+        DepVerdict is a Public Technical Preview / Alpha.
 
-        Do not paste `.env` content, API keys, tokens, private repository source, full `.upgradelens/` artifacts, or raw provider payloads. If this may be a vulnerability, stop and use [GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/UpgradeLens/security/advisories/new); do not disclose it in this public form.
+        Do not paste `.env` content, API keys, tokens, private repository source, full `.depverdict/` or `.upgradelens/` artifacts, or raw provider payloads. If this may be a vulnerability, stop and use [GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/DepVerdict/security/advisories/new), the canonical private DepVerdict route. Do not disclose it in this public form.
   - type: input
     id: version
     attributes:
-      label: UpgradeLens version or commit
+      label: DepVerdict package version or commit
       description: Use the package version or exact commit you tested.
-      placeholder: "0.5.0 or a commit SHA"
+      placeholder: "0.6.0-alpha.1 or a commit SHA"
     validations:
       required: true
   - type: dropdown

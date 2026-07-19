@@ -5,7 +5,7 @@ import path from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
-import { PRODUCT_NAME, VERSION } from './constants.js';
+import { ARTIFACT_GENERATOR_NAME, VERSION } from './constants.js';
 import { validateEvaluationReport } from './evaluation-report.js';
 import { compareText } from './portable.js';
 
@@ -146,7 +146,7 @@ export function buildMetrics(report, { generatedAt = new Date() } = {}) {
   const metrics = {
     schemaVersion: METRICS_SCHEMA_VERSION,
     generatedAt: generatedAt instanceof Date ? generatedAt.toISOString() : generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     input: buildInput(validated),
     summary: structuredClone(validated.summary),
     metrics: metricsFromReport(validated, cases),

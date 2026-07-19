@@ -47,6 +47,7 @@ communicate reasons for moderation decisions when appropriate.
 This Code of Conduct applies within all project spaces, including issues, pull
 requests, reviews, and any future project-managed discussions or events. It also
 applies when an individual officially represents the project in public spaces.
+The covered project and community are DepVerdict.
 
 ## Reporting and enforcement
 
@@ -58,6 +59,11 @@ public GitHub issue for a sensitive conduct report. Reports are handled on a
 best-effort basis, without a response-time SLA. Maintainers will respect reporter
 and subject privacy to the extent reasonably possible while investigating and
 applying this policy.
+
+This existing address is the verified private conduct channel for the DepVerdict
+community during the `0.6.x` preview transition. It remains active until a
+maintainer creates and verifies a replacement; no unverified DepVerdict address
+should be used.
 
 False or malicious reports may themselves be addressed under the enforcement
 guidelines below. Suspected security vulnerabilities must use the private process in

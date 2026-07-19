@@ -3,7 +3,11 @@ import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
-import { PRODUCT_NAME, USAGE_INDEX_SCHEMA_VERSION, VERSION } from '../constants.js';
+import {
+  ARTIFACT_GENERATOR_NAME,
+  USAGE_INDEX_SCHEMA_VERSION,
+  VERSION
+} from '../constants.js';
 import { compareText, isSorted } from '../portable.js';
 import {
   USAGE_COVERAGE_REASON_CODES,
@@ -198,7 +202,7 @@ export function buildUsageIndex({
   return validateUsageIndex({
     schemaVersion: USAGE_INDEX_SCHEMA_VERSION,
     generatedAt: generatedAt instanceof Date ? generatedAt.toISOString() : generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     input: structuredClone(input),
     analysis: {
       analyzers: sortedAnalyzers,

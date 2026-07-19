@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import {
   MANIFEST_SCHEMA_VERSION,
-  PRODUCT_NAME,
+  ARTIFACT_GENERATOR_NAME,
   VERSION
 } from './constants.js';
 import { createCooperativeScheduler } from './cooperative-scheduler.js';
@@ -221,7 +221,7 @@ export async function discoverProject(inputPath = '.', options = {}) {
   return {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
     generatedAt: now.toISOString(),
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     repository: {
       name: path.basename(root),
       root: '.',

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
-import { PRODUCT_NAME, VERSION } from './constants.js';
+import { ARTIFACT_GENERATOR_NAME, VERSION } from './constants.js';
 import { VERSION_ANALYSIS_PROMPT_VERSION } from './ai-version-analysis.js';
 
 export const EVALUATION_REPORT_SCHEMA_VERSION = '1.0.0';
@@ -36,7 +36,7 @@ export function buildEvaluationReport({
   const report = {
     schemaVersion: EVALUATION_REPORT_SCHEMA_VERSION,
     generatedAt: generatedAt instanceof Date ? generatedAt.toISOString() : generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     evaluation: {
       datasetPath,
       datasetVersion,

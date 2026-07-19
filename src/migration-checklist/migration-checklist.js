@@ -7,7 +7,7 @@ import addFormats from 'ajv-formats';
 import { canonicalJsonBytes } from '../canonical-json.js';
 import {
   MIGRATION_CHECKLIST_SCHEMA_VERSION,
-  PRODUCT_NAME,
+  ARTIFACT_GENERATOR_NAME,
   VERSION
 } from '../constants.js';
 import { compareText, isSorted } from '../portable.js';
@@ -618,7 +618,7 @@ export function buildMigrationChecklist({
   const checklist = {
     schemaVersion: MIGRATION_CHECKLIST_SCHEMA_VERSION,
     generatedAt: generatedAt instanceof Date ? generatedAt.toISOString() : generatedAt,
-    generator: { name: PRODUCT_NAME, version: VERSION },
+    generator: { name: ARTIFACT_GENERATOR_NAME, version: VERSION },
     input: structuredClone(input),
     repository: structuredClone(repository ?? input?.projectManifest?.repository),
     status: expectedOverallStatus(records),

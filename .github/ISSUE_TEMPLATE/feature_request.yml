@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        UpgradeLens is a decision-first, evidence-bounded CLI in Public Technical Preview / Alpha. It does not autonomously migrate source.
+        DepVerdict is a decision-first, evidence-bounded CLI in Public Technical Preview / Alpha. It does not autonomously migrate source.
 
         Do not include provider secrets, private repository source, private identifiers, or raw provider payloads.
   - type: textarea
@@ -78,5 +78,5 @@ body:
       options:
         - label: I removed credentials, private source, private identifiers, and raw provider payloads.
           required: true
-        - label: I understand autonomous source migration is outside the current UpgradeLens contract.
+        - label: I understand autonomous source migration is outside the current DepVerdict contract.
           required: true

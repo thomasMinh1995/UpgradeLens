@@ -1,6 +1,7 @@
 import {
   DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH
 } from '../constants.js';
+import { resolveArtifactRootChain } from '../artifact-root-compatibility.js';
 import {
   createMigrationQualificationSourceFailureDecision,
   decideMigrationQualification
@@ -45,6 +46,7 @@ export async function resolveMigrationQualification({
   allowExperimental = false,
   qualification,
   qualificationPath,
+  onCompatibilityDiagnostic,
   loadRecord = loadMigrationPlanningQualificationRecord
 }) {
   if (qualification !== undefined) {
@@ -69,7 +71,25 @@ export async function resolveMigrationQualification({
   }
 
   const explicitPath = qualificationPath !== undefined;
-  const artifactPath = qualificationPath ?? DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH;
+  let artifactPath = qualificationPath ?? DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH;
+  if (!explicitPath) {
+    try {
+      const selection = await resolveArtifactRootChain(
+        repositoryRoot,
+        [DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH],
+        { onDiagnostic: onCompatibilityDiagnostic }
+      );
+      [artifactPath] = selection.artifacts;
+    } catch (error) {
+      const details = sourceErrorDetails(error, false);
+      return createMigrationQualificationSourceFailureDecision({
+        ...details,
+        runtimeMetadata,
+        sourceKind: 'defaultPath',
+        sourcePath: DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH
+      });
+    }
+  }
   let record;
   try {
     record = await loadRecord(repositoryRoot, { artifactPath });

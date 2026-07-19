@@ -153,7 +153,7 @@ function qualificationForChangedIdentity(mutate) {
 test('writes, loads, validates, freezes, and deterministically serializes a real-provider record', async () => {
   const root = await temporaryRoot('qualification-valid');
   const artifactPath = await writeMigrationPlanningQualificationRecord(root, qualified);
-  assert.equal(artifactPath, '.upgradelens/migration-planning-qualification.json');
+  assert.equal(artifactPath, '.depverdict/migration-planning-qualification.json');
   const loaded = await loadMigrationPlanningQualificationRecord(root);
   assert.equal(validateMigrationPlanningQualificationRecord(loaded), loaded);
   assert.equal(loaded.qualification.qualificationId, qualified.qualificationId);
@@ -171,8 +171,8 @@ test('missing, invalid JSON, schema-invalid, and tampered records fail with cons
   await assert.rejects(loadMigrationPlanningQualificationRecord(root), (error) => (
     error.code === 'MIGRATION_QUALIFICATION_RECORD_MISSING'
   ));
-  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
-  const target = path.join(root, '.upgradelens/migration-planning-qualification.json');
+  await mkdir(path.join(root, '.depverdict'), { recursive: true });
+  const target = path.join(root, '.depverdict/migration-planning-qualification.json');
   await writeFile(target, '{invalid\n');
   await assert.rejects(loadMigrationPlanningQualificationRecord(root), (error) => (
     error.code === 'MIGRATION_QUALIFICATION_RECORD_INVALID_JSON'
@@ -287,7 +287,7 @@ test('writer validates before replacement, rejects secret-like data, and cleans 
   await writeMigrationPlanningQualificationRecord(preservedRoot, qualified);
   const target = path.join(
     preservedRoot,
-    '.upgradelens/migration-planning-qualification.json'
+    '.depverdict/migration-planning-qualification.json'
   );
   const original = await readFile(target, 'utf8');
   const invalid = structuredClone(qualified);
@@ -309,7 +309,7 @@ test('writer validates before replacement, rejects secret-like data, and cleans 
   assert.equal(await readFile(target, 'utf8'), original);
 
   const root = await temporaryRoot('qualification-writer-failure');
-  await mkdir(path.join(root, '.upgradelens/migration-planning-qualification.json'), {
+  await mkdir(path.join(root, '.depverdict/migration-planning-qualification.json'), {
     recursive: true
   });
   await assert.rejects(
@@ -317,7 +317,7 @@ test('writer validates before replacement, rejects secret-like data, and cleans 
     (error) => error.code === 'MIGRATION_QUALIFICATION_RECORD_WRITE_FAILED'
   );
   assert.deepEqual(
-    await readdir(path.join(root, '.upgradelens')),
+    await readdir(path.join(root, '.depverdict')),
     ['migration-planning-qualification.json']
   );
 });
@@ -382,7 +382,7 @@ test('default source resolves from target root exactly once and missing default 
   assert.equal(loads, 1);
   assert.equal(decision.status, 'QUALIFIED');
   assert.equal(decision.sourceKind, 'defaultPath');
-  assert.equal(decision.sourcePath, '.upgradelens/migration-planning-qualification.json');
+  assert.equal(decision.sourcePath, '.depverdict/migration-planning-qualification.json');
 
   const missingRoot = await temporaryRoot('qualification-default-missing');
   const missing = await resolveMigrationQualification({
@@ -394,6 +394,45 @@ test('default source resolves from target root exactly once and missing default 
   assert.equal(missing.executionAllowed, true);
   assert.equal(missing.experimentalOverrideUsed, true);
   assert.equal(missing.sourceKind, 'defaultPath');
+});
+
+test('legacy qualification falls back intact and canonical qualification wins when both exist', async () => {
+  const root = await temporaryRoot('qualification-root-compatibility');
+  const legacyPath = '.upgradelens/migration-planning-qualification.json';
+  await writeMigrationPlanningQualificationRecord(root, qualified, {
+    artifactPath: legacyPath
+  });
+  const legacyBytes = await readFile(path.join(root, legacyPath), 'utf8');
+  const legacyDiagnostics = [];
+  const legacy = await resolveMigrationQualification({
+    repositoryRoot: root,
+    runtimeMetadata,
+    allowExperimental: true,
+    onCompatibilityDiagnostic: (message) => legacyDiagnostics.push(message)
+  });
+  assert.equal(legacy.status, 'QUALIFIED');
+  assert.equal(legacy.sourcePath, legacyPath);
+  assert.deepEqual(legacyDiagnostics, [
+    'LEGACY_ARTIFACT_ROOT_USED: using complete deprecated .upgradelens/ input chain.'
+  ]);
+  assert.equal(await readFile(path.join(root, legacyPath), 'utf8'), legacyBytes);
+
+  await writeMigrationPlanningQualificationRecord(root, matchingNotQualified());
+  const canonicalDiagnostics = [];
+  const canonical = await resolveMigrationQualification({
+    repositoryRoot: root,
+    runtimeMetadata,
+    allowExperimental: true,
+    onCompatibilityDiagnostic: (message) => canonicalDiagnostics.push(message)
+  });
+  assert.equal(canonical.status, 'NOT_QUALIFIED');
+  assert.equal(
+    canonical.sourcePath,
+    '.depverdict/migration-planning-qualification.json'
+  );
+  assert.deepEqual(canonicalDiagnostics, [
+    'LEGACY_ARTIFACT_ROOT_IGNORED: using complete .depverdict/ input chain.'
+  ]);
 });
 
 test('normalized decisions are immutable, deterministic, and detached from injected inputs', async () => {
@@ -457,7 +496,7 @@ test('experimental public CLI auto-loads a persisted QUALIFIED record and stays 
   assert.match(result.stdout, new RegExp(`Qualification ID: ${qualified.qualificationId}`));
   assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /NOT_AVAILABLE|Provider qualification: MISSING/);
   const markdown = await readFile(
-    path.join(root, '.upgradelens/repository-impact.md'),
+    path.join(root, '.depverdict/repository-impact.md'),
     'utf8'
   );
   assert.match(markdown, /Provider qualification: `QUALIFIED`/);
@@ -474,7 +513,7 @@ test('experimental public CLI surfaces missing qualification without calling it 
   assert.match(result.stdout, /Experimental override: YES/);
   assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /Provider qualification: QUALIFIED/);
   const markdown = await readFile(
-    path.join(root, '.upgradelens/repository-impact.md'),
+    path.join(root, '.depverdict/repository-impact.md'),
     'utf8'
   );
   assert.match(markdown, /Provider qualification: `MISSING`/);
@@ -534,11 +573,11 @@ test('identity mismatch, corrupted, and matching NOT_QUALIFIED records block bef
     assert.match(result.stderr, new RegExp(`Reason: ${scenario.expectedReason}`));
     assert.doesNotMatch(result.stdout, /Migration checklist created/);
     await assert.rejects(
-      readFile(path.join(root, '.upgradelens/migration-checklist.json')),
+      readFile(path.join(root, '.depverdict/migration-checklist.json')),
       { code: 'ENOENT' }
     );
     await assert.rejects(
-      readFile(path.join(root, '.upgradelens/repository-impact.md')),
+      readFile(path.join(root, '.depverdict/repository-impact.md')),
       { code: 'ENOENT' }
     );
   }

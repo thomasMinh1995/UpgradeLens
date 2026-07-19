@@ -250,7 +250,7 @@ test('builds a valid evidence-grounded deterministic checklist with candidate lo
   const checklist = build();
 
   assert.equal(MIGRATION_CHECKLIST_SCHEMA_VERSION, '2.0.0');
-  assert.equal(DEFAULT_MIGRATION_CHECKLIST_PATH, '.upgradelens/migration-checklist.json');
+  assert.equal(DEFAULT_MIGRATION_CHECKLIST_PATH, '.depverdict/migration-checklist.json');
   assert.equal(validateMigrationChecklist(checklist), checklist);
   assert.equal(checklist.status, 'COMPLETE');
   assert.deepEqual(checklist.dependencies[0].eligibility, {

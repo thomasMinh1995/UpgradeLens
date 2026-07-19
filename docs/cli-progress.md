@@ -1,7 +1,10 @@
 # CLI progress contract
 
-`upgradelens analyze <repository>` exposes one presentation-only progress
+`depverdict analyze <repository>` exposes one presentation-only progress
 stream for the complete sequential pipeline.
+
+The deprecated `upgradelens` executable reaches the same runtime during the
+`0.6.x` preview window and adds only its bounded compatibility warning.
 
 ## Modes
 

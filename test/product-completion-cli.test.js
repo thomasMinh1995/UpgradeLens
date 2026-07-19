@@ -336,7 +336,7 @@ test('decision-first console leads with product outcome and hides raw reason cod
     reportPath: '.upgradelens/repository-impact.md',
     upgradeDecisionPath: '.upgradelens/upgrade-decision.json'
   });
-  assert.match(output, /^UpgradeLens product outcome\n\nOverall: COMPLETED_WITH_REVIEW/);
+  assert.match(output, /^DepVerdict product outcome\n\nOverall: COMPLETED_WITH_REVIEW/);
   assert.ok(output.indexOf('Upgrade decisions') < output.indexOf('Analysis diagnostics'));
   assert.match(output, /A newer target is available.*use --target/s);
   assert.doesNotMatch(output, /UPGRADE_AVAILABLE_NO_RECOMMENDATION_DRIVER/);

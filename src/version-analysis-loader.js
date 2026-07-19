@@ -5,6 +5,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
 import {
+  DEFAULT_OUTPUT_DIRECTORY,
   DEFAULT_KNOWLEDGE_MANIFEST_PATH,
   DEFAULT_MANIFEST_PATH,
   KNOWLEDGE_MANIFEST_SCHEMA_VERSION
@@ -14,7 +15,8 @@ import { validateKnowledgeManifestInvariants } from './knowledge-manifest.js';
 import { isPortableRelativePath } from './portable.js';
 import { loadProjectManifestInput } from './project-manifest-input.js';
 
-export const DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH = '.upgradelens/knowledge-evidence-bundle.json';
+export const DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH =
+  `${DEFAULT_OUTPUT_DIRECTORY}/knowledge-evidence-bundle.json`;
 
 const knowledgeManifestSchema = JSON.parse(await readFile(
   new URL('../schemas/knowledge-manifest.schema.json', import.meta.url),

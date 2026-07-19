@@ -1,6 +1,8 @@
-# UpgradeLens
+# DepVerdict
 
-UpgradeLens is a decision-first CLI for evidence-bounded dependency upgrade
+> **Public Technical Preview / Alpha**
+
+DepVerdict is a decision-first CLI for evidence-bounded dependency upgrade
 analysis.
 
 It discovers dependency occurrences in a repository, distinguishes declared,
@@ -8,17 +10,17 @@ installed, and target versions, checks how supported source files use those
 dependencies, and projects a deterministic upgrade decision. When requested, it
 also prepares an evidence-bounded migration handoff for human review.
 
-UpgradeLens helps answer:
+DepVerdict helps answer:
 
 - Should we keep the installed version, plan an upgrade, or investigate?
 - Why, and what evidence and repository impact support that result?
 - What is the bounded next step?
 - What still requires human review?
 
-UpgradeLens does not update dependencies, patch source code, authorize a Coding
+DepVerdict does not update dependencies, patch source code, authorize a Coding
 Agent, or guarantee that a migration is safe.
 
-## Why UpgradeLens?
+## Why DepVerdict?
 
 A registry reporting a newer version does not mean a team should upgrade. Release
 notes do not know which dependency occurrence a repository uses, whether the
@@ -26,7 +28,7 @@ installed version differs from the declaration, or where affected APIs appear in
 source.
 
 Developers and Coding Agents can research these facts manually, but the context is
-easy to lose and expensive to rebuild. UpgradeLens produces versioned artifacts that
+easy to lose and expensive to rebuild. DepVerdict produces versioned artifacts that
 teams can inspect, discuss, and hand off:
 
 - Registry latest is candidate discovery, not a recommendation.
@@ -37,7 +39,7 @@ teams can inspect, discuss, and hand off:
 
 ## Current capabilities
 
-UpgradeLens `0.5.0` includes:
+DepVerdict `0.6.0-alpha.1` includes:
 
 1. Deterministic project and dependency discovery.
 2. npm and PyPI knowledge and evidence research.
@@ -72,29 +74,32 @@ versioned artifacts from the preceding stages instead of inventing missing facts
 
 - Node.js 20 or newer
 
-Install the package globally after the corresponding npm release is available:
+The npm preview has not yet passed its distribution gate. The planned install
+command after publication is:
 
 ```sh
-npm install -g upgradelens
+npm install -g @thomasminh1995/depverdict@preview
 ```
 
-To run from a source checkout:
+Until then, use the canonical repository source checkout:
 
 ```sh
-npm install
+git clone https://github.com/thomasMinh1995/DepVerdict.git
+cd DepVerdict
+npm ci
+node ./bin/depverdict.js --version
+```
+
+Optionally expose the local executable:
+
+```sh
 npm link
-upgradelens --version
-```
-
-Without linking:
-
-```sh
-node ./bin/upgradelens.js --version
+depverdict --version
 ```
 
 ## Provider configuration
 
-UpgradeLens uses a provider-neutral `AiRuntime` boundary. The CLI supports a generic
+DepVerdict uses a provider-neutral `AiRuntime` boundary. The CLI supports a generic
 HTTP JSON adapter and an OpenAI-compatible adapter. OpenRouter can be configured as
 an OpenAI-compatible endpoint, but it is not required by the product architecture.
 
@@ -102,21 +107,21 @@ For an OpenAI-compatible runtime, configure a full chat-completions endpoint and
 exact model identity:
 
 ```sh
-export UPGRADELENS_AI_PROVIDER="openai-compatible"
-export UPGRADELENS_AI_ENDPOINT="https://example-provider.invalid/v1/chat/completions"
-export UPGRADELENS_AI_MODEL="provider/model-name"
-export UPGRADELENS_AI_AUTHORIZATION="Bearer replace-me"
-export UPGRADELENS_AI_TIMEOUT_MS="60000"
+export DEPVERDICT_AI_PROVIDER="openai-compatible"
+export DEPVERDICT_AI_ENDPOINT="https://example-provider.invalid/v1/chat/completions"
+export DEPVERDICT_AI_MODEL="provider/model-name"
+export DEPVERDICT_AI_AUTHORIZATION="Bearer replace-me"
+export DEPVERDICT_AI_TIMEOUT_MS="60000"
 ```
 
-`UPGRADELENS_AI_AUTHORIZATION` is optional and must contain the complete
+`DEPVERDICT_AI_AUTHORIZATION` is optional and must contain the complete
 Authorization header value when the endpoint requires one. Never commit a real
-credential. `UPGRADELENS_AI_DEBUG=1` enables sanitized runtime diagnostics; keep it
+credential. `DEPVERDICT_AI_DEBUG=1` enables sanitized runtime diagnostics; keep it
 off unless those diagnostics are needed.
 
 Changing a provider or model can change output quality. Structured-output validation,
 deterministic decision policy, evidence allowlists, and human review still govern
-what UpgradeLens publishes. A provider/model is not qualified for Migration
+what DepVerdict publishes. A provider/model is not qualified for Migration
 Checklist execution merely because it is OpenAI-compatible; qualification is bound
 to exact machine-readable runtime identity.
 
@@ -128,12 +133,12 @@ using environment configuration.
 Run the complete decision-first workflow against the current repository:
 
 ```sh
-upgradelens analyze .
+depverdict analyze .
 ```
 
 The console summary reports the overall completion state, each dependency decision,
 installed and target versions, coverage, limitations, and the next step. Validated
-JSON artifacts and the Markdown report are written under `.upgradelens/`.
+JSON artifacts and the Markdown report are written under `.depverdict/`.
 
 By default, research may discover `registryLatest` as a target candidate. That fact
 does not express user intent and is not a recommendation driver. A newer registry
@@ -142,7 +147,7 @@ target alone does not become `PLAN_UPGRADE`; it normally produces `INVESTIGATE`.
 Use `--stdout` to print only the machine-readable product-completion summary:
 
 ```sh
-upgradelens analyze . --stdout
+depverdict analyze . --stdout
 ```
 
 Use `--progress auto|interactive|plain` to control progress rendering. `auto` selects
@@ -156,17 +161,17 @@ dependency, a lockfile-installed baseline, and real source usage. Run determinis
 discovery without provider configuration:
 
 ```sh
-upgradelens discover examples/technical-preview-node --stdout
+depverdict discover examples/technical-preview-node --stdout
 ```
 
 Run the bounded offline workflow:
 
 ```sh
-upgradelens analyze examples/technical-preview-node --offline --stdout
+depverdict analyze examples/technical-preview-node --offline --stdout
 ```
 
 Without a fresh local knowledge cache, the honest expected result is
-`INSUFFICIENT_DATA`: UpgradeLens preserves the installed baseline but does not
+`INSUFFICIENT_DATA`: DepVerdict preserves the installed baseline but does not
 invent a registry target, evidence, or recommendation. See the
 [sample guide](examples/technical-preview-node/README.md) for the expected boundary
 and the optional provider-configured next level. The sample is repository-only and
@@ -178,14 +183,14 @@ A caller-owned target is repeatable and applies only to the matching dependency
 occurrence:
 
 ```sh
-upgradelens analyze . \
+depverdict analyze . \
   --target 'package=npm:framework-a,target=2.0.0'
 ```
 
 Qualify a monorepo occurrence when package identity alone is not unique:
 
 ```sh
-upgradelens analyze . \
+depverdict analyze . \
   --target 'package=npm:framework-a,target=2.0.0,project=node:apps/web,manifest=apps/web/package.json,type=dependency'
 ```
 
@@ -193,23 +198,23 @@ Scoped npm names are parsed as canonical package IDs; the `@` is not treated as 
 version delimiter:
 
 ```sh
-upgradelens analyze . \
+depverdict analyze . \
   --target 'package=npm:@scope/package,target=3.1.0'
 ```
 
 Python targets use the Python version adapter:
 
 ```sh
-upgradelens analyze . \
+depverdict analyze . \
   --target 'package=pypi:library-a,target=2.0.0'
 ```
 
-If a selector matches multiple declarations, UpgradeLens fails before provider
+If a selector matches multiple declarations, DepVerdict fails before provider
 construction and prints exact candidate selectors. Copy one candidate, including its
 stable occurrence identifier:
 
 ```sh
-upgradelens analyze . \
+depverdict analyze . \
   --target 'package=pypi:library-a,target=2.0.0,project=python:.,manifest=requirements.txt,type=runtime,occurrence=sha256:<candidate-id>'
 ```
 
@@ -221,7 +226,7 @@ target; other occurrences continue to use `registryLatest`.
 ## Deterministic Upgrade Decision
 
 AI-assisted Version Analysis supplies bounded facts, but it does not own the final
-decision state. UpgradeLens applies a deterministic policy to installed and target
+decision state. DepVerdict applies a deterministic policy to installed and target
 versions, evidence, repository impact, and coverage.
 
 | Decision | User meaning |
@@ -253,7 +258,7 @@ Important policy boundaries:
 Enable the stage explicitly:
 
 ```sh
-upgradelens analyze . --experimental-migration-checklist
+depverdict analyze . --experimental-migration-checklist
 ```
 
 The handoff can include:
@@ -273,7 +278,7 @@ The trust boundary is intentionally narrow:
 - Migration actions are eligible only for `PLAN_UPGRADE` or `UPGRADE_NOW`.
 - `KEEP_CURRENT`, `INVESTIGATE`, `INSUFFICIENT_EVIDENCE`, and `NOT_ANALYZED` do not
   produce migration actions.
-- Suggested verification commands are displayed for review; UpgradeLens does not
+- Suggested verification commands are displayed for review; DepVerdict does not
   execute them.
 - Every published action requires human review.
 
@@ -281,13 +286,13 @@ By default the CLI looks for a persisted Migration Planning v2 qualification rec
 at:
 
 ```text
-.upgradelens/migration-planning-qualification.json
+.depverdict/migration-planning-qualification.json
 ```
 
 Select another repository-relative record with:
 
 ```sh
-upgradelens analyze . \
+depverdict analyze . \
   --experimental-migration-checklist \
   --migration-qualification path/to/qualification.json
 ```
@@ -301,6 +306,21 @@ as an experimental override, not as qualified.
 
 The resulting artifact and any Coding Agent handoff are a review draft, not
 authorization to edit source and not proof that a migration completed.
+
+## Legacy compatibility during the preview
+
+The `upgradelens` CLI, `.upgradelens/` artifact directory and `UPGRADELENS_*`
+environment variables remain available during the `0.6.x` preview compatibility
+window. New integrations should use `depverdict`, `.depverdict/` and
+`DEPVERDICT_*`.
+
+Legacy artifact input is a read fallback only; new implicit writes use
+`.depverdict/`. DepVerdict never merges an artifact chain across the two roots.
+Canonical environment values win conflicts, and legacy fallback emits bounded
+warnings without printing values. See the
+[UpgradeLens-to-DepVerdict migration guide](docs/migrations/upgradelens-to-depverdict.md).
+Removal requires a separate compatibility decision and release note; this is not
+an indefinite support promise.
 
 ## Product completion and exit codes
 
@@ -323,7 +343,7 @@ failures produce `PARTIAL` and exit 2.
 Use strict mode when CI should fail on review-required or insufficient-data results:
 
 ```sh
-upgradelens analyze . --fail-on-incomplete
+depverdict analyze . --fail-on-incomplete
 ```
 
 ## Offline research
@@ -332,7 +352,7 @@ Use fresh repository-local cache entries and prevent registry/evidence research
 requests:
 
 ```sh
-upgradelens analyze . --offline
+depverdict analyze . --offline
 ```
 
 Offline research can use repository dependency/source facts, fresh knowledge-cache
@@ -352,22 +372,22 @@ The unified `analyze` workflow writes these validated artifacts:
 
 | Artifact | Purpose |
 | --- | --- |
-| `.upgradelens/project-manifest.json` | Projects, dependency occurrences, declarations, and installed-version facts. |
-| `.upgradelens/knowledge-manifest.json` | Researched package, release, source, warning, and target-candidate metadata. |
-| `.upgradelens/knowledge-evidence-bundle.json` | Portable evidence records consumed by Version Analysis. |
-| `.upgradelens/version-analysis.json` | Per-occurrence version findings, evidence references, confidence, and limitations. |
-| `.upgradelens/usage-index.json` | Supported source usage plus project-level analyzer coverage. |
-| `.upgradelens/repository-impact.json` | Coverage-aware dependency and finding impact classifications. |
-| `.upgradelens/repository-impact-evidence.json` | Exact positive usage matches and impact evidence. |
-| `.upgradelens/upgrade-decision.json` | Deterministic per-occurrence decision records and reason codes. |
-| `.upgradelens/migration-checklist.json` | Optional experimental migration handoff, created only with the Checklist flag. |
-| `.upgradelens/repository-impact.md` | Human-readable assessment, decision summary, and next steps. |
+| `.depverdict/project-manifest.json` | Projects, dependency occurrences, declarations, and installed-version facts. |
+| `.depverdict/knowledge-manifest.json` | Researched package, release, source, warning, and target-candidate metadata. |
+| `.depverdict/knowledge-evidence-bundle.json` | Portable evidence records consumed by Version Analysis. |
+| `.depverdict/version-analysis.json` | Per-occurrence version findings, evidence references, confidence, and limitations. |
+| `.depverdict/usage-index.json` | Supported source usage plus project-level analyzer coverage. |
+| `.depverdict/repository-impact.json` | Coverage-aware dependency and finding impact classifications. |
+| `.depverdict/repository-impact-evidence.json` | Exact positive usage matches and impact evidence. |
+| `.depverdict/upgrade-decision.json` | Deterministic per-occurrence decision records and reason codes. |
+| `.depverdict/migration-checklist.json` | Optional experimental migration handoff, created only with the Checklist flag. |
+| `.depverdict/repository-impact.md` | Human-readable assessment, decision summary, and next steps. |
 
 The qualification record is an input to the optional Checklist stage; `analyze` does
 not generate it.
 
 Individual `discover`, `research`, and `analyze-version` commands are also available
-for staged workflows. Run `upgradelens --help` for their exact options.
+for staged workflows. Run `depverdict --help` for their exact options.
 
 ## Supported scope and limitations
 
@@ -383,7 +403,7 @@ downstream analyzer or resolver supports it.
 | Source usage analysis | Node JavaScript/TypeScript files: `.cjs`, `.cts`, `.js`, `.jsx`, `.mjs`, `.mts`, `.ts`, `.tsx`. |
 | Verification-command extraction | Safe `build`, `check`, `lint`, `test`, and `typecheck` scripts from Node `package.json`; commands are not executed. |
 
-Important v0.5.0 limitations:
+Important `0.6.0-alpha.1` limitations:
 
 - pnpm and Yarn lockfiles do not currently resolve installed-version baselines.
 - Python installed versions are not resolved from an environment or lockfile.
@@ -397,7 +417,7 @@ Important v0.5.0 limitations:
   investigation.
 - Recovery and rollback plans are not synthesized.
 - Verification commands are suggested from project metadata but never executed.
-- UpgradeLens does not modify manifests, install packages, patch code, or run a
+- DepVerdict does not modify manifests, install packages, patch code, or run a
   migration.
 - Migration Checklist v2 remains experimental and opt-in.
 
@@ -408,7 +428,7 @@ handoffs for those ecosystems.
 
 ## Human in the loop
 
-UpgradeLens creates an assessment and a bounded handoff. The developer or team must:
+DepVerdict creates an assessment and a bounded handoff. The developer or team must:
 
 1. Review target identity, evidence, risk, coverage, and affected areas.
 2. Resolve investigation questions and choose or approve the target.
@@ -425,7 +445,7 @@ change code, proof of migration completion, or a safety certification.
 The package exposes its public API from the root entry point:
 
 ```js
-import { discoverProject } from 'upgradelens';
+import { discoverProject } from '@thomasminh1995/depverdict';
 
 const manifest = await discoverProject('.');
 ```
@@ -437,17 +457,15 @@ boundaries.
 ## Development and validation
 
 ```sh
-npm install
+npm ci
 npm test
 npm run check
 npm run check:package
 ```
 
-The v0.5.0 release verification baseline is 632 tests passed, 0 failed, and 1 known
-sandbox-loopback skip.
-
 Design and contract references:
 
+- [Current architecture overview](docs/architecture-overview.md)
 - [Project Manifest](docs/MVP-01.md)
 - [Knowledge Manifest](docs/MVP-02-Knowledge-Manifest.md)
 - [Version Analysis architecture](docs/version-analysis-architecture.md)
@@ -456,6 +474,7 @@ Design and contract references:
 - [Migration Checklist v2 contract](docs/mvp-05-migration-checklist-contract.md)
 - [Product completion and decision-first CLI](docs/mp-r05-product-completion-and-decision-first-cli-architecture.md)
 - [CLI progress contract](docs/cli-progress.md)
+- [UpgradeLens-to-DepVerdict migration guide](docs/migrations/upgradelens-to-depverdict.md)
 
 ## Roadmap
 

@@ -17,11 +17,21 @@ export const FORBIDDEN_CAPTURE_PREFIXES = Object.freeze([
 export const REQUIRED_PACKAGE_PATHS = Object.freeze([
   'package/LICENSE',
   'package/README.md',
+  'package/bin/depverdict.js',
   'package/bin/upgradelens.js',
+  'package/docs/architecture-overview.md',
+  'package/docs/decisions/diff-02-identity-compatibility-contract.md',
+  'package/docs/decisions/diff-03-repository-docs-community-migration.md',
+  'package/docs/decisions/diff-04-release-evidence-gap-acceptance.md',
   'package/docs/IA-04-CLI-Orchestration.md',
   'package/docs/cli-progress.md',
+  'package/docs/migrations/upgradelens-to-depverdict.md',
   'package/docs/migration-planning-qualification-resolution.md',
   'package/docs/package-content-policy.md',
+  'package/docs/releases/v0.6.0-alpha.1-depverdict-preview.md',
+  'package/docs/reviews/diff-02-identity-contract-compatibility.md',
+  'package/docs/reviews/diff-03-repository-docs-community-migration.md',
+  'package/docs/reviews/diff-04-fix-post-rename-identity-release-remediation.md',
   'package/eval/migration-planning/golden-dataset-v2.json',
   'package/eval/migration-planning/golden-dataset.json',
   'package/package.json',
@@ -29,7 +39,9 @@ export const REQUIRED_PACKAGE_PATHS = Object.freeze([
   'package/schemas/migration-checklist-extractive-candidate.schema.json',
   'package/schemas/migration-planning-qualification-record.schema.json',
   'package/schemas/upgrade-decision.schema.json',
+  'package/src/artifact-root-compatibility.js',
   'package/src/cli.js',
+  'package/src/environment-compatibility.js',
   'package/src/index.js',
   'package/src/migration-checklist/verification.js',
   'package/src/orchestration/progress-events.js',
@@ -73,6 +85,7 @@ const LOCAL_ARTIFACT_PATTERN =
   /(?:^|\/)(?:\.DS_Store|\.git|node_modules)(?:\/|$)|\.(?:tgz|tar|tar\.gz)$/i;
 const QUALIFICATION_ARTIFACT_PATTERN =
   /(?:^|\/)(?:migration-planning-)?qualification(?:-input|-record)?\.json$/i;
+const RUNTIME_OUTPUT_PATTERN = /(?:^|\/)\.(?:depverdict|upgradelens)(?:\/|$)/i;
 const NUMERIC_COPY_PATTERN = / \d+(?=\.[^.]+(?:\.[^.]+)*$)/u;
 const PARENTHESIZED_COPY_PATTERN = / \(\d+\)(?=\.[^.]+(?:\.[^.]+)*$)/u;
 const COPY_NAME_PATTERN = /(?:[ _-])(?:copy|duplicate)(?=\.[^.]+(?:\.[^.]+)*$)/iu;
@@ -164,6 +177,9 @@ export function forbiddenPackageReason(value) {
   if (!packagePath.includes('/schemas/')
       && QUALIFICATION_ARTIFACT_PATTERN.test(packagePath)) {
     return PACKAGE_GUARD_REASON_CODES.FORBIDDEN_QUALIFICATION_ARTIFACT;
+  }
+  if (RUNTIME_OUTPUT_PATTERN.test(packagePath)) {
+    return PACKAGE_GUARD_REASON_CODES.FORBIDDEN_LOCAL_ARTIFACT;
   }
   return null;
 }
@@ -295,7 +311,10 @@ export function validatePackageEntries(entries, {
     if (strictUntracked && normalizedGit.status === 'available'
         && isProtectedPackagePath(packagePath)) {
       const repositoryPath = packagePath.slice('package/'.length);
-      if (!normalizedGit.trackedPaths.has(repositoryPath)) {
+      if (
+        !normalizedGit.trackedPaths.has(repositoryPath)
+        && !normalizedRequired.includes(packagePath)
+      ) {
         violations.push(violation(
           PACKAGE_GUARD_REASON_CODES.UNEXPECTED_PACKAGED_UNTRACKED_IMPLEMENTATION_FILE,
           packagePath
