@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible DepVerdict CLI or artifact defect.
+description: Report a reproducible DepVerdict onboarding, CLI, decision, artifact, or handoff defect.
 title: "[Bug]: "
 labels: []
 assignees: []
@@ -9,24 +9,37 @@ body:
       value: |
         DepVerdict is a Public Technical Preview / Alpha.
 
-        Do not paste `.env` content, API keys, tokens, private repository source, full `.depverdict/` or `.upgradelens/` artifacts, or raw provider payloads. If this may be a vulnerability, stop and use [GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/DepVerdict/security/advisories/new), the canonical private DepVerdict route. Do not disclose it in this public form.
+        Do not paste API keys, npm tokens, PATs, `.env` content, signed URLs, private source, unsanitized manifests or artifacts, raw provider requests/responses, or personal or organization-confidential data.
+
+        If this may be a vulnerability, stop and use [GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/DepVerdict/security/advisories/new). For a sensitive conduct report, follow the private route in the [Code of Conduct](https://github.com/thomasMinh1995/DepVerdict/blob/main/CODE_OF_CONDUCT.md). Do not disclose either through this public form.
   - type: input
     id: version
     attributes:
-      label: DepVerdict package version or commit
+      label: DepVerdict version or commit
       description: Use the package version or exact commit you tested.
       placeholder: "0.6.0-alpha.1 or a commit SHA"
     validations:
       required: true
-  - type: dropdown
-    id: installation
+  - type: input
+    id: installation-source
     attributes:
-      label: Installation method
-      options:
-        - npm package
-        - source checkout
-        - npm link
-        - other
+      label: Installation source and tag
+      description: State the exact source, version, or dist-tag without including registry credentials.
+      placeholder: "npm @preview, npm 0.6.0-alpha.1, source checkout, or npm link"
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: "node --version"
+    validations:
+      required: true
+  - type: input
+    id: npm-version
+    attributes:
+      label: npm version
+      placeholder: "npm --version"
     validations:
       required: true
   - type: input
@@ -36,26 +49,96 @@ body:
       placeholder: "Linux, macOS, or Windows and version"
     validations:
       required: true
-  - type: input
-    id: node-npm
+  - type: dropdown
+    id: execution-mode
     attributes:
-      label: Node.js and npm versions
-      placeholder: "node --version; npm --version"
-    validations:
-      required: true
-  - type: textarea
-    id: repository-shape
-    attributes:
-      label: Sanitized repository shape and ecosystem
-      description: Describe workspaces, manifests, lockfiles, and languages without private identifiers.
+      label: Online or offline mode
+      options:
+        - Offline (`--offline`)
+        - Online
+        - Mixed or uncertain
+        - Not applicable because the CLI failed before analysis
     validations:
       required: true
   - type: textarea
     id: command
     attributes:
-      label: Command
-      description: Remove credentials, authorization values, private paths, package names, and provider identifiers.
+      label: Command executed
+      description: Remove credentials, authorization values, signed URLs, private paths, and private identifiers.
       render: shell
+    validations:
+      required: true
+  - type: input
+    id: exit-code
+    attributes:
+      label: Exit code
+      description: Use `Not available` if the process did not start or the exit code was not captured.
+      placeholder: "0, 1, 2, 130, or Not available"
+    validations:
+      required: true
+  - type: dropdown
+    id: completion-state
+    attributes:
+      label: Product completion state
+      description: Select the top-level state shown by DepVerdict, when available.
+      options:
+        - COMPLETED
+        - COMPLETED_WITH_REVIEW
+        - INSUFFICIENT_DATA
+        - PARTIAL
+        - FAILED
+        - CANCELLED
+        - Not available
+    validations:
+      required: true
+  - type: dropdown
+    id: upgrade-decision
+    attributes:
+      label: Upgrade Decision
+      description: Select the relevant decision, when one was produced.
+      options:
+        - KEEP_CURRENT
+        - PLAN_UPGRADE
+        - UPGRADE_NOW
+        - INVESTIGATE
+        - INSUFFICIENT_EVIDENCE
+        - NOT_ANALYZED
+        - Multiple or mixed decisions
+        - Not available
+    validations:
+      required: true
+  - type: dropdown
+    id: handoff-status
+    attributes:
+      label: Migration Handoff status
+      description: Select the closest result; the handoff is experimental and always human-reviewed.
+      options:
+        - Not requested
+        - Generated and awaiting human review
+        - No grounded action was available
+        - Blocked or partial
+        - Not available
+    validations:
+      required: true
+  - type: input
+    id: dependency-occurrence
+    attributes:
+      label: Dependency or package occurrence
+      description: Use a public or sanitized package identity plus project/manifest context. Do not disclose private names.
+      placeholder: "npm:react in apps/web/package.json, or Not applicable"
+    validations:
+      required: true
+  - type: textarea
+    id: provider-runtime
+    attributes:
+      label: Provider/runtime family and model, when relevant
+      description: Complete this only for an online/provider issue. Share identity labels only, never endpoints, credentials, signed URLs, or request/response payloads.
+      placeholder: "OpenAI-compatible / provider model, or Not applicable"
+  - type: textarea
+    id: repository-shape
+    attributes:
+      label: Sanitized repository shape and ecosystem
+      description: Describe workspaces, manifests, lockfiles, and languages without private identifiers or source.
     validations:
       required: true
   - type: textarea
@@ -70,13 +153,6 @@ body:
       label: Actual behavior
     validations:
       required: true
-  - type: input
-    id: completion-exit
-    attributes:
-      label: Completion state and exit code
-      placeholder: "COMPLETED_WITH_REVIEW, exit 0"
-    validations:
-      required: true
   - type: textarea
     id: reproduction
     attributes:
@@ -88,15 +164,15 @@ body:
     id: artifacts
     attributes:
       label: Relevant sanitized artifact fragments
-      description: Include only the minimum fragment needed. Remove private source, paths, identifiers, and provider data.
+      description: Include only the minimum fragment needed. Do not upload a complete manifest or `.depverdict/` or `.upgradelens/` directory.
   - type: checkboxes
     id: privacy
     attributes:
       label: Privacy and security confirmation
       options:
-        - label: I removed credentials, tokens, `.env` content, private source, private identifiers, and raw provider payloads.
+        - label: I removed API keys, npm tokens, PATs, `.env` content, signed URLs, authorization data, private source, unsanitized manifests/artifacts, provider payloads, and personal or organization-confidential data.
           required: true
-        - label: This report does not contain vulnerability or exploit details; I will use the private route in `SECURITY.md` if security-sensitive.
+        - label: This report contains no vulnerability or sensitive conduct details; I will use the private routes above when appropriate.
           required: true
         - label: I searched existing issues for the same problem.
           required: true

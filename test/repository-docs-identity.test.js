@@ -22,7 +22,17 @@ test('README presents the canonical DepVerdict preview and decision contract', a
     /DepVerdict is a decision-first CLI for evidence-bounded dependency upgrade\s+analysis\./
   );
   assert.match(readme, /npm install -g @thomasminh1995\/depverdict@preview/);
-  assert.match(readme, /has not yet passed its distribution gate/);
+  assert.match(
+    readme,
+    /DepVerdict v0\.6\.0-alpha\.1 is available as a Public Technical Preview\./
+  );
+  assert.match(readme, /It is not production-stable and remains human-reviewed\./);
+  assert.match(readme, /npm currently also exposes this first published version through `latest`/);
+  assert.match(readme, /Technical Preview feedback guide/);
+  assert.doesNotMatch(
+    readme,
+    /has not yet passed its distribution gate|planned install command after publication|Until then/
+  );
   for (const command of [
     'depverdict analyze .',
     'depverdict analyze . --offline',
@@ -41,8 +51,6 @@ test('README presents the canonical DepVerdict preview and decision contract', a
   }
   assert.match(readme, /DepVerdict does not\s+execute them/);
   assert.doesNotMatch(readme, /npm install(?: -g)? upgradelens(?:@|\s|$)/);
-  assert.match(readme, new RegExp(`git clone ${canonicalRepository}\\.git`));
-  assert.match(readme, /^cd DepVerdict$/m);
 });
 
 test('legacy migration guide documents every bounded compatibility surface', async () => {
@@ -102,15 +110,22 @@ test('community policies use DepVerdict and canonical private routes', async () 
   assert.doesNotMatch(conduct, /depverdict\.conduct@gmail\.com/);
 });
 
-test('current release draft is exact and historical v0.5.0 release is unchanged', async () => {
-  const draft = await text('docs/releases/v0.6.0-alpha.1-depverdict-preview.md');
-  assert.match(draft, /^# DepVerdict v0\.6\.0-alpha\.1 — Technical Preview \/ Alpha$/m);
-  assert.match(draft, /Release draft — not yet published/);
-  assert.match(draft, /one `0\.6\.x` preview window/);
-  assert.match(draft, /does not claim that the preview package is currently available/);
-  assert.match(draft, /does not modify manifests/);
-  assert.match(draft, /repository rename is complete/);
-  assert.match(draft, /thomasMinh1995\/DepVerdict/);
+test('current release note is public and historical v0.5.0 release is unchanged', async () => {
+  const release = await text('docs/releases/v0.6.0-alpha.1-depverdict-preview.md');
+  assert.match(release, /^# DepVerdict v0\.6\.0-alpha\.1 — Technical Preview \/ Alpha$/m);
+  assert.match(release, /publicly available as an npm package/);
+  assert.match(release, /releases\/tag\/v0\.6\.0-alpha\.1/);
+  assert.match(release, /npm install -g @thomasminh1995\/depverdict@preview/);
+  assert.match(release, /first published version through `latest`/);
+  assert.match(release, /one `0\.6\.x` preview window/);
+  assert.match(release, /does not modify manifests/);
+  assert.match(release, /repository rename is complete/);
+  assert.match(release, /thomasMinh1995\/DepVerdict/);
+  assert.match(release, /openai-compatible\/openai\/gpt-5\.5\/openai-compatible/);
+  assert.doesNotMatch(
+    release,
+    /Release draft|not yet published|Planned installation|currently waiting|published shortly/
+  );
 
   const historical = await readFile(
     path.join(root, 'docs/releases/v0.5.0-technical-preview.md')
@@ -176,6 +191,10 @@ test('relative links and Markdown fences resolve in current normative documents'
     'docs/decisions/diff-03-repository-docs-community-migration.md',
     'docs/migrations/upgradelens-to-depverdict.md',
     'docs/releases/v0.6.0-alpha.1-depverdict-preview.md',
+    'docs/community/technical-preview-feedback-guide.md',
+    'docs/announcements/v0.6.0-alpha.1-technical-preview.md',
+    'docs/decisions/rel-03-package-documentation-policy.md',
+    'docs/decisions/rel-03-packaged-qualification-evidence.md',
     'docs/reviews/diff-03-repository-docs-community-migration.md',
     'examples/technical-preview-node/README.md'
   ];
