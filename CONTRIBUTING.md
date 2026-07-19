@@ -34,12 +34,11 @@ Reporting route.
 DepVerdict requires Node.js 20 or newer and uses npm with a committed
 `package-lock.json`.
 
-The product has been renamed to DepVerdict, but the GitHub repository rename is
-pending. The current clone URL and checkout directory therefore remain:
+Clone the canonical DepVerdict repository:
 
 ```sh
-git clone https://github.com/thomasMinh1995/UpgradeLens.git
-cd UpgradeLens
+git clone https://github.com/thomasMinh1995/DepVerdict.git
+cd DepVerdict
 npm ci
 npm test
 npm run check:package

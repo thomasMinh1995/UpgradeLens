@@ -4,21 +4,19 @@
 - Date: 2026-07-19
 - Scope: `0.6.0-alpha.1`
 - Product identity: DepVerdict
-- Current live repository: `thomasMinh1995/UpgradeLens`
-- Future repository identity: `thomasMinh1995/DepVerdict`
+- Repository at the DIFF-03 implementation checkpoint: `thomasMinh1995/UpgradeLens`
+- Current canonical repository: `thomasMinh1995/DepVerdict`
+- Post-rename status updated: 2026-07-19
 
 ## Context and two-phase boundary
 
 DIFF-02 established the DepVerdict package, executable, artifact-root, and
-environment identities. DIFF-03 makes the current repository experience use that
-identity without renaming the GitHub repository, publishing npm, changing runtime
-compatibility, or rewriting historical evidence.
-
-The repository is still live at
-`https://github.com/thomasMinh1995/UpgradeLens`. Links that must work today remain
-on that verified route until the maintainer performs the repository rename.
-DepVerdict is the product name; UpgradeLens remains historical truth and a bounded
-compatibility identity.
+environment identities. DIFF-03 originally made the repository experience use
+that identity before the separate GitHub rename. The rename has since completed:
+`https://github.com/thomasMinh1995/DepVerdict` is canonical. The former URL is
+retained only as historical truth, migration explanation, and a redirect
+compatibility aid. npm publication, runtime compatibility, and historical evidence
+remain separate boundaries.
 
 ## 1. Normative and historical ownership
 
@@ -58,28 +56,24 @@ unchanged under the DIFF-02 compatibility contract.
 
 ## 3. Live repository URL rule
 
-Before the manual rename:
+After the completed manual rename:
 
-- relative links are preferred for repository files;
-- clone, issue, metadata, badge, and security URLs use the current verified
-  `thomasMinh1995/UpgradeLens` route;
-- the future `thomasMinh1995/DepVerdict` route may be described only as a future
-  target, never as an available link.
+- relative links remain preferred for repository files;
+- clone, issue, metadata, badge, and security URLs use the canonical
+  `thomasMinh1995/DepVerdict` route;
+- the former `thomasMinh1995/UpgradeLens` route may appear only in historical or
+  migration context.
 
-After the manual rename, the explicit fields listed in the post-rename checklist
-must be changed and reverified. GitHub redirects are a continuity aid, not the
-permanent documentation strategy.
+GitHub redirects are a continuity aid, not the permanent documentation strategy.
 
 ## 4. Security advisory URL rule
 
-Until the rename, vulnerability reports use:
+Vulnerability reports use:
 
-`https://github.com/thomasMinh1995/UpgradeLens/security/advisories/new`
+`https://github.com/thomasMinh1995/DepVerdict/security/advisories/new`
 
-This verified private route remains in `SECURITY.md` and the issue-form
-configuration. Immediately after rename, update both locations to the new
-repository name and verify the reporter flow from a non-maintainer context or API.
-No vulnerability report is routed through a public issue.
+This canonical private route remains in `SECURITY.md` and the issue-form
+configuration. No vulnerability report is routed through a public issue.
 
 ## 5. Conduct contact strategy
 
@@ -111,9 +105,8 @@ The README must:
 The planned npm command is
 `npm install -g @thomasminh1995/depverdict@preview`. It must remain explicitly
 pre-publication until distribution qualification confirms the preview exists.
-Source setup uses the current live clone URL and `node ./bin/depverdict.js`; the
-temporary checkout directory name is identified as repository state, not product
-identity.
+Source setup uses the canonical DepVerdict clone URL and
+`node ./bin/depverdict.js`.
 
 ## 7. Legacy compatibility window
 
@@ -133,10 +126,9 @@ migration.
 
 ## 9. Badge and workflow-link strategy
 
-Workflow display text uses DepVerdict. Any README workflow badge added before the
-rename must use the current live repository URL. No npm badge is shown until a
-preview package has actually been published. After rename, workflow and badge
-links are updated explicitly and hosted CI is rerun at the exact post-rename
+Workflow display text uses DepVerdict. Any README workflow badge uses the
+canonical repository URL. No npm badge is shown until a preview package has
+actually been published. Hosted CI must be rerun at the exact post-remediation
 commit.
 
 ## 10. Package boundary
@@ -154,24 +146,17 @@ forbidden package content.
 
 ## 11. Post-rename manual checklist
 
-After DIFF-03 is merged and hosted CI passes, the maintainer must:
+Post-rename status:
 
-1. Rename GitHub repository `UpgradeLens` to `DepVerdict`.
-2. Change the local `origin` fetch and push URLs.
-3. Verify the old repository URL redirects.
-4. Verify pull requests, issues, releases, Actions history, and branch settings.
-5. Verify Private Vulnerability Reporting remains enabled.
-6. Verify the new non-maintainer reporting route.
-7. Update `package.json` fields `repository.url`, `homepage`, and `bugs.url`.
-8. Update clone/directory examples in `README.md` and `CONTRIBUTING.md`.
-9. Update the advisory URL in `SECURITY.md`,
-   `.github/ISSUE_TEMPLATE/bug_report.yml`, and
-   `.github/ISSUE_TEMPLATE/config.yml`.
-10. Update any README badge and current CI-status URLs.
-11. Update current release and migration documentation that labels the rename as
-    pending; preserve historical records.
-12. Re-run identity checks, link checks, package guard, clean-install smoke, and
-    hosted CI on the exact post-rename commit/configuration.
+1. GitHub repository rename, canonical origin, former-URL redirect, pull requests,
+   issues, Releases, Actions history, branch settings, and Private Vulnerability
+   Reporting were externally verified by DIFF-04.
+2. `package.json`, clone examples, advisory routes, current release/migration
+   status, and identity tests are remediated by DIFF-04-FIX.
+3. Historical GitHub Release presentation was remediated by the explicitly
+   approved DIFF-04-FIX live metadata edit.
+4. Identity checks, link checks, package guard, clean-install smoke, and hosted CI
+   must run on the exact post-remediation commit/configuration.
 
 The verified conduct address remains unchanged until a separately created
 DepVerdict address has been tested. Removal of the UpgradeLens compatibility

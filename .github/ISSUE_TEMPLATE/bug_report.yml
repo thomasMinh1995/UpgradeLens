@@ -9,7 +9,7 @@ body:
       value: |
         DepVerdict is a Public Technical Preview / Alpha.
 
-        Do not paste `.env` content, API keys, tokens, private repository source, full `.depverdict/` or `.upgradelens/` artifacts, or raw provider payloads. If this may be a vulnerability, stop and use [GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/UpgradeLens/security/advisories/new); this current repository URL is the verified private DepVerdict route until the repository rename. Do not disclose it in this public form.
+        Do not paste `.env` content, API keys, tokens, private repository source, full `.depverdict/` or `.upgradelens/` artifacts, or raw provider payloads. If this may be a vulnerability, stop and use [GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/DepVerdict/security/advisories/new), the canonical private DepVerdict route. Do not disclose it in this public form.
   - type: input
     id: version
     attributes:

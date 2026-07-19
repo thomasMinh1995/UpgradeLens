@@ -127,14 +127,14 @@ test('npm metadata matches the DepVerdict preview identity contract', async () =
   );
   assert.deepEqual(packageJson.repository, {
     type: 'git',
-    url: 'git+https://github.com/thomasMinh1995/UpgradeLens.git'
+    url: 'git+https://github.com/thomasMinh1995/DepVerdict.git'
   });
   assert.equal(
     packageJson.homepage,
-    'https://github.com/thomasMinh1995/UpgradeLens#readme'
+    'https://github.com/thomasMinh1995/DepVerdict#readme'
   );
   assert.deepEqual(packageJson.bugs, {
-    url: 'https://github.com/thomasMinh1995/UpgradeLens/issues'
+    url: 'https://github.com/thomasMinh1995/DepVerdict/issues'
   });
   assert.deepEqual(packageJson.keywords, [
     'cli',

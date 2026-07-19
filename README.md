@@ -81,13 +81,11 @@ command after publication is:
 npm install -g @thomasminh1995/depverdict@preview
 ```
 
-Until then, use the current live repository source checkout. The GitHub repository
-rename to DepVerdict is pending, so the clone URL and checkout directory still use
-the old repository name:
+Until then, use the canonical repository source checkout:
 
 ```sh
-git clone https://github.com/thomasMinh1995/UpgradeLens.git
-cd UpgradeLens
+git clone https://github.com/thomasMinh1995/DepVerdict.git
+cd DepVerdict
 npm ci
 node ./bin/depverdict.js --version
 ```

@@ -6,8 +6,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const currentRepository = 'https://github.com/thomasMinh1995/UpgradeLens';
-const futureRepository = 'https://github.com/thomasMinh1995/DepVerdict';
+const canonicalRepository = 'https://github.com/thomasMinh1995/DepVerdict';
+const legacyRepository = 'https://github.com/thomasMinh1995/UpgradeLens';
 
 async function text(file) {
   return readFile(path.join(root, file), 'utf8');
@@ -41,6 +41,8 @@ test('README presents the canonical DepVerdict preview and decision contract', a
   }
   assert.match(readme, /DepVerdict does not\s+execute them/);
   assert.doesNotMatch(readme, /npm install(?: -g)? upgradelens(?:@|\s|$)/);
+  assert.match(readme, new RegExp(`git clone ${canonicalRepository}\\.git`));
+  assert.match(readme, /^cd DepVerdict$/m);
 });
 
 test('legacy migration guide documents every bounded compatibility surface', async () => {
@@ -73,7 +75,7 @@ test('current architecture overview separates product and protocol identities', 
   assert.match(architecture, /historical or versioned architecture records/);
 });
 
-test('community policies use DepVerdict and retain verified private routes', async () => {
+test('community policies use DepVerdict and canonical private routes', async () => {
   for (const file of [
     'CONTRIBUTING.md',
     'SECURITY.md',
@@ -89,7 +91,7 @@ test('community policies use DepVerdict and retain verified private routes', asy
   const security = await text('SECURITY.md');
   const bug = await text('.github/ISSUE_TEMPLATE/bug_report.yml');
   const config = await text('.github/ISSUE_TEMPLATE/config.yml');
-  const advisory = `${currentRepository}/security/advisories/new`;
+  const advisory = `${canonicalRepository}/security/advisories/new`;
   assert.ok(security.includes(advisory));
   assert.ok(bug.includes(advisory));
   assert.ok(config.includes(advisory));
@@ -107,6 +109,8 @@ test('current release draft is exact and historical v0.5.0 release is unchanged'
   assert.match(draft, /one `0\.6\.x` preview window/);
   assert.match(draft, /does not claim that the preview package is currently available/);
   assert.match(draft, /does not modify manifests/);
+  assert.match(draft, /repository rename is complete/);
+  assert.match(draft, /thomasMinh1995\/DepVerdict/);
 
   const historical = await readFile(
     path.join(root, 'docs/releases/v0.5.0-technical-preview.md')
@@ -126,26 +130,40 @@ test('DIFF-03 report records the bounded verdict, gate, and exact inventory', as
   assert.match(report, /248 files, zero suspicious artifacts, 30 required assets/);
 });
 
-test('future repository URL is never presented as a live link before rename', async () => {
-  const files = [
+test('current operational surfaces use the canonical repository after rename', async () => {
+  const operationalFiles = [
     'README.md',
     'CONTRIBUTING.md',
     'SECURITY.md',
     'SUPPORT.md',
-    'docs/decisions/diff-03-repository-docs-community-migration.md',
-    'docs/migrations/upgradelens-to-depverdict.md',
     'docs/releases/v0.6.0-alpha.1-depverdict-preview.md',
-    'docs/reviews/diff-03-repository-docs-community-migration.md'
+    '.github/ISSUE_TEMPLATE/bug_report.yml',
+    '.github/ISSUE_TEMPLATE/config.yml'
   ];
-  for (const file of files) {
+  for (const file of operationalFiles) {
     const contents = await text(file);
-    assert.doesNotMatch(contents, new RegExp(`\\]\\(${futureRepository.replaceAll('/', '\\/')}[^)]*\\)`), file);
+    assert.doesNotMatch(contents, new RegExp(legacyRepository, 'u'), file);
   }
 
   const packageJson = JSON.parse(await text('package.json'));
-  assert.equal(packageJson.repository.url, `git+${currentRepository}.git`);
-  assert.equal(packageJson.homepage, `${currentRepository}#readme`);
-  assert.equal(packageJson.bugs.url, `${currentRepository}/issues`);
+  assert.equal(packageJson.repository.url, `git+${canonicalRepository}.git`);
+  assert.equal(packageJson.homepage, `${canonicalRepository}#readme`);
+  assert.equal(packageJson.bugs.url, `${canonicalRepository}/issues`);
+
+  const contributing = await text('CONTRIBUTING.md');
+  assert.match(contributing, new RegExp(`git clone ${canonicalRepository}\\.git`));
+  assert.match(contributing, /^cd DepVerdict$/m);
+
+  const guide = await text('docs/migrations/upgradelens-to-depverdict.md');
+  assert.match(guide, /repository rename is complete/i);
+  assert.ok(guide.includes(legacyRepository));
+  assert.match(guide, /redirect compatibility aid|redirects for\s+continuity/);
+});
+
+test('legacy repository URL remains bounded to migration or historical status records', async () => {
+  const guide = await text('docs/migrations/upgradelens-to-depverdict.md');
+  assert.ok(guide.includes(legacyRepository));
+  assert.match(guide, /migration|former|redirect/iu);
 });
 
 test('relative links and Markdown fences resolve in current normative documents', async () => {

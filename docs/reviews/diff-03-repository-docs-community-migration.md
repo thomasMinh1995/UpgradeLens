@@ -1,5 +1,10 @@
 # DIFF-03 — Repository, Documentation, and Community Identity Migration
 
+> Post-rename status update (2026-07-19): the repository rename is complete and
+> `https://github.com/thomasMinh1995/DepVerdict` is canonical. References below to
+> an unexecuted rename or the former live URL describe the original DIFF-03
+> checkpoint unless a section explicitly gives current status.
+
 ## 1. Executive verdict
 
 ```text
@@ -25,12 +30,12 @@ The accepted decision is recorded in
 current normative ownership from historical, versioned architecture, protocol,
 fixture, and external-reference ownership.
 
-The migration is explicitly two-phase:
+The migration was explicitly two-phase:
 
 1. DIFF-03 migrates repository content to the DepVerdict product identity while
    retaining links that work today.
-2. A later maintainer operation renames GitHub and updates every live URL/field
-   listed in Section 21.
+2. The later maintainer operation renamed GitHub. DIFF-04-FIX updates the live
+   URL/fields listed in Section 21.
 
 The conduct decision is `KEEP_VERIFIED_LEGACY_CONTACT_FOR_ONE_PREVIEW`.
 
@@ -49,9 +54,10 @@ Every tracked old-name match was classified before broad editing:
 | `EXTERNAL_PROJECT_REFERENCE` | Preserved | source-comparison and external validation evidence |
 | `UNRELATED_TEXT` | Unchanged | license attribution and unrelated identifiers |
 
-Post-edit current-scope old-name matches are explained by compatibility, the live
-GitHub/security URL, the verified conduct address, the pre-rename clone directory,
-or a protocol identity. No unexplained normative UpgradeLens branding remains.
+At the DIFF-03 checkpoint, old-name matches were explained by compatibility, the
+then-live GitHub/security URL, the verified conduct address, the pre-rename clone
+directory, or a protocol identity. Current operational references are superseded
+by this report's post-rename update and DIFF-04-FIX.
 
 ## 4. README and product positioning migration
 
@@ -83,10 +89,10 @@ files.
 
 ## 6. Security, conduct, and support route status
 
-- Security: the live private route remains
-  `https://github.com/thomasMinh1995/UpgradeLens/security/advisories/new`.
-  It is present in `SECURITY.md` and the Issue Forms, and is explicitly identified
-  as the current DepVerdict private route until rename.
+- Security: at the DIFF-03 checkpoint, the private route used the former
+  repository name. The current canonical route is
+  `https://github.com/thomasMinh1995/DepVerdict/security/advisories/new` and is
+  present in `SECURITY.md` and the Issue Forms.
 - Conduct: `upgradelens.conduct@gmail.com` remains the verified active private
   DepVerdict conduct channel for the `0.6.x` preview transition. No replacement
   address was invented or described as live.
@@ -143,15 +149,16 @@ documents:
 It includes product rationale, planned scoped install, canonical CLI, compatibility
 map, capabilities, supported scope, known limitations, human-review boundary, and
 routes that work today. It does not claim npm `latest`, current publication,
-production stability, autonomous migration, or a completed repository rename.
+production stability, or autonomous migration. Its mutable repository status now
+records the completed rename.
 
-## 10. Current live versus future repository links
+## 10. Checkpoint versus current repository links
 
-The product name is DepVerdict, but all links that must work now use the live
-`thomasMinh1995/UpgradeLens` repository. The future
-`thomasMinh1995/DepVerdict` identity appears only as non-linked future state in
-architecture/migration material. Package `repository`, `homepage`, and `bugs`
-metadata remain live and correct for the current phase.
+At the DIFF-03 checkpoint, operational links used
+`thomasMinh1995/UpgradeLens`. The current canonical repository is
+`thomasMinh1995/DepVerdict`; package `repository`, `homepage`, and `bugs`
+metadata and all current operational links are updated directly to that route by
+DIFF-04-FIX. The former route is retained only for migration/history.
 
 No README npm badge was added before publication. No future-repository workflow
 badge or dead security URL was published.
@@ -175,8 +182,8 @@ Remaining current-file references are allowed:
 | Reference owner | Classification | Reason |
 | --- | --- | --- |
 | README, migration guide, current architecture, release draft | `CURRENT_COMPATIBILITY_DOCUMENTATION` | Bounded CLI/artifact/env transition |
-| `package.json`, README, CONTRIBUTING | `CURRENT_NORMATIVE` live-link exception | Repository URL and clone path work before rename |
-| SECURITY and Issue Forms | `CURRENT_NORMATIVE` live-link exception | Verified Private Vulnerability Reporting |
+| DIFF-03 checkpoint text about the former repository | `HISTORICAL_RECORD` | Truth at the recorded pre-rename milestone; superseded for current operations |
+| Migration guide | `CURRENT_COMPATIBILITY_DOCUMENTATION` | Former repository URL explains redirect continuity only |
 | CODE_OF_CONDUCT | `CURRENT_NORMATIVE` verified-contact exception | Active private conduct address |
 | `.gitignore`, CI environment | `RUNTIME_IDENTITY_ALREADY_MIGRATED` | Both generated roots ignored and both env prefixes scrubbed |
 | schemas, runtime, tests, fixtures | `TEST_FIXTURE_ASSERTION` / protocol compatibility | Persisted and legacy contracts remain stable |
@@ -268,11 +275,12 @@ Blocker defects: none.
 
 High defects: none.
 
-Medium transition gaps:
+Original medium transition gaps:
 
-1. GitHub repository identity remains UpgradeLens until the manual rename.
+1. Repository rename: closed externally before DIFF-04-FIX.
 2. The verified conduct address remains legacy-named for one preview transition.
-3. Hosted CI has not run on a DIFF-03 commit because commit/push are out of scope.
+3. DIFF-03 hosted CI gap: closed at its later hosted checkpoint; a new hosted run
+   is still required for the post-remediation SHA.
 
 These gaps are live-safe, documented, and assigned explicit follow-up checks.
 
@@ -328,28 +336,17 @@ capture trees remain excluded by the direct-child capture rule.
 
 ## 21. Post-rename file and field checklist
 
-After DIFF-03 is merged, hosted CI passes, and the maintainer renames the GitHub
-repository:
+Current status:
 
-1. update local `origin` fetch and push URLs;
-2. verify the old repository redirect, issues, pull requests, releases, Actions,
-   settings, and branches;
-3. verify Private Vulnerability Reporting and the new non-maintainer reporter flow;
-4. update `package.json`: `repository.url`, `homepage`, and `bugs.url`;
-5. update clone URL/directory text in `README.md` and `CONTRIBUTING.md`;
-6. update the advisory URL in `SECURITY.md`,
-   `.github/ISSUE_TEMPLATE/bug_report.yml`, and
-   `.github/ISSUE_TEMPLATE/config.yml`;
-7. update repository-status text in
-   `docs/decisions/diff-03-repository-docs-community-migration.md`,
-   `docs/migrations/upgradelens-to-depverdict.md`,
-   `docs/releases/v0.6.0-alpha.1-depverdict-preview.md`, and this report;
-8. update repository URL assertions in `test/ci-workflow-metadata.test.js` and
-   `test/repository-docs-identity.test.js`;
-9. update any README/CI badge URLs if badges are added before that checkpoint;
-10. rerun link/YAML/identity checks, canonical tests, package guard, repeated pack,
-    clean-install smoke, publish dry-run, and hosted CI at the exact post-rename
-    commit.
+1. Canonical repository, origin, redirect, GitHub resources, Actions history,
+   branches, and Private Vulnerability Reporting: externally verified by DIFF-04.
+2. Package metadata, clone instructions, advisory routes, mutable status documents,
+   and identity tests: remediated by DIFF-04-FIX.
+3. Historical Release titles/bodies: remediated by the explicitly approved
+   DIFF-04-FIX live metadata edit; IDs, tags, targets, states, and assets were
+   verified unchanged.
+4. Canonical tests, package qualification, repeated pack, clean-install smoke, npm
+   dry-run, and exact-SHA hosted CI: required at the DIFF-04-FIX checkpoint.
 
 The conduct email does not change during repository rename. A later contact
 migration requires a separately created and verified address.

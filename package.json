@@ -42,11 +42,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/thomasMinh1995/UpgradeLens.git"
+    "url": "git+https://github.com/thomasMinh1995/DepVerdict.git"
   },
-  "homepage": "https://github.com/thomasMinh1995/UpgradeLens#readme",
+  "homepage": "https://github.com/thomasMinh1995/DepVerdict#readme",
   "bugs": {
-    "url": "https://github.com/thomasMinh1995/UpgradeLens/issues"
+    "url": "https://github.com/thomasMinh1995/DepVerdict/issues"
   },
   "dependencies": {
     "@babel/parser": "^7.29.7",

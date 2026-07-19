@@ -12,7 +12,7 @@ does not change historical artifact schemas or move local data automatically.
 | `upgradelens` CLI | `depverdict` | The alias remains for one `0.6.x` preview window and emits a bounded stderr warning. |
 | `.upgradelens/` | `.depverdict/` | A complete legacy input chain may be read as fallback; new implicit writes are canonical. |
 | `UPGRADELENS_*` | `DEPVERDICT_*` | Canonical variables win; legacy fallback warns without printing values. |
-| GitHub UpgradeLens URL | Future DepVerdict URL | The UpgradeLens URL remains the live route until the maintainer manually renames the repository. |
+| GitHub UpgradeLens URL | GitHub DepVerdict URL | The rename is complete. Use the DepVerdict URL directly; the former URL is a redirect compatibility aid, not an operational dependency. |
 
 ## Commands and installation
 
@@ -79,14 +79,15 @@ key-only diagnostic.
 
 ## Repository transition
 
-The product is DepVerdict, but the GitHub repository is still reachable at:
+The repository rename is complete. Use the canonical routes directly:
 
-`https://github.com/thomasMinh1995/UpgradeLens`
+- repository: `https://github.com/thomasMinh1995/DepVerdict`;
+- issues: `https://github.com/thomasMinh1995/DepVerdict/issues`;
+- private security reports:
+  `https://github.com/thomasMinh1995/DepVerdict/security/advisories/new`.
 
-The future target is `thomasMinh1995/DepVerdict`; it is not published here as a
-live URL. Clone, issues, package metadata, and Private Vulnerability Reporting
-continue to use the verified current route until the maintainer performs and
-validates the rename.
+The former `https://github.com/thomasMinh1995/UpgradeLens` route redirects for
+continuity, but current operations and metadata do not depend on that redirect.
 
 ## Compatibility removal
 

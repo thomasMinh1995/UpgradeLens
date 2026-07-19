@@ -13,11 +13,10 @@ Do **not** put vulnerability details, exploit steps, credentials, private source
 provider payloads in a public issue.
 
 Use
-[GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/UpgradeLens/security/advisories/new)
+[GitHub Private Vulnerability Reporting](https://github.com/thomasMinh1995/DepVerdict/security/advisories/new)
 for suspected vulnerabilities. This creates a private report for the repository
-maintainer. This verified URL retains the current repository name until GitHub is
-manually renamed; it is the live private DepVerdict reporting route today. Do not
-open a public issue first.
+maintainer through the canonical DepVerdict repository. Do not open a public issue
+first.
 
 ## What to include privately
 
@@ -58,10 +57,6 @@ Security reports may concern:
 
 DepVerdict analyzes upgrade evidence; it is not a security scanner and does not
 guarantee that an upgrade is safe.
-
-After the repository is renamed, maintainers must update this advisory URL and
-verify the new route from a non-maintainer reporting context or API before removing
-the old route from current documentation.
 
 ## Response expectations
 
