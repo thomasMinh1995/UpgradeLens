@@ -1,0 +1,22 @@
+{
+  "scenarioId": "RERUN-003",
+  "sequence": 4,
+  "purpose": "Default non-TTY auto analysis with line-oriented progress.",
+  "result": "PASS",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageTarballSha256": "4fb18ddc056687f239d74630b56914f55cf95f37839249008d0c1faee59e9e7a",
+  "completedAt": "2026-07-17T09:34:51.380Z",
+  "exitCode": 0,
+  "signal": null,
+  "tty": false,
+  "progressMode": "auto (resolved plain)",
+  "captureMethod": "redirected-non-tty-transcript",
+  "realProviderRequests": 0,
+  "retries": 0,
+  "rawHasAnsi": false,
+  "cleanHasAnsi": false,
+  "sanitizationPassed": true,
+  "captureComplete": true,
+  "heartbeatExpected": false,
+  "heartbeatObserved": null
+}

@@ -244,6 +244,86 @@ test('runtime scans repository files, skips ignored directories, and isolates pa
     path: 'src/invalid.ts',
     message: 'Unable to parse source file.'
   }]);
+  assert.deepEqual(index.analysis.coverage.map((coverage) => ({
+    projectId: coverage.projectId,
+    ecosystem: coverage.ecosystem,
+    status: coverage.status,
+    analyzer: coverage.analyzer?.id ?? null,
+    scannedFileCount: coverage.scannedFileCount,
+    analyzedFileCount: coverage.analyzedFileCount,
+    parseFailureCount: coverage.parseFailureCount,
+    reasonCode: coverage.reasonCode
+  })), [
+    {
+      projectId: 'java:.',
+      ecosystem: 'java',
+      status: 'unavailable',
+      analyzer: null,
+      scannedFileCount: 0,
+      analyzedFileCount: 0,
+      parseFailureCount: 0,
+      reasonCode: 'ANALYZER_UNAVAILABLE'
+    },
+    {
+      projectId: 'node:.',
+      ecosystem: 'node',
+      status: 'partial',
+      analyzer: 'javascript-typescript',
+      scannedFileCount: 6,
+      analyzedFileCount: 5,
+      parseFailureCount: 1,
+      reasonCode: 'SOURCE_PARSE_FAILED'
+    }
+  ]);
+});
+
+test('coverage registry distinguishes Node coverage, Python unavailability, and analyzer failure', async () => {
+  const root = await temporaryRepository();
+  await write(root, 'src/App.js', `import { Button } from 'antd'; Button();`);
+  const manifest = projectManifest();
+  manifest.projects.push({
+    id: 'python:services/api',
+    path: 'services/api',
+    ecosystem: 'python',
+    dependencies: []
+  });
+  const covered = await discoverRepositoryUsage({
+    repositoryRoot: root,
+    projectManifest: manifest,
+    versionAnalysis: versionAnalysis(),
+    input: input()
+  });
+  assert.deepEqual(
+    covered.analysis.coverage.map((item) => [item.projectId, item.status, item.analyzer?.id ?? null]),
+    [
+      ['node:.', 'complete', 'javascript-typescript'],
+      ['python:services/api', 'unavailable', null]
+    ]
+  );
+
+  const failed = await discoverRepositoryUsage({
+    repositoryRoot: root,
+    projectManifest: projectManifest(),
+    versionAnalysis: versionAnalysis(),
+    input: input(),
+    registry: createUsageAnalyzerRegistry([{
+      id: 'failing-javascript',
+      version: '1.0.0',
+      ecosystems: ['node'],
+      extensions: ['.js'],
+      analyze() {
+        throw new Error('synthetic analyzer failure');
+      }
+    }])
+  });
+  assert.deepEqual(
+    {
+      status: failed.analysis.coverage[0].status,
+      analyzerFailureCount: failed.analysis.coverage[0].analyzerFailureCount,
+      reasonCode: failed.analysis.coverage[0].reasonCode
+    },
+    { status: 'failed', analyzerFailureCount: 1, reasonCode: 'ANALYZER_FAILED' }
+  );
 });
 
 test('deepest project owns a monorepo file even when it has no analyzed dependency scope', async () => {

@@ -21,7 +21,10 @@ export {
   DEFAULT_REPOSITORY_IMPACT_PATH,
   DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
   DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
+  DEFAULT_MIGRATION_CHECKLIST_PATH,
+  DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH,
   MANIFEST_SCHEMA_VERSION,
+  MIGRATION_CHECKLIST_SCHEMA_VERSION,
   PACKAGE_NAME,
   PRODUCT_NAME,
   VERSION_ANALYSIS_SCHEMA_VERSION,
@@ -33,6 +36,13 @@ export {
 export { discoverProject } from './discovery.js';
 export { loadProjectManifestInput } from './project-manifest-input.js';
 export { createUsageAnalyzerRegistry } from './usage/analyzer-registry.js';
+export {
+  USAGE_COVERAGE_REASON_CODES,
+  USAGE_COVERAGE_STATUSES,
+  buildProjectUsageCoverage,
+  coverageForProject,
+  unavailableLegacyCoverage
+} from './usage/coverage.js';
 export { UsageDiscoveryInputError, loadUsageDiscoveryInputs } from './usage/input-loader.js';
 export {
   JAVASCRIPT_SOURCE_EXTENSIONS,
@@ -61,6 +71,12 @@ export {
   validateRepositoryImpact,
   validateRepositoryImpactInvariants
 } from './impact/repository-impact.js';
+export {
+  REPOSITORY_IMPACT_REASON_CODES,
+  REPOSITORY_IMPACT_STATUSES,
+  classifyDependencyImpact,
+  classifyFindingImpact
+} from './impact/status.js';
 export { analyzeRepositoryImpact, runImpactAnalysis } from './impact/runtime.js';
 export { serializeRepositoryImpact, writeRepositoryImpact } from './impact/writer.js';
 export { ImpactEvidenceInputError, loadImpactEvidenceInputs } from './impact-evidence/input-loader.js';
@@ -80,8 +96,267 @@ export {
   serializeRepositoryImpactEvidence,
   writeRepositoryImpactEvidence
 } from './impact-evidence/writer.js';
-export { ANALYSIS_STAGES, PipelineStageError, runAnalysisPipeline } from './orchestration/pipeline.js';
-export { createProgressReporter } from './orchestration/progress-reporter.js';
+export {
+  UPGRADE_DECISION_POLICY_ID,
+  UPGRADE_DECISION_POLICY_VERSION,
+  UPGRADE_DECISIONS,
+  buildUpgradeDecision,
+  validateUpgradeDecision,
+  validateUpgradeDecisionInvariants
+} from './upgrade-decision/upgrade-decision.js';
+export {
+  PRODUCT_COMPLETION_SCHEMA_VERSION,
+  PRODUCT_COMPLETION_STATUSES,
+  buildProductCompletion,
+  productCompletionExitCode
+} from './product-completion.js';
+export {
+  TargetSelectorError,
+  parseTargetSelector,
+  resolveTargetSelectors,
+  targetOccurrenceId,
+  targetOccurrenceKey
+} from './target-selector.js';
+export { runUpgradeDecisionStage } from './upgrade-decision/runtime.js';
+export {
+  serializeUpgradeDecision,
+  writeUpgradeDecision
+} from './upgrade-decision/writer.js';
+export {
+  MIGRATION_CHECKLIST_ELIGIBILITY_REASON_CODES,
+  MIGRATION_CHECKLIST_ELIGIBILITY_STATUSES,
+  MIGRATION_CHECKLIST_ITEM_BASES,
+  MIGRATION_CHECKLIST_ITEM_KINDS,
+  MIGRATION_CHECKLIST_PROHIBITED_CAPABILITIES,
+  MIGRATION_CHECKLIST_STATUSES,
+  isActionableMigrationChecklistItem,
+  migrationChecklistEligibility,
+  migrationChecklistStatusForEligibility,
+  validateMigrationChecklistInstructionContent
+} from './migration-checklist/grounding-policy.js';
+export {
+  buildMigrationChecklist,
+  migrationChecklistItemId,
+  serializeMigrationChecklist,
+  validateMigrationChecklist,
+  validateMigrationChecklistInvariants
+} from './migration-checklist/migration-checklist.js';
+export {
+  MigrationChecklistInputError,
+  loadMigrationChecklistInputs,
+  validateMigrationChecklistInputLineage,
+  validateMigrationChecklistInputReferences
+} from './migration-checklist/input-loader.js';
+export {
+  DEFAULT_MIGRATION_CONTEXT_MAX_EVIDENCE_CHARACTERS,
+  DEFAULT_MIGRATION_CONTEXT_MAX_EVIDENCE_ITEMS,
+  DEFAULT_MIGRATION_CONTEXT_MAX_FINDING_SUMMARY_CHARACTERS,
+  MIGRATION_LOCATION_REASON_CODES,
+  MIGRATION_TASK_CONTEXT_VERSION,
+  buildMigrationTaskContexts,
+  classifyMigrationEligibility,
+  prepareMigrationChecklistContexts
+} from './migration-checklist/context-runtime.js';
+export {
+  MIGRATION_CANDIDATE_ABSTENTION_REASONS,
+  MIGRATION_CANDIDATE_STATUSES,
+  MIGRATION_CHECKLIST_CANDIDATE_ERROR_CODES,
+  MIGRATION_CHECKLIST_CANDIDATE_SCHEMA,
+  MIGRATION_CHECKLIST_TRUST_ERROR_CODES,
+  MigrationChecklistCandidateError,
+  MigrationChecklistTrustError,
+  isMigrationChecklistCandidateError,
+  isMigrationChecklistTrustError,
+  trustValidateMigrationChecklistCandidate,
+  validateMigrationChecklistCandidate
+} from './migration-checklist/ai-candidate.js';
+export {
+  MIGRATION_PLANNING_PROMPT_VERSION,
+  MIGRATION_PLANNING_SCHEMA_NAME,
+  MIGRATION_PLANNING_TASK,
+  buildMigrationChecklistPrompt,
+  buildMigrationChecklistPromptContext
+} from './migration-checklist/prompt.js';
+export {
+  MIGRATION_GENERATION_RESULT_VERSION,
+  MIGRATION_EXTRACTIVE_GENERATION_RESULT_VERSION,
+  MIGRATION_GENERATION_WARNING_CODES,
+  generateMigrationExtractiveChecklistDrafts,
+  generateMigrationExtractiveChecklistForContext,
+  generateMigrationChecklistDrafts,
+  generateMigrationChecklistForContext
+} from './migration-checklist/generator.js';
+export {
+  MIGRATION_EXTRACTIVE_CANDIDATE_CONTRACT,
+  MIGRATION_EXTRACTIVE_CANDIDATE_ERROR_CODES,
+  MIGRATION_EXTRACTIVE_CANDIDATE_SCHEMA,
+  MIGRATION_EXTRACTIVE_PRESENTATION,
+  MIGRATION_EXTRACTIVE_PRESENTATION_PREFIX,
+  MIGRATION_EXTRACTIVE_TRUST_POLICY,
+  MigrationExtractiveCandidateError,
+  isMigrationExtractiveCandidateError,
+  migrationExtractiveCandidateSchemaDigest,
+  trustValidateMigrationExtractiveCandidate,
+  validateMigrationExtractiveCandidate
+} from './migration-checklist/extractive-candidate.js';
+export {
+  MIGRATION_EXTRACTIVE_PLANNING_TASK,
+  MIGRATION_EXTRACTIVE_PROMPT_VERSION,
+  MIGRATION_EXTRACTIVE_SCHEMA_NAME,
+  buildMigrationExtractivePrompt,
+  migrationExtractivePromptDigest
+} from './migration-checklist/extractive-prompt.js';
+export { assembleMigrationChecklist } from './migration-checklist/assembler.js';
+export {
+  MIGRATION_QUALIFICATION_STATES,
+  MigrationQualificationError,
+  createMigrationQualificationSourceFailureDecision,
+  decideMigrationQualification,
+  migrationQualificationErrorForDecision,
+  migrationQualificationIdentityDigest,
+  normalizedMigrationRuntimeMetadata,
+  evaluateMigrationQualification
+} from './migration-checklist/qualification-guard.js';
+export {
+  MIGRATION_PLANNING_QUALIFICATION_RECORD_SCHEMA_VERSION,
+  MigrationQualificationStoreError,
+  buildMigrationPlanningQualificationRecord,
+  loadMigrationPlanningQualificationRecord,
+  serializeMigrationPlanningQualificationRecord,
+  validateMigrationPlanningQualificationRecord,
+  validateMigrationPlanningQualificationRecordSchema,
+  writeMigrationPlanningQualificationRecord
+} from './migration-checklist/qualification-store.js';
+export {
+  resolveMigrationQualification
+} from './migration-checklist/qualification-resolution.js';
+export {
+  MigrationChecklistWriterError,
+  writeMigrationChecklist
+} from './migration-checklist/writer.js';
+export {
+  MIGRATION_PROGRESS_EVENTS,
+  createMigrationProgressReporter
+} from './migration-checklist/progress.js';
+export {
+  buildMigrationChecklistViewModel,
+  renderMigrationChecklistConsole,
+  renderMigrationChecklistMarkdownSection
+} from './migration-checklist/presentation.js';
+export {
+  MIGRATION_CHECKLIST_STAGE_ID,
+  MIGRATION_CHECKLIST_STAGE_LABEL,
+  runMigrationChecklistStage
+} from './migration-checklist/runtime.js';
+export {
+  MIGRATION_VERIFICATION_STATUSES,
+  extractProjectVerification,
+  unavailableProjectVerification
+} from './migration-checklist/verification.js';
+export {
+  DEFAULT_MIGRATION_EVALUATION_DATASET_PATH,
+  MIGRATION_EVALUATION_DATASET_ID,
+  MIGRATION_EVALUATION_DATASET_VERSION,
+  buildMigrationEvaluationContext,
+  buildMigrationEvaluationPrepared,
+  buildMigrationPolicyProbeCandidate,
+  createMigrationGoldenFakeRuntime,
+  loadMigrationEvaluationDataset,
+  migrationEvaluationDatasetDigest,
+  validateMigrationEvaluationDataset
+} from './migration-checklist/evaluation/dataset.js';
+export {
+  compareMigrationEvaluationCase,
+  evaluateMigrationPolicyProbes
+} from './migration-checklist/evaluation/comparator.js';
+export {
+  MIGRATION_EVALUATION_METRICS_VERSION,
+  computeMigrationEvaluationMetrics
+} from './migration-checklist/evaluation/metrics.js';
+export {
+  MIGRATION_GENERATOR_TRUST_SOURCE_IDENTITY,
+  MIGRATION_QUALIFICATION_POLICY,
+  MIGRATION_QUALIFICATION_POLICY_VERSION,
+  MIGRATION_QUALIFICATION_VERDICTS,
+  migrationCandidateSchemaDigest,
+  migrationQualificationPolicyDigest,
+  qualifyMigrationPlanningRuntime
+} from './migration-checklist/evaluation/qualification.js';
+export {
+  MIGRATION_EVALUATION_REPORT_VERSION,
+  runMigrationEvaluation
+} from './migration-checklist/evaluation/runner.js';
+export {
+  buildMigrationEvaluationScorecard,
+  renderMigrationEvaluationScorecard
+} from './migration-checklist/evaluation/scorecard.js';
+export {
+  MIGRATION_ACTION_COMPARATOR_VERSION,
+  MIGRATION_ACTION_EVALUATION_CRITERIA_ID,
+  MIGRATION_ACTION_EVALUATION_CRITERIA_VERSION,
+  MIGRATION_ACTION_NORMALIZATION_VERSION,
+  MIGRATION_ACTION_SUPPORT_STATUSES,
+  evaluateMigrationActionInstruction,
+  migrationActionEvaluationCriteriaDigest,
+  migrationActionEvaluationCriteriaIdentity,
+  normalizeMigrationActionText,
+  validateMigrationActionCriteria
+} from './migration-checklist/evaluation/action-criteria.js';
+export {
+  DEFAULT_MIGRATION_EVALUATION_DATASET_V2_PATH,
+  MIGRATION_EVALUATION_DATASET_V2_VERSION,
+  MIGRATION_EVALUATION_FIXTURE_ROLES,
+  loadMigrationEvaluationDatasetV2,
+  loadVersionedMigrationEvaluationDataset,
+  migrationEvaluationDatasetV2Digest,
+  resolveMigrationEvaluationV2Case,
+  validateMigrationEvaluationDatasetV2
+} from './migration-checklist/evaluation/dataset-v2.js';
+export { compareMigrationEvaluationCaseV2 } from './migration-checklist/evaluation/comparator-v2.js';
+export {
+  MIGRATION_EVALUATION_METRICS_V2_VERSION,
+  computeMigrationEvaluationMetricsV2
+} from './migration-checklist/evaluation/metrics-v2.js';
+export {
+  MIGRATION_EXTRACTIVE_GENERATOR_TRUST_SOURCE_IDENTITY,
+  MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2,
+  MIGRATION_EXTRACTIVE_QUALIFICATION_POLICY_V2_VERSION,
+  MIGRATION_QUALIFICATION_POLICY_V2,
+  MIGRATION_QUALIFICATION_POLICY_V2_VERSION,
+  migrationExtractiveQualificationPolicyV2Digest,
+  migrationQualificationPolicyV2Digest,
+  qualifyMigrationExtractiveRuntimeV2,
+  qualifyMigrationPlanningRuntimeV2
+} from './migration-checklist/evaluation/qualification-v2.js';
+export {
+  MIGRATION_EXTRACTIVE_EVALUATION_REPORT_V2_VERSION,
+  MIGRATION_EVALUATION_REPORT_V2_VERSION,
+  runMigrationExtractiveEvaluationV2,
+  runMigrationEvaluationV2
+} from './migration-checklist/evaluation/runner-v2.js';
+export {
+  buildMigrationEvaluationScorecardV2,
+  renderMigrationEvaluationScorecardV2
+} from './migration-checklist/evaluation/scorecard-v2.js';
+export {
+  ANALYSIS_STAGE_INITIAL_ACTIVITIES,
+  ANALYSIS_STAGES,
+  MIGRATION_CHECKLIST_ANALYSIS_STAGE,
+  PipelineCancellationError,
+  PipelineStageError,
+  createAnalysisStages,
+  runAnalysisPipeline
+} from './orchestration/pipeline.js';
+export {
+  DEFAULT_HEARTBEAT_INTERVAL_MS,
+  MAX_PROGRESS_SUBJECT_LENGTH,
+  PROGRESS_EVENT_TYPES,
+  PROGRESS_EVENT_VERSION,
+  PROGRESS_STAGE_STATUSES,
+  createProgressEventRuntime,
+  sanitizeProgressSubject
+} from './orchestration/progress-events.js';
+export { createProgressReporter, selectProgressMode } from './orchestration/progress-reporter.js';
 export { renderAnalysisFailureLog, writeAnalysisFailureLog } from './orchestration/failure-log.js';
 export { writeTextArtifact } from './orchestration/text-writer.js';
 export { renderConsoleSummary } from './renderers/console.js';

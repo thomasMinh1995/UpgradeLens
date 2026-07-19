@@ -43,6 +43,45 @@ export function validateProjectManifestInvariants(manifest) {
       if (!isPortableRelativePath(dependency.manifest)) {
         errors.push(`Project ${project.id} has a dependency with a non-portable manifest path.`);
       }
+      const baselineFields = [
+        'installedVersion',
+        'installedVersionStatus',
+        'installedVersionSource',
+        'installedVersionReason'
+      ];
+      const baselineFieldCount = baselineFields.filter((field) => field in dependency).length;
+      if (baselineFieldCount !== 0 && baselineFieldCount !== baselineFields.length) {
+        errors.push(`Project ${project.id} dependency ${dependency.name} has an incomplete installed-version baseline.`);
+      }
+      if (baselineFieldCount === baselineFields.length) {
+        if (dependency.installedVersionStatus === 'resolved') {
+          if (
+            typeof dependency.installedVersion !== 'string'
+            || dependency.installedVersionSource === null
+            || dependency.installedVersionReason !== null
+          ) {
+            errors.push(`Project ${project.id} dependency ${dependency.name} has inconsistent resolved baseline fields.`);
+          }
+        } else if (
+          dependency.installedVersionStatus === 'unresolved'
+          && (
+            dependency.installedVersion !== null
+            || dependency.installedVersionSource !== null
+            || dependency.installedVersionReason === null
+          )
+        ) {
+          errors.push(`Project ${project.id} dependency ${dependency.name} has inconsistent unresolved baseline fields.`);
+        }
+        if (
+          dependency.installedVersionSource
+          && (
+            !isPortableRelativePath(dependency.installedVersionSource.path)
+            || !isPortableRelativePath(dependency.installedVersionSource.packagePath)
+          )
+        ) {
+          errors.push(`Project ${project.id} dependency ${dependency.name} has non-portable installed-version provenance.`);
+        }
+      }
     }
 
     if (project.dependencySummary.status !== 'parsed') {

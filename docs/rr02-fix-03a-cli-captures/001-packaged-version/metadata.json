@@ -1,0 +1,24 @@
+{
+  "scenarioId": "PACKAGED-VERSION",
+  "sequence": 1,
+  "purpose": "identify the clean-installed packaged CLI",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageSource": "fresh working-tree npm tarball",
+  "installedFromTarball": true,
+  "startedAt": "2026-07-17T09:06:39.035Z",
+  "completedAt": "2026-07-17T09:06:40.224Z",
+  "durationMs": 1189,
+  "exitCode": 0,
+  "signal": null,
+  "tty": false,
+  "progressMode": "not-applicable",
+  "offline": false,
+  "realProviderRequests": 0,
+  "rawHasAnsi": false,
+  "cleanHasAnsi": false,
+  "sanitizationPassed": true,
+  "captureComplete": true,
+  "screenshots": [
+    "final-screen.png"
+  ]
+}

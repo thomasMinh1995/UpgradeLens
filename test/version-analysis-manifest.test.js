@@ -187,6 +187,32 @@ test('manifest builder preserves deterministic facts, AI reasoning, evidence ref
   assert.equal(built.evidence[0].sourceId, ctx.knowledge.evidence[0].sourceId);
 });
 
+test('manifest preserves installed, declared, and target versions as separate deterministic facts', () => {
+  const ctx = context();
+  Object.assign(ctx.versions, {
+    declaredVersion: '^1.0.0',
+    installedVersion: '1.1.0',
+    installedVersionStatus: 'resolved',
+    installedVersionSource: {
+      type: 'package-lock',
+      path: 'package-lock.json',
+      lockfileVersion: 3,
+      packagePath: 'node_modules/react'
+    },
+    installedVersionReason: null,
+    currentVersion: '1.1.0',
+    currentVersionSource: 'resolvedArtifact'
+  });
+  const manifest = manifestFrom([{ context: ctx, result: result(ctx) }]);
+  const versions = manifest.results[0].versions;
+
+  assert.equal(versions.declaredVersion, '^1.0.0');
+  assert.equal(versions.installedVersion, '1.1.0');
+  assert.equal(versions.currentVersion, '1.1.0');
+  assert.equal(versions.targetVersion, '2.0.0');
+  assert.equal(versions.installedVersionSource.path, 'package-lock.json');
+});
+
 test('manifest builder preserves source conflict validation state and review reason', () => {
   const ctx = context();
   const analysis = result(ctx, {
@@ -341,7 +367,22 @@ function projectManifest() {
           byType: { dependencies: 1, devDependencies: 0, peerDependencies: 0, optionalDependencies: 0 }
         },
         dependencies: [
-          { name: 'react', normalizedName: 'react', declaredVersion: '1.0.0', type: 'dependency', manifest: 'package.json' }
+          {
+            name: 'react',
+            normalizedName: 'react',
+            declaredVersion: '1.0.0',
+            type: 'dependency',
+            manifest: 'package.json',
+            installedVersion: '1.0.0',
+            installedVersionStatus: 'resolved',
+            installedVersionSource: {
+              type: 'package-lock',
+              path: 'package-lock.json',
+              lockfileVersion: 3,
+              packagePath: 'node_modules/react'
+            },
+            installedVersionReason: null
+          }
         ]
       }
     ],
@@ -495,7 +536,7 @@ function digestBytes(value) {
 }
 
 function evidenceBundle(knowledge, knowledgeBytes) {
-  const content = 'Version 2.0.0 documents a breaking behavior change.';
+  const content = 'Replace oldApi with newApi before upgrading to version 2.0.0.';
   const item = {
     id: digest('cli-evidence'),
     packageId: 'npm:react',
@@ -563,6 +604,42 @@ async function writeCliArtifactsWithTwoAnalyzableOccurrences(root) {
     declaredName: 'react',
     declaredVersion: '1.0.0'
   });
+  const knowledgeBytes = bytes(knowledge);
+  const bundle = evidenceBundle(knowledge, knowledgeBytes);
+
+  await mkdir(path.join(root, '.upgradelens'), { recursive: true });
+  await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'cli-fixture' }));
+  await writeFile(path.join(root, '.upgradelens', 'project-manifest.json'), projectBytes);
+  await writeFile(path.join(root, '.upgradelens', 'knowledge-manifest.json'), knowledgeBytes);
+  await writeFile(path.join(root, '.upgradelens', 'knowledge-evidence-bundle.json'), bytes(bundle));
+}
+
+async function writeCliArtifactsWithSameManifestDuplicates(root) {
+  const project = projectManifest();
+  const duplicate = structuredClone(project.projects[0].dependencies[0]);
+  duplicate.declaredVersion = '1.5.0';
+  duplicate.installedVersion = '1.5.0';
+  project.projects[0].dependencies.push(duplicate);
+  project.projects[0].dependencySummary.declarationCount = 2;
+  project.projects[0].dependencySummary.uniqueCount = 1;
+  project.projects[0].dependencySummary.duplicateCount = 1;
+  project.projects[0].dependencySummary.byType.dependencies = 2;
+  project.warnings.push({
+    code: 'DUPLICATE_DEPENDENCY_DECLARATION',
+    path: 'package.json',
+    message: 'Dependency react is declared multiple times.'
+  });
+
+  const projectBytes = bytes(project);
+  const knowledge = knowledgeManifest(projectBytes);
+  knowledge.research.inputOccurrenceCount = 2;
+  knowledge.summary.inputOccurrenceCount = 2;
+  knowledge.packages[0].occurrences.push({
+    ...structuredClone(knowledge.packages[0].occurrences[0]),
+    declaredVersion: '1.5.0'
+  });
+  knowledge.packages[0].occurrences.sort((left, right) =>
+    (left.declaredVersion ?? '').localeCompare(right.declaredVersion ?? ''));
   const knowledgeBytes = bytes(knowledge);
   const bundle = evidenceBundle(knowledge, knowledgeBytes);
 
@@ -809,7 +886,7 @@ function cliRuntime() {
             {
               id: 'finding-1',
               kind: 'breakingChange',
-              summary: 'A documented behavior changed.',
+              summary: 'The oldApi export must be replaced for version 2.0.0.',
               appliesToVersions: ['2.0.0'],
               evidenceRefs: [evidenceId]
             }
@@ -842,6 +919,348 @@ test('CLI analyze-version writes the default artifact with a fake runtime', asyn
   assert.equal(artifact.summary.resultCount, 1);
   assert.equal(artifact.results[0].riskLevel, 'high');
   assert.match(stderr.value(), /AI Version Analysis complete/);
+});
+
+test('public CLI explicit target persists caller intent after ecosystem validation', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-explicit-target-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  let calls = 0;
+  const runtime = {
+    async generateStructured(request) {
+      calls += 1;
+      return cliRuntime().generateStructured(request);
+    }
+  };
+
+  const code = await runCli([
+    'analyze-version',
+    root,
+    '--target',
+    'package=npm:react,target=2.0.0'
+  ], {
+    stdout: capture().stream,
+    stderr: capture().stream,
+    aiRuntime: runtime,
+    clock: () => new Date('2026-07-15T00:00:00.000Z')
+  });
+  const artifact = JSON.parse(
+    await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8')
+  );
+
+  assert.equal(code, 0);
+  assert.equal(calls, 1);
+  assert.equal(artifact.results[0].versions.targetVersion, '2.0.0');
+  assert.equal(artifact.results[0].versions.targetPolicy, 'explicit');
+});
+
+test('invalid public target fails before provider construction or invocation', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-invalid-target-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  let calls = 0;
+  const stderr = capture();
+
+  const code = await runCli([
+    'analyze-version',
+    root,
+    '--target',
+    'package=npm:react,target=not-a-version'
+  ], {
+    stdout: capture().stream,
+    stderr: stderr.stream,
+    aiRuntime: {
+      async generateStructured() {
+        calls += 1;
+        throw new Error('must not be called');
+      }
+    }
+  });
+
+  assert.equal(code, 1);
+  assert.equal(calls, 0);
+  assert.match(stderr.value(), /TARGET_VERSION_INVALID/);
+});
+
+test('public CLI same-manifest ambiguity emits unique retries and each selects only one occurrence', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-duplicate-target-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifactsWithSameManifestDuplicates(root);
+  let calls = 0;
+  const ambiguity = capture();
+  const runtime = {
+    async generateStructured(request) {
+      calls += 1;
+      return cliRuntime().generateStructured(request);
+    }
+  };
+
+  const ambiguousCode = await runCli([
+    'analyze-version',
+    root,
+    '--target',
+    'package=npm:react,target=2.0.0'
+  ], {
+    stdout: capture().stream,
+    stderr: ambiguity.stream,
+    aiRuntime: runtime
+  });
+  const candidates = [...ambiguity.value().matchAll(/--target '([^']+)'/g)]
+    .map((match) => match[1]);
+
+  assert.equal(ambiguousCode, 1);
+  assert.equal(calls, 0);
+  assert.equal(candidates.length, 2);
+  assert.equal(new Set(candidates).size, 2);
+  assert.match(ambiguity.value(), /declared: 1\.0\.0/);
+  assert.match(ambiguity.value(), /declared: 1\.5\.0/);
+
+  for (const [index, selector] of candidates.entries()) {
+    calls = 0;
+    const code = await runCli([
+      'analyze-version',
+      root,
+      '--target',
+      selector
+    ], {
+      stdout: capture().stream,
+      stderr: capture().stream,
+      aiRuntime: runtime,
+      clock: () => new Date('2026-07-18T00:00:00.000Z')
+    });
+    const artifact = JSON.parse(
+      await readFile(path.join(root, '.upgradelens', 'version-analysis.json'), 'utf8')
+    );
+    const firstBytes = await readFile(
+      path.join(root, '.upgradelens', 'version-analysis.json'),
+      'utf8'
+    );
+    const policies = new Map(artifact.results.map((result) => [
+      result.versions.declaredVersion,
+      result.versions.targetPolicy
+    ]));
+
+    assert.equal(code, 0);
+    assert.equal(calls, 2);
+    assert.equal(artifact.results.length, 2);
+    assert.equal(
+      [...policies.values()].filter((policy) => policy === 'explicit').length,
+      1
+    );
+    assert.equal(
+      [...policies.values()].filter((policy) => policy === 'registryLatest').length,
+      1
+    );
+    assert.equal(policies.get(index === 0 ? '1.0.0' : '1.5.0'), 'explicit');
+
+    calls = 0;
+    const replayCode = await runCli([
+      'analyze-version',
+      root,
+      '--target',
+      selector
+    ], {
+      stdout: capture().stream,
+      stderr: capture().stream,
+      aiRuntime: runtime,
+      clock: () => new Date('2026-07-18T00:00:00.000Z')
+    });
+    const replayBytes = await readFile(
+      path.join(root, '.upgradelens', 'version-analysis.json'),
+      'utf8'
+    );
+    assert.equal(replayCode, 0);
+    assert.equal(calls, 2);
+    assert.equal(replayBytes, firstBytes);
+  }
+});
+
+test('public CLI stale and conflicting occurrence selectors make zero provider calls', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-va-cli-stale-target-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifactsWithSameManifestDuplicates(root);
+  let calls = 0;
+  const runtime = {
+    async generateStructured() {
+      calls += 1;
+      throw new Error('must not be called');
+    }
+  };
+  const stale = `sha256:${'0'.repeat(64)}`;
+  const ambiguity = capture();
+  await runCli([
+    'analyze-version', root, '--target', 'package=npm:react,target=2.0.0'
+  ], {
+    stdout: capture().stream,
+    stderr: ambiguity.stream,
+    aiRuntime: runtime
+  });
+  const exact = ambiguity.value().match(/--target '([^']+)'/)[1];
+  const conflicting = exact.replace('package=npm:react', 'package=npm:not-react');
+
+  for (const [selector, expectedCode] of [
+    [`package=npm:react,target=2.0.0,occurrence=${stale}`, 'TARGET_SELECTOR_NOT_FOUND'],
+    [conflicting, 'TARGET_SELECTOR_CONFLICT']
+  ]) {
+    const stderr = capture();
+    const code = await runCli([
+      'analyze-version', root, '--target', selector
+    ], {
+      stdout: capture().stream,
+      stderr: stderr.stream,
+      aiRuntime: runtime
+    });
+    assert.equal(code, 1);
+    assert.match(stderr.value(), new RegExp(expectedCode));
+    assert.equal(calls, 0);
+  }
+});
+
+test('public analyze explicit-target workflow reaches decision-first actionable handoff', async (t) => {
+  const requestedRoot = process.env.MP_R05_ACCEPTANCE_ROOT;
+  const root = requestedRoot
+    ? path.resolve(requestedRoot)
+    : await mkdtemp(path.join(os.tmpdir(), 'upgradelens-public-explicit-workflow-'));
+  if (!requestedRoot) t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  await mkdir(path.join(root, 'src'), { recursive: true });
+  await writeFile(
+    path.join(root, 'package.json'),
+    JSON.stringify({
+      name: 'generic-public-workflow',
+      private: true,
+      scripts: { build: 'node --check src/main.js', test: 'node --test' },
+      dependencies: { react: '1.0.0' }
+    }, null, 2)
+  );
+  await writeFile(
+    path.join(root, 'src/main.js'),
+    "import { oldApi } from 'react';\nexport const result = oldApi();\n"
+  );
+  const project = JSON.parse(
+    await readFile(path.join(root, '.upgradelens/project-manifest.json'), 'utf8')
+  );
+  const stdout = capture();
+  let versionCalls = 0;
+  let migrationCalls = 0;
+
+  const code = await runCli([
+    'analyze',
+    root,
+    '--offline',
+    '--target',
+    'package=npm:react,target=2.0.0',
+    '--experimental-migration-checklist',
+    '--stdout',
+    '--progress',
+    'plain'
+  ], {
+    stdout: stdout.stream,
+    stderr: capture().stream,
+    analysisStageRunners: {
+      projectDiscovery: async () => project,
+      knowledgeResearch: async () => '.upgradelens/knowledge-manifest.json'
+    },
+    aiRuntime: {
+      async generateStructured(request) {
+        versionCalls += 1;
+        return cliRuntime().generateStructured(request);
+      }
+    },
+    migrationAiRuntime: {
+      async generateStructured() {
+        migrationCalls += 1;
+        const bundle = JSON.parse(
+          await readFile(path.join(root, '.upgradelens/knowledge-evidence-bundle.json'), 'utf8')
+        );
+        return {
+          output: {
+            status: 'ACTIONABLE',
+            actions: [{
+              evidenceRef: bundle.evidence[0].id,
+              actionExcerpt: bundle.evidence[0].content
+            }],
+            abstentionReason: null
+          },
+          provider: 'fake',
+          model: 'bounded-extractive-fake',
+          latencyMs: 0
+        };
+      }
+    },
+    migrationRuntimeMetadata: {
+      provider: 'fake',
+      model: 'bounded-extractive-fake',
+      adapter: 'fixture'
+    },
+    clock: () => new Date('2026-07-18T00:00:00.000Z')
+  });
+  const completion = JSON.parse(stdout.value());
+  const upgradeDecision = JSON.parse(
+    await readFile(path.join(root, '.upgradelens/upgrade-decision.json'), 'utf8')
+  );
+  const checklist = JSON.parse(
+    await readFile(path.join(root, '.upgradelens/migration-checklist.json'), 'utf8')
+  );
+
+  assert.equal(code, 0);
+  assert.equal(versionCalls, 1);
+  assert.equal(migrationCalls, 1);
+  assert.equal(completion.status, 'COMPLETED_WITH_REVIEW');
+  assert.equal(upgradeDecision.decisions[0].decision, 'PLAN_UPGRADE');
+  assert.equal(upgradeDecision.decisions[0].versions.targetPolicy, 'explicit');
+  assert.ok(upgradeDecision.decisions[0].reasonCodes.includes('USER_SELECTED_TARGET'));
+  assert.equal(checklist.dependencies[0].handoff.status, 'ACTIONABLE_WITH_REVIEW');
+  assert.deepEqual(
+    checklist.dependencies[0].handoff.affectedAreas.map((item) => item.file),
+    ['src/main.js']
+  );
+  assert.deepEqual(
+    checklist.dependencies[0].handoff.verification.commands.map((item) => item.command),
+    ['npm run build', 'npm run test']
+  );
+  assert.equal(checklist.dependencies[0].handoff.humanReviewRequired, true);
+});
+
+test('public analyze default registry workflow remains investigation with explicit-target guidance', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'upgradelens-public-registry-workflow-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeCliArtifacts(root);
+  const project = JSON.parse(
+    await readFile(path.join(root, '.upgradelens/project-manifest.json'), 'utf8')
+  );
+  const stdout = capture();
+  let calls = 0;
+
+  const code = await runCli([
+    'analyze', root, '--offline', '--stdout', '--progress', 'plain'
+  ], {
+    stdout: stdout.stream,
+    stderr: capture().stream,
+    analysisStageRunners: {
+      projectDiscovery: async () => project,
+      knowledgeResearch: async () => '.upgradelens/knowledge-manifest.json'
+    },
+    aiRuntime: {
+      async generateStructured(request) {
+        calls += 1;
+        return cliRuntime().generateStructured(request);
+      }
+    },
+    clock: () => new Date('2026-07-18T00:00:00.000Z')
+  });
+  const completion = JSON.parse(stdout.value());
+  const upgradeDecision = JSON.parse(
+    await readFile(path.join(root, '.upgradelens/upgrade-decision.json'), 'utf8')
+  );
+
+  assert.equal(code, 0);
+  assert.equal(calls, 1);
+  assert.equal(completion.status, 'COMPLETED_WITH_REVIEW');
+  assert.equal(upgradeDecision.decisions[0].decision, 'INVESTIGATE');
+  assert.equal(upgradeDecision.decisions[0].versions.targetPolicy, 'registryLatest');
+  assert.equal(upgradeDecision.decisions[0].reasonCodes.includes('USER_SELECTED_TARGET'), false);
+  assert.match(completion.decisions[0].nextStep, /--target/);
 });
 
 test('CLI analyze-version skips a package with missing registry latest while analyzing the rest', async (t) => {

@@ -11,7 +11,12 @@ import {
   VERSION
 } from '../constants.js';
 import { isMatchableUsageSymbol } from '../impact/matcher.js';
+import {
+  classifyDependencyImpact,
+  classifyFindingImpact
+} from '../impact/status.js';
 import { compareText, isSorted } from '../portable.js';
+import { coverageForProject } from '../usage/coverage.js';
 
 export const IMPACT_EVIDENCE_GENERATOR_ID = 'repository-impact-evidence';
 export const IMPACT_EVIDENCE_GENERATOR_VERSION = '1.0.0';
@@ -19,7 +24,10 @@ export const IMPACT_EVIDENCE_REASON_CODES = Object.freeze([
   'DEPENDENCY_NOT_USED',
   'EXACT_SYMBOL_USAGE_FOUND',
   'NO_EXACT_SYMBOL_USAGE_FOUND',
-  'NO_MATCHABLE_SYMBOL_FOUND'
+  'NO_MATCHABLE_SYMBOL_FOUND',
+  'USAGE_NOT_FOUND',
+  'COVERAGE_UNAVAILABLE',
+  'NOT_ANALYZED'
 ]);
 
 const schema = JSON.parse(await readFile(
@@ -44,13 +52,27 @@ function evidenceId(analysisResultId, findingId) {
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
-function reasonCode(finding, dependencyUsage) {
-  if (finding.impacted) return 'EXACT_SYMBOL_USAGE_FOUND';
-  if (!dependencyUsage) return 'DEPENDENCY_NOT_USED';
-  if (!dependencyUsage.symbols.some((usage) => isMatchableUsageSymbol(usage.name))) {
-    return 'NO_MATCHABLE_SYMBOL_FOUND';
+function legacyFindingState(finding, dependencyUsage, coverage) {
+  const state = classifyFindingImpact({
+    coverage,
+    usage: dependencyUsage,
+    matches: finding.matches
+  });
+  if (state.status === 'NOT_IMPACTED'
+      && dependencyUsage
+      && !dependencyUsage.symbols.some((usage) => isMatchableUsageSymbol(usage.name))) {
+    return { ...state, reasonCode: 'NO_MATCHABLE_SYMBOL_FOUND' };
   }
-  return 'NO_EXACT_SYMBOL_USAGE_FOUND';
+  return state;
+}
+
+function evidenceFindingState(state) {
+  if (state.status === 'COVERAGE_UNAVAILABLE') {
+    return { ...state, reasonCode: 'COVERAGE_UNAVAILABLE' };
+  }
+  if (state.status === 'NOT_ANALYZED') return { ...state, reasonCode: 'NOT_ANALYZED' };
+  if (state.status === 'USAGE_NOT_FOUND') return { ...state, reasonCode: 'USAGE_NOT_FOUND' };
+  return state;
 }
 
 function buildDependencies(repositoryImpact, usageIndex) {
@@ -59,35 +81,46 @@ function buildDependencies(repositoryImpact, usageIndex) {
   )));
   return repositoryImpact.dependencies.map((dependency) => {
     const usage = usages.get(`${dependency.projectId}\0${dependency.packageId}`) ?? null;
-    const findings = dependency.findings.map((finding) => ({
-      id: evidenceId(dependency.analysisResultId, finding.id),
-      findingId: finding.id,
-      kind: finding.kind,
-      summary: finding.summary,
-      impacted: finding.impacted,
-      reasonCode: reasonCode(finding, usage),
-      matchedSymbols: finding.matches.map((match) => ({
-        symbol: match.symbol,
-        usages: match.files.map((file) => ({ file })).sort(compareUsages)
-      })).sort(compareSymbols)
-    })).sort(compareFindings);
+    const coverage = dependency.coverage ?? coverageForProject(usageIndex, dependency.projectId);
+    const findings = dependency.findings.map((finding) => {
+      const state = evidenceFindingState(finding.status
+        ? { status: finding.status, reasonCode: finding.reasonCode }
+        : legacyFindingState(finding, usage, coverage));
+      return {
+        id: evidenceId(dependency.analysisResultId, finding.id),
+        findingId: finding.id,
+        kind: finding.kind,
+        summary: finding.summary,
+        impacted: finding.impacted,
+        ...state,
+        matchedSymbols: finding.matches.map((match) => ({
+          symbol: match.symbol,
+          usages: match.files.map((file) => ({ file })).sort(compareUsages)
+        })).sort(compareSymbols)
+      };
+    }).sort(compareFindings);
+    const state = dependency.status
+      ? { status: dependency.status, reasonCode: dependency.reasonCode }
+      : classifyDependencyImpact({ coverage, usage, findings });
     return {
       analysisResultId: dependency.analysisResultId,
       projectId: dependency.projectId,
       packageId: dependency.packageId,
       name: dependency.name,
       impacted: dependency.impacted,
+      ...state,
+      coverage: structuredClone(coverage),
       findings
     };
   }).sort(compareDependencies);
 }
 
-function buildSummary(dependencies) {
+function buildSummary(dependencies, reasonCodes = IMPACT_EVIDENCE_REASON_CODES) {
   const findings = dependencies.flatMap((dependency) => dependency.findings);
   const usages = findings.flatMap((finding) => (
     finding.matchedSymbols.flatMap((symbol) => symbol.usages)
   ));
-  const reasonCounts = Object.fromEntries(IMPACT_EVIDENCE_REASON_CODES.map((code) => [
+  const reasonCounts = Object.fromEntries(reasonCodes.map((code) => [
     code,
     findings.filter((finding) => finding.reasonCode === code).length
   ]));
@@ -122,6 +155,14 @@ export function validateRepositoryImpactEvidenceInvariants(evidence) {
     if (dependency.impacted !== dependency.findings.some((finding) => finding.impacted)) {
       errors.push(`dependency ${dependency.analysisResultId} impacted is inconsistent.`);
     }
+    if (dependency.status !== undefined) {
+      if ((dependency.status === 'IMPACTED') !== dependency.impacted) {
+        errors.push(`dependency ${dependency.analysisResultId} status is inconsistent.`);
+      }
+      if (!dependency.coverage || typeof dependency.reasonCode !== 'string') {
+        errors.push(`dependency ${dependency.analysisResultId} status metadata is incomplete.`);
+      }
+    }
     for (const finding of dependency.findings) {
       const expectedId = evidenceId(dependency.analysisResultId, finding.findingId);
       if (finding.id !== expectedId) errors.push(`finding evidence ${finding.id} has an unstable id.`);
@@ -136,6 +177,9 @@ export function validateRepositoryImpactEvidenceInvariants(evidence) {
       if (finding.impacted !== (finding.reasonCode === 'EXACT_SYMBOL_USAGE_FOUND')) {
         errors.push(`finding evidence ${finding.id} reasonCode is inconsistent.`);
       }
+      if (finding.status !== undefined && (finding.status === 'IMPACTED') !== finding.impacted) {
+        errors.push(`finding evidence ${finding.id} status is inconsistent.`);
+      }
       if (new Set(finding.matchedSymbols.map((match) => match.symbol)).size !== finding.matchedSymbols.length) {
         errors.push(`matched symbols for ${finding.id} must be unique.`);
       }
@@ -147,7 +191,7 @@ export function validateRepositoryImpactEvidenceInvariants(evidence) {
       }
     }
   }
-  const expected = buildSummary(evidence.dependencies);
+  const expected = buildSummary(evidence.dependencies, Object.keys(evidence.summary.reasonCounts));
   if (JSON.stringify(evidence.summary) !== JSON.stringify(expected)) errors.push('summary is inconsistent.');
   return errors.sort(compareText);
 }

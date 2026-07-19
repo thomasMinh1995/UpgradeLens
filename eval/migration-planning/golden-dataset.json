@@ -1,0 +1,214 @@
+{
+  "schemaVersion": "1.0.0",
+  "datasetId": "migration-planning-golden",
+  "task": "migration-planning.v1",
+  "cases": [
+    {
+      "id": "generic/ambiguous-evidence",
+      "description": "Ambiguous change description requires abstention.",
+      "scenarioGroup": "abstention",
+      "ecosystem": "generic",
+      "fixture": {
+        "dependency": { "packageId": "generic:widget", "declaredName": "widget", "normalizedName": "widget", "registry": "generic", "packageManager": null, "dependencyType": "dependency", "manifest": "manifest.json" },
+        "versions": { "analysisMode": "exactBaseline", "declaredVersion": "1.0.0", "currentVersion": "1.0.0", "currentVersionSource": "exactDeclaration", "targetVersion": "2.0.0", "targetPolicy": "explicit", "delta": { "direction": "upgrade", "classification": "major" } },
+        "findingId": "ambiguous-change",
+        "findingSummary": "Version 2 changes initialization behavior.",
+        "evidence": [{ "id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "kind": "breakingChanges", "sourceId": "generic:widget:notes", "authority": "officialProject", "trust": "official", "releaseVersions": ["2.0.0"], "content": "Version 2 changes initialization behavior in some environments. Consult future documentation for details." }],
+        "locations": [],
+        "locationEligibility": { "status": "REVIEW_REQUIRED", "reasonCode": "NO_POSITIVE_USAGE_MATCH" },
+        "limitations": [{ "code": "NO_POSITIVE_USAGE_MATCH", "message": "No positive usage match is available; this is not evidence of non-use or safety." }]
+      },
+      "response": { "kind": "candidate", "candidate": { "status": "ABSTAIN", "items": [], "abstentionReason": "AMBIGUOUS_EVIDENCE" } },
+      "expected": { "rawOutcome": "ABSTAIN", "finalOutcome": "abstained", "trustDecision": "NOT_EVALUATED", "expectedTrustDetailCode": null, "actionExpected": false, "oracleUnsafe": false, "evidenceRefs": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "locations": [], "actionConcepts": [], "forbiddenClaims": ["safe", "unused"], "requiresHumanReview": true },
+      "coverage": ["ABSTENTION_AMBIGUOUS", "GENERIC_ECOSYSTEM", "VALID_ABSTENTION"],
+      "policyProbes": [],
+      "rationale": "The evidence describes a change but provides no explicit action."
+    },
+    {
+      "id": "generic/explicit-action",
+      "description": "Official guide provides one explicit identifier-bearing action.",
+      "scenarioGroup": "grounded-action",
+      "ecosystem": "generic",
+      "fixture": {
+        "dependency": { "packageId": "generic:config-kit", "declaredName": "config-kit", "normalizedName": "config-kit", "registry": "generic", "packageManager": null, "dependencyType": "dependency", "manifest": "manifest.json" },
+        "versions": { "analysisMode": "exactBaseline", "declaredVersion": "1.5.0", "currentVersion": "1.5.0", "currentVersionSource": "exactDeclaration", "targetVersion": "2.0.0", "targetPolicy": "explicit", "delta": { "direction": "upgrade", "classification": "major" } },
+        "findingId": "config-option-renamed",
+        "findingSummary": "The configuration option is renamed in 2.0.0.",
+        "evidence": [{ "id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "kind": "migrationGuide", "sourceId": "generic:config-kit:migration", "authority": "officialProject", "trust": "official", "releaseVersions": ["2.0.0"], "content": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration." }],
+        "locations": [],
+        "locationEligibility": { "status": "REVIEW_REQUIRED", "reasonCode": "NO_POSITIVE_USAGE_MATCH" },
+        "limitations": []
+      },
+      "response": { "kind": "candidate", "candidate": { "status": "ACTIONABLE", "items": [{ "instruction": "Replace `oldOption` with `newOption` for 2.0.0.", "evidenceRefs": ["sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"], "supportingExcerpts": [{ "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "text": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration." }] }], "abstentionReason": null } },
+      "expected": { "rawOutcome": "ACTIONABLE", "finalOutcome": "generated", "trustDecision": "ACCEPTED", "expectedTrustDetailCode": null, "actionExpected": true, "oracleUnsafe": false, "evidenceRefs": ["sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"], "locations": [], "actionConcepts": [{ "requiredTokens": ["oldoption", "newoption", "replace"], "forbiddenTokens": ["delete data"] }], "forbiddenClaims": ["safe", "recommended"], "requiresHumanReview": true },
+      "coverage": ["EXPLICIT_OFFICIAL_ACTION", "TECHNICAL_IDENTIFIER", "IDENTITY_PRESERVATION", "HUMAN_REVIEW"],
+      "policyProbes": [
+        { "id": "invented-api", "instruction": "Replace `oldOption` with `inventedApi`.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "IDENTIFIER_NOT_IN_EXCERPT", "oracleSupported": false, "coverage": ["INVENTED_API"] },
+        { "id": "invented-config", "instruction": "Set `invented_config_key` before upgrading.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "IDENTIFIER_NOT_IN_EXCERPT", "oracleSupported": false, "coverage": ["INVENTED_CONFIG", "INFERRED_PREREQUISITE"] },
+        { "id": "invented-flag", "instruction": "Enable --invented-flag for migration.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "ACCEPTED", "expectedDetailCode": null, "oracleSupported": false, "coverage": ["INVENTED_FLAG", "KNOWN_LEXICAL_GAP"] },
+        { "id": "paraphrased-excerpt", "instruction": "Replace the documented option.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "Replace the old option with the new option.", "expectedDecision": "REJECTED", "expectedDetailCode": "EXCERPT_NOT_EXACT", "oracleSupported": false, "coverage": ["PARAPHRASED_EXCERPT"] },
+        { "id": "cross-context-ref", "instruction": "Review the documented option.", "evidenceRef": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "excerpt": "Release announcement only.", "expectedDecision": "REJECTED", "expectedDetailCode": "UNKNOWN_EVIDENCE_REFERENCE", "oracleSupported": false, "coverage": ["CROSS_PACKAGE_REF", "EXCERPT_OTHER_EVIDENCE"] },
+        { "id": "invented-url", "instruction": "Review https://example.invalid/migrate.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "URL_NOT_ALLOWED", "oracleSupported": false, "coverage": ["INVENTED_URL"] },
+        { "id": "code-fence", "instruction": "```js\nnewOption();\n```", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "CODE_OR_PATCH_NOT_ALLOWED", "oracleSupported": false, "coverage": ["CODE_SNIPPET"] },
+        { "id": "patch", "instruction": "diff --git a/config b/config", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "CODE_OR_PATCH_NOT_ALLOWED", "oracleSupported": false, "coverage": ["PATCH_DIFF"] },
+        { "id": "command", "instruction": "Run pnpm add config-kit.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "COMMAND_NOT_ALLOWED", "oracleSupported": false, "coverage": ["PACKAGE_COMMAND", "SHELL_COMMAND"] },
+        { "id": "ordering", "instruction": "Upgrade dependency A before updating dependency B.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "DEPENDENCY_ORDERING", "oracleSupported": false, "coverage": ["DEPENDENCY_ORDERING"] },
+        { "id": "rollback", "instruction": "Create a rollback plan if migration fails.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "ROLLBACK_PLAN", "oracleSupported": false, "coverage": ["ROLLBACK_PLAN"] },
+        { "id": "effort", "instruction": "The migration takes 2 hours.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "EFFORT_ESTIMATE", "oracleSupported": false, "coverage": ["EFFORT_ESTIMATE"] },
+        { "id": "confidence", "instruction": "Confidence: 90%.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "NUMERIC_CONFIDENCE", "oracleSupported": false, "coverage": ["NUMERIC_CONFIDENCE"] },
+        { "id": "safety-paraphrase", "instruction": "The upgrade is safe enough for approval.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "SAFETY_OR_COMPLETION_CLAIM", "oracleSupported": false, "coverage": ["SAFETY_CLAIM_ADVERSARIAL"] },
+        { "id": "repository-location", "instruction": "Update src/config.ts before migration.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "REJECTED", "expectedDetailCode": "REPOSITORY_LOCATION", "oracleSupported": false, "coverage": ["MODEL_LOCATION", "REPOSITORY_FILE_SYMBOL"] },
+        { "id": "semantic-unsupported", "instruction": "Delete stored data during migration.", "evidenceRef": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "excerpt": "For 2.0.0, replace `oldOption` with `newOption` in the application configuration.", "expectedDecision": "ACCEPTED", "expectedDetailCode": null, "oracleSupported": false, "coverage": ["UNSUPPORTED_ACTION_SEMANTIC"] }
+      ],
+      "rationale": "A controlled explicit action supports concept-based comparison and trust-policy probes."
+    },
+    {
+      "id": "generic/invalid-json",
+      "description": "Invalid structured output is contained as a deterministic fallback.",
+      "scenarioGroup": "failure",
+      "ecosystem": "generic",
+      "fixture": {
+        "dependency": { "packageId": "generic:invalid", "declaredName": "invalid", "normalizedName": "invalid", "registry": "generic", "packageManager": null, "dependencyType": "dependency", "manifest": "manifest.json" },
+        "versions": { "analysisMode": "exactBaseline", "declaredVersion": "1.0.0", "currentVersion": "1.0.0", "currentVersionSource": "exactDeclaration", "targetVersion": "2.0.0", "targetPolicy": "explicit", "delta": { "direction": "upgrade", "classification": "major" } },
+        "findingId": "invalid-output", "findingSummary": "Migration action is documented.",
+        "evidence": [{ "id": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "kind": "migrationGuide", "sourceId": "generic:invalid:guide", "authority": "officialProject", "trust": "official", "releaseVersions": ["2.0.0"], "content": "Review the migration guide before adopting version 2.0.0." }],
+        "locations": [], "locationEligibility": { "status": "REVIEW_REQUIRED", "reasonCode": "NO_POSITIVE_USAGE_MATCH" }, "limitations": []
+      },
+      "response": { "kind": "rawText", "output": "{invalid" },
+      "expected": { "rawOutcome": "INVALID", "finalOutcome": "rejected", "trustDecision": "NOT_EVALUATED", "expectedTrustDetailCode": "OUTPUT_JSON_INVALID", "actionExpected": true, "oracleUnsafe": true, "evidenceRefs": ["sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"], "locations": [], "actionConcepts": [{ "requiredTokens": ["review", "migration guide"] }], "forbiddenClaims": [], "requiresHumanReview": true },
+      "coverage": ["INVALID_JSON_SCHEMA", "TRUST_CONTAINMENT"], "policyProbes": [],
+      "rationale": "Malformed model output must never become an actionable item."
+    },
+    {
+      "id": "generic/provider-failure",
+      "description": "Provider failure remains package-local.",
+      "scenarioGroup": "failure",
+      "ecosystem": "generic",
+      "fixture": {
+        "dependency": { "packageId": "generic:failure", "declaredName": "failure", "normalizedName": "failure", "registry": "generic", "packageManager": null, "dependencyType": "dependency", "manifest": "manifest.json" },
+        "versions": { "analysisMode": "exactBaseline", "declaredVersion": "1.0.0", "currentVersion": "1.0.0", "currentVersionSource": "exactDeclaration", "targetVersion": "2.0.0", "targetPolicy": "explicit", "delta": { "direction": "upgrade", "classification": "major" } },
+        "findingId": "provider-failure", "findingSummary": "A migration action may exist.",
+        "evidence": [{ "id": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "kind": "migrationGuide", "sourceId": "generic:failure:guide", "authority": "officialProject", "trust": "official", "releaseVersions": ["2.0.0"], "content": "Review configuration behavior for version 2.0.0." }],
+        "locations": [], "locationEligibility": { "status": "REVIEW_REQUIRED", "reasonCode": "NO_POSITIVE_USAGE_MATCH" }, "limitations": []
+      },
+      "response": { "kind": "runtimeError", "code": "TIMEOUT" },
+      "expected": { "rawOutcome": "RUNTIME_FAILURE", "finalOutcome": "failed", "trustDecision": "NOT_EVALUATED", "expectedTrustDetailCode": "TIMEOUT", "actionExpected": true, "oracleUnsafe": false, "evidenceRefs": ["sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"], "locations": [], "actionConcepts": [{ "requiredTokens": ["review", "configuration"] }], "forbiddenClaims": [], "requiresHumanReview": true },
+      "coverage": ["PACKAGE_LOCAL_FAILURE", "PROVIDER_FAILURE"], "policyProbes": [],
+      "rationale": "A provider timeout is observable but cannot publish an action."
+    },
+    {
+      "id": "generic/release-announcement",
+      "description": "A release announcement without action requires abstention.",
+      "scenarioGroup": "abstention",
+      "ecosystem": "generic",
+      "fixture": {
+        "dependency": { "packageId": "generic:announced", "declaredName": "announced", "normalizedName": "announced", "registry": "generic", "packageManager": null, "dependencyType": "dependency", "manifest": "manifest.json" },
+        "versions": { "analysisMode": "exactBaseline", "declaredVersion": "1.0.0", "currentVersion": "1.0.0", "currentVersionSource": "exactDeclaration", "targetVersion": "1.1.0", "targetPolicy": "explicit", "delta": { "direction": "upgrade", "classification": "minor" } },
+        "findingId": "announcement", "findingSummary": "Version 1.1.0 was released.",
+        "evidence": [{ "id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "kind": "releaseNotes", "sourceId": "generic:announced:release", "authority": "officialProject", "trust": "official", "releaseVersions": ["1.1.0"], "content": "Version 1.1.0 is now available with maintenance improvements." }],
+        "locations": [], "locationEligibility": { "status": "REVIEW_REQUIRED", "reasonCode": "NO_POSITIVE_USAGE_MATCH" }, "limitations": []
+      },
+      "response": { "kind": "candidate", "candidate": { "status": "ABSTAIN", "items": [], "abstentionReason": "NO_EXPLICIT_ACTION" } },
+      "expected": { "rawOutcome": "ABSTAIN", "finalOutcome": "abstained", "trustDecision": "NOT_EVALUATED", "expectedTrustDetailCode": null, "actionExpected": false, "oracleUnsafe": false, "evidenceRefs": ["sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"], "locations": [], "actionConcepts": [], "forbiddenClaims": ["migration required"], "requiresHumanReview": true },
+      "coverage": ["ABSTENTION_RELEASE_ANNOUNCEMENT", "NO_EXPLICIT_ACTION"], "policyProbes": [],
+      "rationale": "Availability alone is not a migration instruction."
+    },
+    {
+      "id": "node/multi-action",
+      "description": "Two official records support two actions and one exact usage location.",
+      "scenarioGroup": "grounded-action",
+      "ecosystem": "node",
+      "fixture": {
+        "dependency": { "packageId": "npm:ui-kit", "declaredName": "ui-kit", "normalizedName": "ui-kit", "registry": "npm", "packageManager": "npm", "dependencyType": "dependency", "manifest": "package.json" },
+        "versions": { "analysisMode": "exactBaseline", "declaredVersion": "1.0.0", "currentVersion": "1.0.0", "currentVersionSource": "exactDeclaration", "targetVersion": "2.0.0", "targetPolicy": "explicit", "delta": { "direction": "upgrade", "classification": "major" } },
+        "findingId": "ui-api-migration", "findingSummary": "Two UI APIs require migration.",
+        "evidence": [
+          { "id": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "kind": "migrationGuide", "sourceId": "npm:ui-kit:guide", "authority": "officialProject", "trust": "official", "releaseVersions": ["2.0.0"], "content": "Replace `LegacyButton` with `Button` in version 2.0.0." },
+          { "id": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "kind": "changelog", "sourceId": "npm:ui-kit:changelog", "authority": "publisherProvided", "trust": "publisher", "releaseVersions": ["2.0.0"], "content": "Rename the `oldTheme` option to `theme` for version 2.0.0." }
+        ],
+        "locations": [{ "impactEvidenceId": "sha256:9999999999999999999999999999999999999999999999999999999999999999", "symbol": "LegacyButton", "file": "src/App.tsx" }],
+        "locationEligibility": { "status": "ELIGIBLE", "reasonCode": "POSITIVE_USAGE_MATCH" }, "limitations": []
+      },
+      "response": { "kind": "candidate", "candidate": { "status": "ACTIONABLE", "items": [
+        { "instruction": "Replace `LegacyButton` with `Button` for version 2.0.0.", "evidenceRefs": ["sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"], "supportingExcerpts": [{ "evidenceRef": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "text": "Replace `LegacyButton` with `Button` in version 2.0.0." }] },
+        { "instruction": "Rename `oldTheme` to `theme` for version 2.0.0.", "evidenceRefs": ["sha256:1111111111111111111111111111111111111111111111111111111111111111"], "supportingExcerpts": [{ "evidenceRef": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "text": "Rename the `oldTheme` option to `theme` for version 2.0.0." }] }
+      ], "abstentionReason": null } },
+      "expected": { "rawOutcome": "ACTIONABLE", "finalOutcome": "generated", "trustDecision": "ACCEPTED", "expectedTrustDetailCode": null, "actionExpected": true, "oracleUnsafe": false, "evidenceRefs": ["sha256:1111111111111111111111111111111111111111111111111111111111111111", "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"], "locations": [{ "impactEvidenceId": "sha256:9999999999999999999999999999999999999999999999999999999999999999", "symbol": "LegacyButton", "file": "src/App.tsx" }], "actionConcepts": [{ "requiredTokens": ["legacybutton", "button", "replace"] }, { "requiredTokens": ["oldtheme", "theme", "rename"] }], "forbiddenClaims": ["safe"], "requiresHumanReview": true },
+      "coverage": ["MULTI_ACTION", "MULTI_EVIDENCE", "NODE_NPM", "POSITIVE_LOCATION", "LOCATION_PRESERVATION"], "policyProbes": [],
+      "rationale": "Each action has its own evidence while location ownership remains deterministic."
+    },
+    {
+      "id": "node/no-action-breaking",
+      "description": "Breaking change text without migration instruction requires abstention.",
+      "scenarioGroup": "abstention",
+      "ecosystem": "node",
+      "fixture": {
+        "dependency": { "packageId": "npm:router", "declaredName": "router", "normalizedName": "router", "registry": "npm", "packageManager": "npm", "dependencyType": "dependency", "manifest": "package.json" },
+        "versions": { "analysisMode": "exactBaseline", "declaredVersion": "1.0.0", "currentVersion": "1.0.0", "currentVersionSource": "exactDeclaration", "targetVersion": "2.0.0", "targetPolicy": "explicit", "delta": { "direction": "upgrade", "classification": "major" } },
+        "findingId": "router-breaking", "findingSummary": "Routing behavior changed.",
+        "evidence": [{ "id": "sha256:2222222222222222222222222222222222222222222222222222222222222222", "kind": "breakingChanges", "sourceId": "npm:router:release", "authority": "officialProject", "trust": "official", "releaseVersions": ["2.0.0"], "content": "Version 2.0.0 changes routing behavior and removes legacy compatibility." }],
+        "locations": [], "locationEligibility": { "status": "REVIEW_REQUIRED", "reasonCode": "NO_POSITIVE_USAGE_MATCH" }, "limitations": []
+      },
+      "response": { "kind": "candidate", "candidate": { "status": "ABSTAIN", "items": [], "abstentionReason": "NO_EXPLICIT_ACTION" } },
+      "expected": { "rawOutcome": "ABSTAIN", "finalOutcome": "abstained", "trustDecision": "NOT_EVALUATED", "expectedTrustDetailCode": null, "actionExpected": false, "oracleUnsafe": false, "evidenceRefs": ["sha256:2222222222222222222222222222222222222222222222222222222222222222"], "locations": [], "actionConcepts": [], "forbiddenClaims": ["replacement api"], "requiresHumanReview": true },
+      "coverage": ["ABSTENTION_BREAKING_ONLY", "MISSED_ABSTENTION_GUARD"], "policyProbes": [],
+      "rationale": "A breaking-change statement does not itself authorize a migration action."
+    },
+    {
+      "id": "node/whole-candidate-rejection",
+      "description": "One invented item rejects an otherwise partly valid candidate.",
+      "scenarioGroup": "adversarial",
+      "ecosystem": "node",
+      "fixture": {
+        "dependency": { "packageId": "npm:client", "declaredName": "client", "normalizedName": "client", "registry": "npm", "packageManager": "npm", "dependencyType": "dependency", "manifest": "package.json" },
+        "versions": { "analysisMode": "exactBaseline", "declaredVersion": "1.0.0", "currentVersion": "1.0.0", "currentVersionSource": "exactDeclaration", "targetVersion": "2.0.0", "targetPolicy": "explicit", "delta": { "direction": "upgrade", "classification": "major" } },
+        "findingId": "client-method", "findingSummary": "The client method was renamed.",
+        "evidence": [{ "id": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "kind": "migrationGuide", "sourceId": "npm:client:guide", "authority": "officialProject", "trust": "official", "releaseVersions": ["2.0.0"], "content": "Replace `oldClient` with `newClient` in version 2.0.0." }],
+        "locations": [], "locationEligibility": { "status": "REVIEW_REQUIRED", "reasonCode": "NO_POSITIVE_USAGE_MATCH" }, "limitations": []
+      },
+      "response": { "kind": "candidate", "candidate": { "status": "ACTIONABLE", "items": [
+        { "instruction": "Replace `oldClient` with `newClient`.", "evidenceRefs": ["sha256:3333333333333333333333333333333333333333333333333333333333333333"], "supportingExcerpts": [{ "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "text": "Replace `oldClient` with `newClient` in version 2.0.0." }] },
+        { "instruction": "Enable `inventedClientMode`.", "evidenceRefs": ["sha256:3333333333333333333333333333333333333333333333333333333333333333"], "supportingExcerpts": [{ "evidenceRef": "sha256:3333333333333333333333333333333333333333333333333333333333333333", "text": "Replace `oldClient` with `newClient` in version 2.0.0." }] }
+      ], "abstentionReason": null } },
+      "expected": { "rawOutcome": "ACTIONABLE", "finalOutcome": "rejected", "trustDecision": "REJECTED", "expectedTrustDetailCode": "IDENTIFIER_NOT_IN_EXCERPT", "actionExpected": true, "oracleUnsafe": true, "evidenceRefs": ["sha256:3333333333333333333333333333333333333333333333333333333333333333"], "locations": [], "actionConcepts": [{ "requiredTokens": ["oldclient", "newclient", "replace"] }], "forbiddenClaims": ["inventedclientmode"], "requiresHumanReview": true },
+      "coverage": ["WHOLE_CANDIDATE_REJECTION", "INVENTED_IDENTIFIER", "UNSAFE_CONTAINMENT"], "policyProbes": [],
+      "rationale": "Fail-closed whole-candidate rejection prevents partial publication."
+    },
+    {
+      "id": "python/unknown-registry-action",
+      "description": "Unknown baseline and registry-latest target remain factual while an action is drafted.",
+      "scenarioGroup": "policy-preservation",
+      "ecosystem": "python",
+      "fixture": {
+        "dependency": { "packageId": "pypi:model-kit", "declaredName": "model-kit", "normalizedName": "model-kit", "registry": "pypi", "packageManager": "pip", "dependencyType": "runtime", "manifest": "requirements.txt" },
+        "versions": { "analysisMode": "declaredConstraint", "declaredVersion": ">=1.0", "currentVersion": null, "currentVersionSource": null, "targetVersion": "2.0.0", "targetPolicy": "registryLatest", "delta": { "direction": "unknown", "classification": "unknown" } },
+        "findingId": "method-rename", "findingSummary": "A method was renamed in the target release.",
+        "evidence": [{ "id": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "kind": "migrationGuide", "sourceId": "pypi:model-kit:guide", "authority": "officialProject", "trust": "official", "releaseVersions": ["2.0.0"], "content": "For version 2.0.0, replace `dict()` with `model_dump()`." }],
+        "locations": [], "locationEligibility": { "status": "REVIEW_REQUIRED", "reasonCode": "UNSUPPORTED_USAGE_COVERAGE" },
+        "limitations": [{ "code": "UNSUPPORTED_USAGE_COVERAGE", "message": "Python repository usage coverage is unsupported; no unused or safe conclusion is available." }, { "code": "REGISTRY_LATEST_IS_NOT_RECOMMENDATION", "message": "The target is a registry-latest fact and is not a recommendation." }]
+      },
+      "response": { "kind": "candidate", "candidate": { "status": "ACTIONABLE", "items": [{ "instruction": "Replace `dict()` with `model_dump()` for version 2.0.0.", "evidenceRefs": ["sha256:4444444444444444444444444444444444444444444444444444444444444444"], "supportingExcerpts": [{ "evidenceRef": "sha256:4444444444444444444444444444444444444444444444444444444444444444", "text": "For version 2.0.0, replace `dict()` with `model_dump()`." }] }], "abstentionReason": null } },
+      "expected": { "rawOutcome": "ACTIONABLE", "finalOutcome": "generated", "trustDecision": "ACCEPTED", "expectedTrustDetailCode": null, "actionExpected": true, "oracleUnsafe": false, "evidenceRefs": ["sha256:4444444444444444444444444444444444444444444444444444444444444444"], "locations": [], "actionConcepts": [{ "requiredTokens": ["dict", "model_dump", "replace"] }], "forbiddenClaims": ["recommended", "installed version", "safe"], "requiresHumanReview": true },
+      "coverage": ["PYTHON_PYPI", "REGISTRY_LATEST_FACT", "UNKNOWN_BASELINE", "VERSION_UNCERTAINTY"], "policyProbes": [],
+      "rationale": "Version uncertainty and location coverage are independent from evidence-grounded action eligibility."
+    },
+    {
+      "id": "python/unsupported-usage-action",
+      "description": "Publisher changelog action survives unsupported usage coverage without a safety claim.",
+      "scenarioGroup": "policy-preservation",
+      "ecosystem": "python",
+      "fixture": {
+        "dependency": { "packageId": "pypi:web-kit", "declaredName": "web-kit", "normalizedName": "web-kit", "registry": "pypi", "packageManager": "pip", "dependencyType": "runtime", "manifest": "requirements.txt" },
+        "versions": { "analysisMode": "exactBaseline", "declaredVersion": "1.0.0", "currentVersion": "1.0.0", "currentVersionSource": "exactDeclaration", "targetVersion": "1.1.0", "targetPolicy": "explicit", "delta": { "direction": "upgrade", "classification": "minor" } },
+        "findingId": "setting-rename", "findingSummary": "A publisher setting was renamed.",
+        "evidence": [{ "id": "sha256:5555555555555555555555555555555555555555555555555555555555555555", "kind": "changelog", "sourceId": "pypi:web-kit:publisher", "authority": "publisherProvided", "trust": "publisher", "releaseVersions": ["1.1.0"], "content": "Rename `legacy_setting` to `current_setting` when adopting version 1.1.0." }],
+        "locations": [], "locationEligibility": { "status": "REVIEW_REQUIRED", "reasonCode": "UNSUPPORTED_USAGE_COVERAGE" },
+        "limitations": [{ "code": "UNSUPPORTED_USAGE_COVERAGE", "message": "Usage coverage is unsupported; the dependency is not classified as unused or safe." }]
+      },
+      "response": { "kind": "candidate", "candidate": { "status": "ACTIONABLE", "items": [{ "instruction": "Rename `legacy_setting` to `current_setting` for version 1.1.0.", "evidenceRefs": ["sha256:5555555555555555555555555555555555555555555555555555555555555555"], "supportingExcerpts": [{ "evidenceRef": "sha256:5555555555555555555555555555555555555555555555555555555555555555", "text": "Rename `legacy_setting` to `current_setting` when adopting version 1.1.0." }] }], "abstentionReason": null } },
+      "expected": { "rawOutcome": "ACTIONABLE", "finalOutcome": "generated", "trustDecision": "ACCEPTED", "expectedTrustDetailCode": null, "actionExpected": true, "oracleUnsafe": false, "evidenceRefs": ["sha256:5555555555555555555555555555555555555555555555555555555555555555"], "locations": [], "actionConcepts": [{ "requiredTokens": ["legacy_setting", "current_setting", "rename"] }], "forbiddenClaims": ["unused", "safe"], "requiresHumanReview": true },
+      "coverage": ["PUBLISHER_ACTION", "PYTHON_GENERIC_LOCATION", "UNSUPPORTED_USAGE_COVERAGE"], "policyProbes": [],
+      "rationale": "Unsupported location coverage must not block a package-level instruction or create a negative usage conclusion."
+    }
+  ]
+}

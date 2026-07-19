@@ -2,6 +2,8 @@ export const ANALYSIS_PRESENTATION_STATUSES = Object.freeze(['COMPLETE', 'INCOMP
 export const DEPENDENCY_IMPACT_STATUSES = Object.freeze([
   'IMPACTED',
   'NOT_IMPACTED',
+  'USAGE_NOT_FOUND',
+  'COVERAGE_UNAVAILABLE',
   'NOT_ANALYZED'
 ]);
 
@@ -68,6 +70,9 @@ function validateDependencyIdentity(versionResult, impact, evidence) {
   if (evidence.impacted !== impact.impacted) {
     throw inputError(`Impact Evidence ${evidence.analysisResultId} impacted state does not match Repository Impact.`);
   }
+  if (impact.status !== undefined && evidence.status !== impact.status) {
+    throw inputError(`Impact Evidence ${evidence.analysisResultId} status does not match Repository Impact.`);
+  }
 }
 
 function validateFindingReferences(impact, evidence) {
@@ -88,20 +93,30 @@ function validateFindingReferences(impact, evidence) {
         throw inputError(`Impact Evidence finding ${findingId} ${field} does not match Repository Impact.`);
       }
     }
+    if (finding.status !== undefined && findingEvidence.status !== finding.status) {
+      throw inputError(`Impact Evidence finding ${findingId} status does not match Repository Impact.`);
+    }
   }
 }
 
-function impactStatus(versionStatus, impacted) {
+function impactStatus(versionStatus, impact) {
   if (versionStatus !== 'analyzed') return 'NOT_ANALYZED';
-  return impacted ? 'IMPACTED' : 'NOT_IMPACTED';
+  if (impact.status) return impact.status;
+  return impact.impacted ? 'IMPACTED' : 'COVERAGE_UNAVAILABLE';
 }
 
-function notAnalyzedMessage(versionStatus) {
+function statusMessage(versionStatus, impact) {
   if (versionStatus === 'skipped') {
     return 'Impact could not be evaluated because Version Analysis was skipped.';
   }
   if (versionStatus === 'failed') {
     return 'Impact could not be evaluated because Version Analysis failed.';
+  }
+  if (impact.status === 'COVERAGE_UNAVAILABLE' || !impact.status) {
+    return `Repository usage coverage is unavailable (${impact.reasonCode ?? 'COVERAGE_METADATA_MISSING'}); no not-impacted conclusion is available.`;
+  }
+  if (impact.status === 'USAGE_NOT_FOUND') {
+    return 'Usage analysis completed, but no usage occurrence was recorded for this dependency.';
   }
   return null;
 }
@@ -162,7 +177,7 @@ export function buildImpactPresentationViewModel({
     }
     validateDependencyIdentity(versionResult, impact, dependencyEvidence);
     validateFindingReferences(impact, dependencyEvidence);
-    const status = impactStatus(versionResult.status, impact.impacted);
+    const status = impactStatus(versionResult.status, impact);
     if (status === 'NOT_ANALYZED' && (impact.impacted || impact.findings.length > 0)) {
       throw inputError(`not-analyzed result ${impact.analysisResultId} contains an impact conclusion.`);
     }
@@ -173,13 +188,28 @@ export function buildImpactPresentationViewModel({
       name: impact.name,
       versionAnalysisStatus: versionResult.status,
       impactStatus: status,
-      message: notAnalyzedMessage(versionResult.status),
-      findings: structuredClone(dependencyEvidence.findings)
+      impactReasonCode: impact.reasonCode ?? (status === 'COVERAGE_UNAVAILABLE'
+        ? 'COVERAGE_METADATA_MISSING'
+        : null),
+      coverage: structuredClone(impact.coverage ?? null),
+      message: statusMessage(versionResult.status, impact),
+      findings: structuredClone(dependencyEvidence.findings).map((finding) => (
+        status === 'COVERAGE_UNAVAILABLE' && finding.status === undefined
+          ? {
+              ...finding,
+              status: 'COVERAGE_UNAVAILABLE',
+              reasonCode: 'COVERAGE_METADATA_MISSING'
+            }
+          : finding
+      ))
     };
   });
 
   const impactedCount = dependencies.filter((item) => item.impactStatus === 'IMPACTED').length;
   const notImpactedCount = dependencies.filter((item) => item.impactStatus === 'NOT_IMPACTED').length;
+  const usageNotFoundCount = dependencies.filter((item) => item.impactStatus === 'USAGE_NOT_FOUND').length;
+  const coverageUnavailableCount = dependencies
+    .filter((item) => item.impactStatus === 'COVERAGE_UNAVAILABLE').length;
   const notAnalyzedCount = dependencies.filter((item) => item.impactStatus === 'NOT_ANALYZED').length;
   const impactFindingCount = repositoryImpact.dependencies
     .reduce((count, item) => count + item.findings.length, 0);
@@ -188,7 +218,7 @@ export function buildImpactPresentationViewModel({
   const evidenceRecordCount = impactEvidence.dependencies
     .reduce((count, item) => count + item.findings.length, 0);
   requireCount(
-    impactedCount + notImpactedCount + notAnalyzedCount,
+    impactedCount + notImpactedCount + usageNotFoundCount + coverageUnavailableCount + notAnalyzedCount,
     dependencyCount,
     'presentation impact status count'
   );
@@ -230,11 +260,13 @@ export function buildImpactPresentationViewModel({
 
   return deepFreeze({
     repositoryName: projectManifest.repository.name,
-    analysisStatus: notAnalyzedCount > 0 ? 'INCOMPLETE' : 'COMPLETE',
+    analysisStatus: notAnalyzedCount + coverageUnavailableCount > 0 ? 'INCOMPLETE' : 'COMPLETE',
     summary: {
       ...counts,
       impactedCount,
       notImpactedCount,
+      usageNotFoundCount,
+      coverageUnavailableCount,
       notAnalyzedCount,
       breakingFindingCount: impactFindingCount,
       impactedFindingCount,

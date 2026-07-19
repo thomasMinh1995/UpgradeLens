@@ -1,0 +1,1 @@
+upgradelens analyze <target> --offline --progress plain

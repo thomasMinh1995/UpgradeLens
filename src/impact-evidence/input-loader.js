@@ -11,8 +11,10 @@ import {
   EXACT_SYMBOL_MATCHER_VERSION,
   matchFindingToUsage
 } from '../impact/matcher.js';
+import { classifyFindingImpact } from '../impact/status.js';
 import { validateRepositoryImpact } from '../impact/repository-impact.js';
 import { isPortableRelativePath } from '../portable.js';
+import { coverageForProject } from '../usage/coverage.js';
 
 export class ImpactEvidenceInputError extends Error {
   constructor(message, code = 'IMPACT_EVIDENCE_INPUT_INVALID') {
@@ -109,6 +111,8 @@ function validateReferences(versionAnalysis, usageIndex, repositoryImpact) {
     }
     const findings = new Map(versionFindings.map((finding) => [finding.id, finding]));
     const usage = usages.get(`${dependency.projectId}\0${dependency.packageId}`) ?? null;
+    const coverage = dependency.coverage
+      ?? coverageForProject(usageIndex, dependency.projectId, result.dependency.ecosystem);
     for (const impactFinding of dependency.findings) {
       const sourceFinding = findings.get(impactFinding.id);
       if (!sourceFinding) {
@@ -121,6 +125,18 @@ function validateReferences(versionAnalysis, usageIndex, repositoryImpact) {
       const expectedMatches = matchFindingToUsage(sourceFinding, usage);
       if (!sameValue(impactFinding.matches, expectedMatches)) {
         errors.push(`usage match mismatch for ${dependency.analysisResultId}/${impactFinding.id}`);
+      }
+      if (impactFinding.status !== undefined) {
+        const expectedState = classifyFindingImpact({
+          versionStatus: result.status,
+          coverage,
+          usage,
+          matches: expectedMatches
+        });
+        if (impactFinding.status !== expectedState.status
+            || impactFinding.reasonCode !== expectedState.reasonCode) {
+          errors.push(`impact state mismatch for ${dependency.analysisResultId}/${impactFinding.id}`);
+        }
       }
     }
   }

@@ -64,6 +64,38 @@ Run the complete pipeline:
 upgradelens analyze .
 ```
 
+Select a validated caller-owned target without converting other registry
+candidates into recommendations:
+
+```bash
+upgradelens analyze . --target 'package=npm:framework-a,target=2.0.0'
+```
+
+For an ambiguous monorepo occurrence, add the stable occurrence qualifiers:
+
+```bash
+upgradelens analyze . \
+  --target 'package=npm:framework-a,target=2.0.0,project=node:apps/web,manifest=apps/web/package.json,type=dependency'
+```
+
+If the same package is declared more than once with those same qualifiers,
+the ambiguity error supplies one copy/paste-ready selector per declaration:
+
+```bash
+upgradelens analyze . \
+  --target 'package=pypi:library-a,target=2.0.0,project=python:.,manifest=requirements.txt,type=runtime,occurrence=sha256:<candidate-id>'
+```
+
+The optional `occurrence` discriminator is derived from canonical portable
+declaration facts. It does not use array position or an absolute path.
+Existing selectors remain valid when they already resolve one occurrence.
+Stale or conflicting occurrence identifiers fail before provider
+construction.
+
+The repeatable key/value grammar is safe for scoped npm packages and Python
+canonical IDs. Resolution is exact; zero matches, ambiguous matches, and
+ecosystem-invalid targets fail before provider construction.
+
 Use cached research data without registry requests:
 
 ```bash
@@ -132,6 +164,17 @@ Overall analysis status comes only from existing Version Analysis result statuse
 
 `requiresHumanReview` remains an explicit count, but does not by itself make an analyzed result incomplete.
 
+This legacy analysis completeness is diagnostic. The public CLI separately
+projects product completion as `COMPLETED`, `COMPLETED_WITH_REVIEW`, `PARTIAL`,
+or `INSUFFICIENT_DATA`. Fatal pipeline failures and controlled cancellation are
+reported as `FAILED` and `CANCELLED`.
+
+Default `analyze` exits 0 for completed, review-required, and valid
+insufficient-data outcomes; retained provider/output/runtime failures are
+`PARTIAL` and exit 2. `--fail-on-incomplete` also exits 2 for
+`COMPLETED_WITH_REVIEW` and `INSUFFICIENT_DATA`, but never fails only because
+there are zero actions or all occurrences are `KEEP_CURRENT`.
+
 Each dependency occurrence has exactly one presentation status:
 
 - `IMPACTED`: Version Analysis status is `analyzed` and Repository Impact reports `impacted: true`;
@@ -148,7 +191,15 @@ Missing references, identity mismatches, finding-reference mismatches, and incon
 
 ### Console format
 
-The console summary contains:
+The console summary leads with:
+
+- product completion and plain-language next step;
+- decision counts and an occurrence-level installed-to-target table;
+- handoff counts and failed-occurrence recovery guidance;
+- report and artifact paths;
+- legacy impact counts as trailing diagnostics.
+
+The diagnostic section contains:
 
 - repository name from Project Manifest;
 - overall `COMPLETE` or `INCOMPLETE` analysis status;

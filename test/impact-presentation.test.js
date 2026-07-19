@@ -14,6 +14,8 @@ function findingFor(spec) {
     kind: 'breakingChange',
     summary: `${spec.name} API changed.`,
     impacted: spec.impacted,
+    status: spec.impactStatus,
+    reasonCode: spec.impacted ? 'EXACT_SYMBOL_USAGE_FOUND' : 'NO_EXACT_SYMBOL_USAGE_FOUND',
     matches: spec.impacted ? [{ symbol: 'Widget', files: [`src/${spec.name}.js`] }] : []
   };
 }
@@ -26,7 +28,8 @@ function evidenceFor(spec, finding) {
     kind: finding.kind,
     summary: finding.summary,
     impacted: finding.impacted,
-    reasonCode: spec.impacted ? 'EXACT_SYMBOL_USAGE_FOUND' : 'DEPENDENCY_NOT_USED',
+    status: spec.impactStatus,
+    reasonCode: spec.impacted ? 'EXACT_SYMBOL_USAGE_FOUND' : 'NO_EXACT_SYMBOL_USAGE_FOUND',
     matchedSymbols: spec.impacted
       ? [{ symbol: 'Widget', usages: [{ file: `src/${spec.name}.js` }] }]
       : []
@@ -39,6 +42,10 @@ function artifactsFor(specifications) {
     name: spec.name ?? `dependency-${index + 1}`,
     status: spec.status,
     impacted: spec.impacted ?? false,
+    impactStatus: spec.impactStatus
+      ?? (spec.status === 'analyzed'
+        ? (spec.impacted ? 'IMPACTED' : 'NOT_IMPACTED')
+        : 'NOT_ANALYZED'),
     finding: spec.finding ?? false,
     requiresHumanReview: spec.requiresHumanReview ?? spec.status !== 'analyzed',
     internalError: spec.internalError
@@ -96,6 +103,26 @@ function artifactsFor(specifications) {
         packageId: `npm:${spec.name}`,
         name: spec.name,
         impacted: spec.impacted,
+        status: spec.impactStatus,
+        reasonCode: spec.impacted
+          ? 'EXACT_SYMBOL_USAGE_FOUND'
+          : spec.impactStatus === 'NOT_ANALYZED'
+            ? 'VERSION_ANALYSIS_SKIPPED'
+            : 'NO_EXACT_SYMBOL_USAGE_FOUND',
+        coverage: {
+          projectId: 'node:.',
+          projectPath: '.',
+          ecosystem: 'node',
+          status: 'complete',
+          analyzer: { id: 'javascript-typescript', version: '1.0.0' },
+          scannedFileCount: 1,
+          analyzedFileCount: 1,
+          parseFailureCount: 0,
+          analyzerFailureCount: 0,
+          unreadableFileCount: 0,
+          scanFailureCount: 0,
+          reasonCode: 'COVERAGE_COMPLETE'
+        },
         findings: findingPairs[index].impact ? [findingPairs[index].impact] : []
       }))
     },
@@ -121,6 +148,26 @@ function artifactsFor(specifications) {
         packageId: `npm:${spec.name}`,
         name: spec.name,
         impacted: spec.impacted,
+        status: spec.impactStatus,
+        reasonCode: spec.impacted
+          ? 'EXACT_SYMBOL_USAGE_FOUND'
+          : spec.impactStatus === 'NOT_ANALYZED'
+            ? 'VERSION_ANALYSIS_SKIPPED'
+            : 'NO_EXACT_SYMBOL_USAGE_FOUND',
+        coverage: {
+          projectId: 'node:.',
+          projectPath: '.',
+          ecosystem: 'node',
+          status: 'complete',
+          analyzer: { id: 'javascript-typescript', version: '1.0.0' },
+          scannedFileCount: 1,
+          analyzedFileCount: 1,
+          parseFailureCount: 0,
+          analyzerFailureCount: 0,
+          unreadableFileCount: 0,
+          scanFailureCount: 0,
+          reasonCode: 'COVERAGE_COMPLETE'
+        },
         findings: findingPairs[index].evidence ? [findingPairs[index].evidence] : []
       }))
     }
@@ -274,4 +321,33 @@ test('presentation rejects a missing analysisResultId cross-reference', () => {
     () => buildImpactPresentationViewModel(artifacts),
     /Version Analysis result result-1 has no Repository Impact record/
   );
+});
+
+test('legacy impact artifacts without coverage metadata render as coverage-unavailable', () => {
+  const artifacts = artifactsFor([{
+    name: 'legacy-python',
+    status: 'analyzed',
+    finding: true
+  }]);
+  const impact = artifacts.repositoryImpact.dependencies[0];
+  const evidence = artifacts.impactEvidence.dependencies[0];
+  delete impact.status;
+  delete impact.reasonCode;
+  delete impact.coverage;
+  delete impact.findings[0].status;
+  delete impact.findings[0].reasonCode;
+  delete evidence.status;
+  delete evidence.reasonCode;
+  delete evidence.coverage;
+  delete evidence.findings[0].status;
+  evidence.findings[0].reasonCode = 'DEPENDENCY_NOT_USED';
+
+  const viewModel = buildImpactPresentationViewModel(artifacts);
+  const markdown = renderMarkdownReport({ viewModel });
+
+  assert.equal(viewModel.dependencies[0].impactStatus, 'COVERAGE_UNAVAILABLE');
+  assert.equal(viewModel.summary.coverageUnavailableCount, 1);
+  assert.equal(viewModel.summary.notImpactedCount, 0);
+  assert.match(markdown, /COVERAGE_METADATA_MISSING/);
+  assert.doesNotMatch(markdown, /DEPENDENCY_NOT_USED|Impact status: `NOT_IMPACTED`/);
 });

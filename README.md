@@ -4,6 +4,8 @@ UpgradeLens is an upgrade intelligence engine that helps developers understand s
 
 Future MVPs progressively introduce AI-powered knowledge research, version analysis, impact analysis, and migration planning.
 
+The current Migration Checklist application path is experimental and opt-in. It produces human-review drafts, not an autonomous migration plan or safety certification.
+
 MVP-01 focuses only on deterministic project discovery and dependency inventory. It provides a reliable, versioned foundation and contains no AI runtime or reasoning.
 
 ## Why UpgradeLens?
@@ -197,6 +199,124 @@ upgradelens discover /path/to/project --stdout
 ```
 
 Use `upgradelens --help` for all options. The command also accepts a path without the optional `discover` verb.
+
+### Experimental evidence-grounded Migration Checklist
+
+The primary workflow is decision-first:
+
+```sh
+upgradelens analyze /path/to/project
+```
+
+Without a caller-selected target, registry latest remains a candidate fact and
+does not become a recommendation. Select one or more exact dependency
+occurrences with repeatable structured targets:
+
+```sh
+upgradelens analyze /path/to/project \
+  --target 'package=npm:framework-a,target=2.0.0'
+
+upgradelens analyze /path/to/project \
+  --target 'package=npm:@scope/package,target=3.0.0,project=node:apps/web,manifest=apps/web/package.json,type=dependency'
+```
+
+Unqualified selectors that match multiple projects/workspaces fail with stable
+candidate guidance. If declarations still have the same project, manifest, and
+type, copy one exact selector from that guidance:
+
+```sh
+upgradelens analyze /path/to/project \
+  --target 'package=pypi:library-a,target=2.0.0,project=python:.,manifest=requirements.txt,type=runtime,occurrence=sha256:<candidate-id>'
+```
+
+`occurrence` is a deterministic identifier derived from portable declaration
+facts. It is optional when the existing fields already identify one
+occurrence. A stale ID or an ID combined with conflicting package/project/
+manifest/type fields fails before provider construction. Raw version
+constraints are displayed as human guidance but are not embedded in the
+comma-separated selector, so constraints containing commas, equals signs, or
+Python markers remain copy/paste safe.
+
+Targets are validated by the owning ecosystem adapter before provider
+construction. Add `--fail-on-incomplete` when CI should exit 2 for
+review-required or insufficient-data outcomes; retained provider/output
+failures always produce `PARTIAL` and exit 2. `analyze --stdout` emits only
+the machine-readable product completion summary on stdout.
+
+After the normal analysis artifacts are available through the unified pipeline, opt in with:
+
+```sh
+upgradelens analyze /path/to/project --experimental-migration-checklist
+```
+
+This adds the Migration Checklist stage after Repository Impact Evidence and writes:
+
+```text
+.upgradelens/migration-checklist.json
+```
+
+The capability is provider-neutral and reuses the configured UpgradeLens `AiRuntime`. Fake-runtime qualification does not qualify a real provider/model. Until a matching task-specific real-provider qualification exists, the artifact and report identify the output as experimental and require human review for every generated instruction.
+
+The public CLI resolves a persisted Migration Planning v2 qualification from the target repository at:
+
+```text
+.upgradelens/migration-planning-qualification.json
+```
+
+An explicit repository-relative record can be selected with
+`--migration-qualification <path>`. Resolution precedence is programmatic
+injection, explicit CLI path, the default project-local path, then a missing
+decision. The selected source is validated as one complete record; an invalid
+explicit source never falls back. Only a missing default record may use the
+existing experimental override. A corrupted, identity-mismatched, fake, or
+matching `NOT_QUALIFIED` record blocks before provider use.
+
+Persist a completed v2 evaluation qualification through the validated public
+writer rather than copying a partial report:
+
+```js
+import { writeMigrationPlanningQualificationRecord } from 'upgradelens';
+
+await writeMigrationPlanningQualificationRecord(
+  '/path/to/project',
+  evaluationReport.report.qualification
+);
+```
+
+Full-pipeline progress rendering is controlled with
+`--progress auto|interactive|plain`. `auto` selects an append-only interactive
+view for TTYs and stable line-oriented events for non-TTY/CI output. Explicit
+`interactive` remains append-only when redirected, while explicit `plain`
+always stays plain. Every active stage shows its current activity and real
+elapsed time; quiet work emits a rate-limited heartbeat after five seconds.
+Counts appear only when the total is known deterministically. UpgradeLens does
+not infer percentages, ETA, token streaming, or provider “thinking”.
+
+```text
+● Version Analysis [0.0s]
+  ↳ Version Analysis — Waiting for analysis response: react (2/7) [0.1s]
+  … Version Analysis — Waiting for analysis response: react (2/7) [5.1s]
+✓ Version Analysis completed [8.4s]
+```
+
+Plain/CI output uses complete grep-friendly lines:
+
+```text
+[5.1s] STAGE HEARTBEAT id=versionAnalysis detail="Waiting for analysis response: react (2/7)"
+```
+
+The first `SIGINT` requests controlled cancellation, stops heartbeat timers,
+does not start another stage, omits the success summary, and returns exit code
+130. A second interrupt uses the platform's normal immediate-interrupt
+behavior. Activity labels are sanitized and bounded; they never contain raw
+prompts, evidence bodies, repository snippets, request headers, or provider
+error payloads.
+
+Migration Checklist does not generate source edits, code, patches, dependency ordering, inferred prerequisites, rollback plans, effort estimates, numeric confidence, or upgrade-safety claims. Schema v2 may include bounded package-manager verification commands only when they are derived deterministically from existing supported project scripts; AI cannot create or modify them. Each occurrence carries an explicit handoff status, Upgrade Decision identity, affected-area/coverage state, bounded official-evidence metadata, and human-review requirement. `COMPLETE` remains only the legacy checklist-coverage status, never migration completion. Unknown current versions remain unknown, and registry latest remains a registry fact rather than a recommendation.
+
+See [Migration Checklist orchestration](docs/mvp-05-migration-checklist-orchestration.md), [contract](docs/mvp-05-migration-checklist-contract.md), [evaluation/qualification](docs/mvp-05-migration-evaluation-and-qualification.md), and [persisted qualification resolution](docs/migration-planning-qualification-resolution.md).
+The full lifecycle, heartbeat, rendering, privacy, and cancellation behavior is
+documented in the [CLI progress contract](docs/cli-progress.md).
 
 ## JavaScript API
 

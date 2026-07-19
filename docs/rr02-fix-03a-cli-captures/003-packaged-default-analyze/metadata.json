@@ -1,0 +1,24 @@
+{
+  "scenarioId": "PACKAGED-DEFAULT-ANALYZE",
+  "sequence": 3,
+  "purpose": "verify default packaged analysis remains offline and excludes Migration Checklist",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageSource": "fresh working-tree npm tarball",
+  "installedFromTarball": true,
+  "startedAt": "2026-07-17T09:06:41.790Z",
+  "completedAt": "2026-07-17T09:06:42.953Z",
+  "durationMs": 1163,
+  "exitCode": 0,
+  "signal": null,
+  "tty": false,
+  "progressMode": "plain",
+  "offline": true,
+  "realProviderRequests": 0,
+  "rawHasAnsi": false,
+  "cleanHasAnsi": false,
+  "sanitizationPassed": true,
+  "captureComplete": true,
+  "screenshots": [
+    "final-screen.png"
+  ]
+}

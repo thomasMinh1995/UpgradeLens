@@ -9,6 +9,7 @@ export const AI_RUNTIME_CONTRACT_VERSION = '1';
  * @property {string} systemPrompt
  * @property {string} userPrompt
  * @property {{ mode: string, name: string, schema: object }} structuredOutput
+ * @property {AbortSignal=} signal
  */
 
 /**
@@ -148,7 +149,8 @@ export function createHttpJsonAiProvider({
           'content-type': 'application/json',
           ...headers
         },
-        body: JSON.stringify(buildRequestBody(request))
+        body: JSON.stringify(buildRequestBody(request)),
+        ...(request.signal ? { signal: request.signal } : {})
       });
       const text = await response.text();
       if (!response.ok) {
