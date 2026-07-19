@@ -120,7 +120,45 @@ export function resolveDependencyAnalysisInputs(artifacts) {
     .sort((left, right) => compareText(projectDependencyKey(left.project, left.dependency), projectDependencyKey(right.project, right.dependency)));
 }
 
+function installedVersionFacts(adapter, dependency) {
+  if (
+    dependency.installedVersionStatus === 'resolved'
+    && typeof dependency.installedVersion === 'string'
+    && dependency.installedVersionSource
+  ) {
+    const normalized = adapter.normalizeVersion(dependency.installedVersion);
+    if (normalized.ok) {
+      return {
+        installedVersion: normalized.value,
+        installedVersionStatus: 'resolved',
+        installedVersionSource: structuredClone(dependency.installedVersionSource),
+        installedVersionReason: null
+      };
+    }
+  }
+  return {
+    installedVersion: null,
+    installedVersionStatus: 'unresolved',
+    installedVersionSource: null,
+    installedVersionReason: dependency.installedVersionStatus === 'unresolved'
+      && typeof dependency.installedVersionReason === 'string'
+      ? dependency.installedVersionReason
+      : 'RESOLVED_VERSION_UNAVAILABLE'
+  };
+}
+
 export function resolveVersionBaseline(adapter, dependency, options = {}) {
+  const installed = installedVersionFacts(adapter, dependency);
+  if (installed.installedVersionStatus === 'resolved') {
+    return {
+      analysisMode: 'exactBaseline',
+      currentVersion: installed.installedVersion,
+      currentVersionSource: 'resolvedArtifact',
+      declaredConstraint: null,
+      ...installed
+    };
+  }
+
   if (options.currentVersion !== undefined && options.currentVersion !== null) {
     const normalized = adapter.normalizeVersion(options.currentVersion);
     if (!normalized.ok) throw inputError(`Explicit current version is invalid: ${normalized.reason}.`, 'BASELINE_UNSUPPORTED');
@@ -128,7 +166,8 @@ export function resolveVersionBaseline(adapter, dependency, options = {}) {
       analysisMode: 'exactBaseline',
       currentVersion: normalized.value,
       currentVersionSource: 'explicit',
-      declaredConstraint: null
+      declaredConstraint: null,
+      ...installed
     };
   }
 
@@ -138,7 +177,8 @@ export function resolveVersionBaseline(adapter, dependency, options = {}) {
       analysisMode: 'exactBaseline',
       currentVersion: baseline.version,
       currentVersionSource: 'exactDeclaration',
-      declaredConstraint: null
+      declaredConstraint: null,
+      ...installed
     };
   }
   if (baseline.kind === 'declaredConstraint') {
@@ -146,7 +186,8 @@ export function resolveVersionBaseline(adapter, dependency, options = {}) {
       analysisMode: 'declaredConstraint',
       currentVersion: null,
       currentVersionSource: null,
-      declaredConstraint: baseline.constraint
+      declaredConstraint: baseline.constraint,
+      ...installed
     };
   }
   throw inputError(`Dependency ${dependency.name} has unsupported baseline: ${baseline.reason}.`, BASELINE_UNSUPPORTED_WARNING_CODE);
@@ -411,6 +452,10 @@ function buildMissingTargetContext(artifacts, input, baseline, targetPolicy, mes
   const versions = {
     analysisMode: baseline.analysisMode,
     declaredVersion: input.dependency.declaredVersion,
+    installedVersion: baseline.installedVersion,
+    installedVersionStatus: baseline.installedVersionStatus,
+    installedVersionSource: baseline.installedVersionSource,
+    installedVersionReason: baseline.installedVersionReason,
     currentVersion: baseline.currentVersion,
     currentVersionSource: baseline.currentVersionSource,
     targetVersion: null,
@@ -439,7 +484,15 @@ function buildMissingTargetContext(artifacts, input, baseline, targetPolicy, mes
   return contextWithDigest(artifacts, input, versions, knowledge, metadata);
 }
 
-function buildUnsupportedBaselineContext(artifacts, input, target, targetPolicy, baselineMessage, targetMessage) {
+function buildUnsupportedBaselineContext(
+  artifacts,
+  input,
+  installed,
+  target,
+  targetPolicy,
+  baselineMessage,
+  targetMessage
+) {
   const warnings = [
     {
       code: BASELINE_UNSUPPORTED_WARNING_CODE,
@@ -459,6 +512,7 @@ function buildUnsupportedBaselineContext(artifacts, input, target, targetPolicy,
   const versions = {
     analysisMode: 'unsupportedBaseline',
     declaredVersion: input.dependency.declaredVersion,
+    ...installed,
     currentVersion: null,
     currentVersionSource: null,
     targetVersion: target?.targetVersion ?? null,
@@ -492,6 +546,7 @@ export function buildDependencyAiContext(artifacts, request = {}) {
     baseline = resolveVersionBaseline(adapter, input.dependency, { currentVersion: request.currentVersion });
   } catch (error) {
     if (!isUnsupportedBaselineError(error)) throw error;
+    const installed = installedVersionFacts(adapter, input.dependency);
     let target = null;
     let targetMessage = null;
     try {
@@ -503,6 +558,7 @@ export function buildDependencyAiContext(artifacts, request = {}) {
     return buildUnsupportedBaselineContext(
       artifacts,
       input,
+      installed,
       target,
       requestedTargetPolicy,
       error.message,
@@ -533,6 +589,10 @@ export function buildDependencyAiContext(artifacts, request = {}) {
   const versions = {
     analysisMode: baseline.analysisMode,
     declaredVersion: input.dependency.declaredVersion,
+    installedVersion: baseline.installedVersion,
+    installedVersionStatus: baseline.installedVersionStatus,
+    installedVersionSource: baseline.installedVersionSource,
+    installedVersionReason: baseline.installedVersionReason,
     currentVersion: baseline.currentVersion,
     currentVersionSource: baseline.currentVersionSource,
     targetVersion: target.targetVersion,

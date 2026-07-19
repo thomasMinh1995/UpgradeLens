@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://upgradelens.dev/schemas/migration-checklist-extractive-candidate.schema.json",
+  "title": "Migration Checklist Extractive Candidate v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "actions", "abstentionReason"],
+  "properties": {
+    "status": {
+      "enum": ["ACTIONABLE", "ABSTAIN"]
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidenceRef", "actionExcerpt"],
+        "properties": {
+          "evidenceRef": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "actionExcerpt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "abstentionReason": {
+      "enum": [
+        null,
+        "NO_EXPLICIT_ACTION",
+        "AMBIGUOUS_EVIDENCE",
+        "VERSION_SCOPE_UNCLEAR",
+        "CONFLICTING_EVIDENCE"
+      ]
+    }
+  }
+}

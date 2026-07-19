@@ -92,7 +92,45 @@
       "properties": {
         "analyzers": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/analyzer" } },
         "scannedFileCount": { "type": "integer", "minimum": 0 },
-        "analyzedFileCount": { "type": "integer", "minimum": 0 }
+        "analyzedFileCount": { "type": "integer", "minimum": 0 },
+        "coverage": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/projectCoverage" }
+        }
+      }
+    },
+    "projectCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId", "projectPath", "ecosystem", "status", "analyzer",
+        "scannedFileCount", "analyzedFileCount", "parseFailureCount",
+        "analyzerFailureCount", "unreadableFileCount", "scanFailureCount", "reasonCode"
+      ],
+      "properties": {
+        "projectId": { "type": "string", "minLength": 1 },
+        "projectPath": { "$ref": "#/$defs/relativePath" },
+        "ecosystem": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["complete", "partial", "unavailable", "failed"] },
+        "analyzer": {
+          "oneOf": [
+            { "$ref": "#/$defs/analyzer" },
+            { "type": "null" }
+          ]
+        },
+        "scannedFileCount": { "type": "integer", "minimum": 0 },
+        "analyzedFileCount": { "type": "integer", "minimum": 0 },
+        "parseFailureCount": { "type": "integer", "minimum": 0 },
+        "analyzerFailureCount": { "type": "integer", "minimum": 0 },
+        "unreadableFileCount": { "type": "integer", "minimum": 0 },
+        "scanFailureCount": { "type": "integer", "minimum": 0 },
+        "reasonCode": {
+          "enum": [
+            "COVERAGE_COMPLETE", "ANALYZER_UNAVAILABLE", "ANALYZER_AMBIGUOUS",
+            "SOURCE_SCAN_INCOMPLETE", "SOURCE_PARSE_FAILED", "FILE_UNREADABLE",
+            "ANALYZER_FAILED", "MULTIPLE_ANALYSIS_FAILURES"
+          ]
+        }
       }
     },
     "summary": {

@@ -1,0 +1,23 @@
+{
+  "scenarioId": "FIX04-CALIBRATION-REPLAY",
+  "sequence": 1,
+  "purpose": "Exact replay of the initial insufficient no-dependency calibration workload after write-first capture was enabled.",
+  "result": "PASS_HEARTBEAT_REPLAY",
+  "replayOfUnpersistedCalibrationAttempt": true,
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageTarballSha256": "56dc6da33a18392b8dfe6e5409db4e92cb85f4cac49a15cc50d50ff8166fdfa6",
+  "startedAt": "2026-07-17T10:19:54.283Z",
+  "completedAt": "2026-07-17T10:20:12.609Z",
+  "durationMs": 18325,
+  "usageDurationSeconds": 9.3,
+  "exitCode": 0,
+  "signal": null,
+  "tty": true,
+  "progressMode": "auto (resolved interactive)",
+  "captureMethod": "real-pty-typescript",
+  "realProviderRequests": 0,
+  "heartbeatExpected": true,
+  "heartbeatObserved": true,
+  "sanitizationPassed": true,
+  "captureComplete": true
+}

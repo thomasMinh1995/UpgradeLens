@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "rr02-fix-03a-cli-captures.v1",
+  "generatedAt": "2026-07-17T09:06:43.431Z",
+  "packageIdentity": "upgradelens@0.4.0",
+  "packageTarballSha1": "f9e6ee764cd47dc71e86a57fa66c29375b35250f",
+  "packageTarballSha256": "f3f18ef80ec196e8dec38e3358feddf028e9a2bdae14d5971f7da7b5716c06c9",
+  "cliInvocationsRepresented": 3,
+  "entries": [
+    {
+      "scenarioId": "PACKAGED-VERSION",
+      "sequence": 1,
+      "purpose": "identify the clean-installed packaged CLI",
+      "commandFile": "001-packaged-version/command.txt",
+      "environmentFile": "001-packaged-version/environment.json",
+      "rawTranscript": "001-packaged-version/transcript.raw.txt",
+      "cleanTranscript": "001-packaged-version/transcript.clean.txt",
+      "metadataFile": "001-packaged-version/metadata.json",
+      "screenshots": [
+        "001-packaged-version/final-screen.png"
+      ],
+      "exitCode": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "PACKAGED-HELP",
+      "sequence": 2,
+      "purpose": "verify the packaged public help surface",
+      "commandFile": "002-packaged-help/command.txt",
+      "environmentFile": "002-packaged-help/environment.json",
+      "rawTranscript": "002-packaged-help/transcript.raw.txt",
+      "cleanTranscript": "002-packaged-help/transcript.clean.txt",
+      "metadataFile": "002-packaged-help/metadata.json",
+      "screenshots": [
+        "002-packaged-help/final-screen.png"
+      ],
+      "exitCode": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    },
+    {
+      "scenarioId": "PACKAGED-DEFAULT-ANALYZE",
+      "sequence": 3,
+      "purpose": "verify default packaged analysis remains offline and excludes Migration Checklist",
+      "commandFile": "003-packaged-default-analyze/command.txt",
+      "environmentFile": "003-packaged-default-analyze/environment.json",
+      "rawTranscript": "003-packaged-default-analyze/transcript.raw.txt",
+      "cleanTranscript": "003-packaged-default-analyze/transcript.clean.txt",
+      "metadataFile": "003-packaged-default-analyze/metadata.json",
+      "screenshots": [
+        "003-packaged-default-analyze/final-screen.png"
+      ],
+      "exitCode": 0,
+      "sanitizationPassed": true,
+      "captureComplete": true
+    }
+  ],
+  "assertions": {
+    "allInvocationsRepresented": true,
+    "allExitCodesExpected": true,
+    "allFinalScreensPresent": true,
+    "defaultAnalyzeCompleted": true,
+    "defaultAnalyzeExcludedMigrationChecklist": true,
+    "realProviderRequests": 0
+  }
+}

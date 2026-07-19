@@ -1,0 +1,10 @@
+{
+  "packageIdentity": "upgradelens@0.4.0",
+  "installKind": "fresh isolated tarball install with exact local dependency tarballs",
+  "tty": true,
+  "terminalColumns": 80,
+  "terminalRows": 24,
+  "offline": true,
+  "providerConfigured": false,
+  "privateEndpointConfigured": false
+}

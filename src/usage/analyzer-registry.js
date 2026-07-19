@@ -53,6 +53,9 @@ export function createUsageAnalyzerRegistry(analyzers = []) {
   return Object.freeze({
     analyzers: () => [...byId.values()],
     extensions: () => [...new Set([...byCapability.keys()].map((key) => key.split('\0')[1]))].sort(),
+    forEcosystem(ecosystem) {
+      return [...byId.values()].filter((analyzer) => analyzer.ecosystems.includes(ecosystem));
+    },
     find(ecosystem, filePath) {
       return byCapability.get(`${ecosystem}\0${path.extname(filePath).toLowerCase()}`) ?? null;
     }

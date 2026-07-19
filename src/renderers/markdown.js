@@ -1,9 +1,58 @@
+import { renderMigrationChecklistMarkdownSection } from '../migration-checklist/presentation.js';
+import { renderUpgradeDecisionMarkdownSection } from '../upgrade-decision/presentation.js';
+
 function inlineCode(value) {
   return `\`${String(value).replaceAll('`', '\\`')}\``;
 }
 
 function headingText(value) {
   return String(value).replace(/[\r\n]+/g, ' ').replaceAll('\\', '\\\\').replaceAll('#', '\\#');
+}
+
+function tableText(value) {
+  return String(value).replaceAll('|', '\\|').replace(/[\r\n]+/g, ' ');
+}
+
+function renderProductCompletion(completion) {
+  const labels = {
+    KEEP_CURRENT: 'Keep current',
+    UPGRADE_NOW: 'Upgrade now',
+    PLAN_UPGRADE: 'Plan upgrade',
+    INVESTIGATE: 'Investigate',
+    INSUFFICIENT_EVIDENCE: 'Insufficient evidence',
+    NOT_ANALYZED: 'Not analyzed'
+  };
+  const lines = [
+    '## Product Outcome',
+    '',
+    `- Overall: ${inlineCode(completion.status)}`,
+    `- Next step: ${completion.nextStep}`,
+    `- Human-review occurrences: ${completion.reviewRequiredCount}`,
+    '',
+    '## Dependency Decisions',
+    '',
+    '| Dependency occurrence | Installed → Target | Decision | Risk / coverage | Why / next step |',
+    '| --- | --- | --- | --- | --- |'
+  ];
+  for (const decision of completion.decisions) {
+    lines.push(
+      `| ${inlineCode(`${decision.dependency} — ${decision.projectId}`)} | `
+      + `${inlineCode(`${decision.installedVersion ?? 'unknown'} → ${decision.targetVersion ?? 'unknown'}`)} | `
+      + `${tableText(labels[decision.decision])} | ${tableText(decision.coverage)} | `
+      + `${tableText(decision.explanation)} Next: ${tableText(decision.nextStep)} |`
+    );
+  }
+  if (completion.failedOccurrences.length > 0) {
+    lines.push('', '## Failed Dependency Occurrences', '');
+    for (const failure of completion.failedOccurrences) {
+      lines.push(
+        `- ${inlineCode(`${failure.dependency} — ${failure.projectId}`)}: `
+        + `${failure.stage}. ${failure.recovery}`
+      );
+    }
+  }
+  lines.push('');
+  return lines;
 }
 
 function requireViewModel(viewModel) {
@@ -17,7 +66,7 @@ function renderFinding(finding) {
     `#### ${headingText(finding.summary)}`,
     '',
     `- Finding ID: ${inlineCode(finding.findingId)}`,
-    `- Impacted: ${finding.impacted ? 'Yes' : 'No'}`,
+    `- Impact status: ${inlineCode(finding.status ?? (finding.impacted ? 'IMPACTED' : 'COVERAGE_UNAVAILABLE'))}`,
     `- Evidence reason: ${inlineCode(finding.reasonCode)}`
   ];
   if (finding.matchedSymbols.length === 0) {
@@ -38,12 +87,14 @@ function renderDependency(dependency) {
     `### ${inlineCode(dependency.name)} (${inlineCode(dependency.packageId)})`,
     '',
     `- Impact status: ${inlineCode(dependency.impactStatus)}`,
+    `- Impact reason: ${inlineCode(dependency.impactReasonCode ?? 'NONE')}`,
     `- Version Analysis status: ${inlineCode(dependency.versionAnalysisStatus)}`,
     ''
   ];
-  if (dependency.impactStatus === 'NOT_ANALYZED') {
+  if (['NOT_ANALYZED', 'COVERAGE_UNAVAILABLE', 'USAGE_NOT_FOUND'].includes(dependency.impactStatus)
+      && dependency.message) {
     lines.push(dependency.message, '');
-    return lines;
+    if (dependency.impactStatus === 'NOT_ANALYZED') return lines;
   }
   if (dependency.findings.length === 0) {
     lines.push('No breaking findings.', '');
@@ -53,12 +104,18 @@ function renderDependency(dependency) {
   return lines;
 }
 
-export function renderMarkdownReport({ viewModel }) {
+export function renderMarkdownReport({
+  viewModel,
+  upgradeDecision,
+  migrationChecklistViewModel,
+  completion
+}) {
   requireViewModel(viewModel);
   const summary = viewModel.summary;
   const lines = [
     '# UpgradeLens Repository Impact Report',
     '',
+    ...(completion ? renderProductCompletion(completion) : []),
     '## Repository',
     '',
     inlineCode(viewModel.repositoryName),
@@ -73,7 +130,10 @@ export function renderMarkdownReport({ viewModel }) {
     ''
   ];
   if (viewModel.analysisStatus === 'INCOMPLETE') {
-    lines.push('> Impact conclusions are incomplete because some dependencies were not analyzed.', '');
+    lines.push(
+      '> Impact conclusions are incomplete because usage coverage is unavailable or some dependencies were not analyzed.',
+      ''
+    );
   }
   lines.push(
     '## Summary',
@@ -87,6 +147,8 @@ export function renderMarkdownReport({ viewModel }) {
     `| Requires human review | ${summary.requiresHumanReviewCount} |`,
     `| Impacted | ${summary.impactedCount} |`,
     `| Not impacted | ${summary.notImpactedCount} |`,
+    `| Usage not found | ${summary.usageNotFoundCount} |`,
+    `| Coverage unavailable | ${summary.coverageUnavailableCount} |`,
     `| Not analyzed | ${summary.notAnalyzedCount} |`,
     `| Breaking findings | ${summary.breakingFindingCount} |`,
     `| Impacted findings | ${summary.impactedFindingCount} |`,
@@ -98,5 +160,12 @@ export function renderMarkdownReport({ viewModel }) {
   );
   if (viewModel.dependencies.length === 0) lines.push('No dependency impact records.', '');
   else for (const dependency of viewModel.dependencies) lines.push(...renderDependency(dependency));
-  return `${lines.join('\n')}\n`;
+  let output = `${lines.join('\n')}\n`;
+  if (upgradeDecision) {
+    output += `\n${renderUpgradeDecisionMarkdownSection(upgradeDecision)}`;
+  }
+  if (migrationChecklistViewModel) {
+    output += `\n${renderMigrationChecklistMarkdownSection({ viewModel: migrationChecklistViewModel })}`;
+  }
+  return output;
 }

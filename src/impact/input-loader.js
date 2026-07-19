@@ -89,6 +89,23 @@ function validateUsageReferences(versionAnalysis, usageIndex) {
   }
 }
 
+function validateCoverageReferences(projectManifest, usageIndex) {
+  if (!usageIndex.analysis.coverage) return;
+  const projects = new Map(projectManifest.projects.map((project) => [project.id, project]));
+  const errors = [];
+  for (const coverage of usageIndex.analysis.coverage) {
+    const project = projects.get(coverage.projectId);
+    if (!project) {
+      errors.push(`${coverage.projectId} coverage references an unknown project`);
+    } else if (coverage.projectPath !== project.path || coverage.ecosystem !== project.ecosystem) {
+      errors.push(`${coverage.projectId} coverage project identity does not match Project Manifest`);
+    }
+  }
+  if (errors.length > 0) {
+    throw new ImpactAnalysisInputError(`invalid Usage Index coverage references: ${errors.sort().join('; ')}.`);
+  }
+}
+
 export async function loadImpactAnalysisInputs(sources, options = {}) {
   if (!sources?.projectManifest || !sources?.versionAnalysis || !sources?.usageIndex) {
     throw new ImpactAnalysisInputError('projectManifest, versionAnalysis, and usageIndex sources are required.');
@@ -122,6 +139,7 @@ export async function loadImpactAnalysisInputs(sources, options = {}) {
   }
   validateLineage(base.input, usageIndex);
   validateUsageReferences(base.versionAnalysis, usageIndex);
+  validateCoverageReferences(base.projectManifest, usageIndex);
 
   return {
     projectManifest: base.projectManifest,

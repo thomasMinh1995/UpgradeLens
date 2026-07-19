@@ -1,0 +1,12 @@
+{
+  "packageIdentity": "upgradelens@0.4.0",
+  "installKind": "isolated tarball install",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v26.0.0",
+  "tty": false,
+  "noColor": true,
+  "offline": true,
+  "providerConfigured": false,
+  "privateEndpointConfigured": false
+}

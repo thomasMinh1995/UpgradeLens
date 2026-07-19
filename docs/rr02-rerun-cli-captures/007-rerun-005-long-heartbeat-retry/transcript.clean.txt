@@ -1,0 +1,51 @@
+Running UpgradeLens Analysis (7 stages)...
+START Project Discovery [0.0s]
+WORKING Project Discovery — Discovering project manifests [0.0s]
+WORKING Project Discovery — Writing Project Manifest [3.0s]
+DONE Project Discovery completed [3.1s]
+START Knowledge Research [0.0s]
+WORKING Knowledge Research — Researching dependency metadata [0.0s]
+WORKING Knowledge Research — Validated Knowledge Research artifacts [0.1s]
+DONE Knowledge Research completed [0.1s]
+START Version Analysis [0.0s]
+WORKING Version Analysis — Preparing dependency analysis [0.0s]
+DONE Version Analysis completed [0.0s]
+START Repository Usage Discovery [0.0s]
+WORKING Repository Usage Discovery — Scanning supported source files [0.0s]
+WORKING Repository Usage Discovery — Writing Repository Usage Index [8.4s]
+DONE Repository Usage Discovery completed [8.4s]
+START Repository Impact Analysis [0.0s]
+WORKING Repository Impact Analysis — Matching repository impact [0.0s]
+WORKING Repository Impact Analysis — Writing Repository Impact artifact [0.0s]
+DONE Repository Impact Analysis completed [0.1s]
+START Repository Impact Evidence [0.0s]
+WORKING Repository Impact Evidence — Validating repository impact evidence [0.0…
+WORKING Repository Impact Evidence — Writing Repository Impact Evidence artifac…
+DONE Repository Impact Evidence completed [0.1s]
+START Markdown Report [0.0s]
+WORKING Markdown Report — Rendering Markdown report [0.0s]
+WORKING Markdown Report — Writing Markdown report [0.0s]
+DONE Markdown Report completed [0.0s]
+Analysis completed: 7/7 stages completed.
+Repository
+
+slow-heartbeat
+
+Analysis status: COMPLETE
+
+Dependencies: 0
+Analyzed: 0
+Skipped: 0
+Failed: 0
+Requires human review: 0
+
+Impacted: 0
+Not impacted: 0
+Not analyzed: 0
+
+Breaking findings: 0
+Evidence records: 0
+
+Markdown Report
+
+.upgradelens/repository-impact.md

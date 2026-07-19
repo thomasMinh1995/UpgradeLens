@@ -212,6 +212,35 @@ export function validateVersionAnalysisManifestInvariants(manifest) {
     if (result.confidence.requiresHumanReview !== result.requiresHumanReview) {
       errors.push(`Result ${result.id} confidence.requiresHumanReview does not match requiresHumanReview.`);
     }
+    const versions = result.versions;
+    const installedFields = [
+      'installedVersion',
+      'installedVersionStatus',
+      'installedVersionSource',
+      'installedVersionReason'
+    ];
+    const installedFieldCount = installedFields.filter((field) => field in versions).length;
+    if (installedFieldCount !== 0 && installedFieldCount !== installedFields.length) {
+      errors.push(`Result ${result.id} has an incomplete installed-version baseline.`);
+    } else if (versions.installedVersionStatus === 'resolved') {
+      if (
+        versions.currentVersion !== versions.installedVersion
+        || versions.currentVersionSource !== 'resolvedArtifact'
+        || versions.installedVersionSource === null
+        || versions.installedVersionReason !== null
+      ) {
+        errors.push(`Result ${result.id} does not preserve its resolved installed-version baseline.`);
+      }
+    } else if (
+      versions.installedVersionStatus === 'unresolved'
+      && (
+        versions.installedVersion !== null
+        || versions.installedVersionSource !== null
+        || versions.installedVersionReason === null
+      )
+    ) {
+      errors.push(`Result ${result.id} has inconsistent unresolved installed-version fields.`);
+    }
   }
 
   addMismatch(errors, 'analysis.resultCount', manifest.analysis?.resultCount, results.length);

@@ -392,6 +392,7 @@ export function humanReviewPolicy({
 
 export async function analyzeDependencyAiContext(context, {
   runtime,
+  signal,
   runId = `run:${context.contextId}`,
   promptVersion = VERSION_ANALYSIS_PROMPT_VERSION,
   outputSchema = AI_VERSION_ANALYSIS_CANDIDATE_SCHEMA
@@ -445,7 +446,8 @@ export async function analyzeDependencyAiContext(context, {
         mode: 'jsonSchema',
         name: VERSION_ANALYSIS_SCHEMA_NAME,
         schema: outputSchema
-      }
+      },
+      ...(signal ? { signal } : {})
     });
   } catch (error) {
     const code = isAiRuntimeError(error) ? error.code : 'UNKNOWN';

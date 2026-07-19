@@ -82,6 +82,22 @@ function directArtifacts() {
       ]
     },
     usageIndex: {
+      analysis: {
+        coverage: [{
+          projectId: 'node:.',
+          projectPath: '.',
+          ecosystem: 'node',
+          status: 'complete',
+          analyzer: { id: 'javascript-typescript', version: '1.0.0' },
+          scannedFileCount: 3,
+          analyzedFileCount: 3,
+          parseFailureCount: 0,
+          analyzerFailureCount: 0,
+          unreadableFileCount: 0,
+          scanFailureCount: 0,
+          reasonCode: 'COVERAGE_COMPLETE'
+        }]
+      },
       dependencies: [
         {
           projectId: 'node:.',
@@ -147,11 +163,16 @@ test('runtime reports impacted and non-impacted dependencies while retaining all
     findingCount: 4,
     impactedFindingCount: 2,
     matchCount: 2,
-    affectedFileCount: 3
+    affectedFileCount: 3,
+    notImpactedDependencyCount: 0,
+    usageNotFoundDependencyCount: 1,
+    coverageUnavailableDependencyCount: 0,
+    notAnalyzedDependencyCount: 0
   });
   const antd = impact.dependencies.find((dependency) => dependency.packageId === 'npm:antd');
   const lodash = impact.dependencies.find((dependency) => dependency.packageId === 'npm:lodash');
   assert.equal(antd.impacted, true);
+  assert.equal(antd.status, 'IMPACTED');
   assert.deepEqual(antd.findings.map((item) => [item.id, item.impacted]), [
     ['button-removed', true],
     ['modal-info-removed', true],
@@ -162,20 +183,23 @@ test('runtime reports impacted and non-impacted dependencies while retaining all
     files: ['src/Dialog.tsx', 'src/Settings.tsx']
   }]);
   assert.equal(lodash.impacted, false);
+  assert.equal(lodash.status, 'USAGE_NOT_FOUND');
   assert.deepEqual(lodash.findings, [{
     id: 'map-removed',
     kind: 'breakingChange',
     summary: 'map was removed.',
     impacted: false,
+    status: 'USAGE_NOT_FOUND',
+    reasonCode: 'USAGE_NOT_FOUND',
     matches: []
   }]);
 });
 
-test('dependency absent from Usage Index is deterministically not impacted', () => {
-  const { versionAnalysis } = directArtifacts();
+test('dependency absent from a completely covered Usage Index is usage-not-found, not not-impacted', () => {
+  const { versionAnalysis, usageIndex } = directArtifacts();
   const impact = analyzeRepositoryImpact({
     versionAnalysis,
-    usageIndex: { dependencies: [] },
+    usageIndex: { ...usageIndex, dependencies: [] },
     input: lineage(),
     clock: () => new Date('2026-07-16T00:00:00.000Z')
   });
@@ -183,6 +207,7 @@ test('dependency absent from Usage Index is deterministically not impacted', () 
   assert.equal(impact.summary.impacted, false);
   assert.equal(impact.summary.impactedDependencyCount, 0);
   assert.ok(impact.dependencies.every((dependency) => dependency.impacted === false));
+  assert.ok(impact.dependencies.every((dependency) => dependency.status === 'USAGE_NOT_FOUND'));
 });
 
 test('output is deterministic when dependency, finding, and symbol order changes', () => {

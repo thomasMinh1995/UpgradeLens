@@ -97,7 +97,10 @@
         "DEPENDENCY_NOT_USED": { "type": "integer", "minimum": 0 },
         "EXACT_SYMBOL_USAGE_FOUND": { "type": "integer", "minimum": 0 },
         "NO_EXACT_SYMBOL_USAGE_FOUND": { "type": "integer", "minimum": 0 },
-        "NO_MATCHABLE_SYMBOL_FOUND": { "type": "integer", "minimum": 0 }
+        "NO_MATCHABLE_SYMBOL_FOUND": { "type": "integer", "minimum": 0 },
+        "USAGE_NOT_FOUND": { "type": "integer", "minimum": 0 },
+        "COVERAGE_UNAVAILABLE": { "type": "integer", "minimum": 0 },
+        "NOT_ANALYZED": { "type": "integer", "minimum": 0 }
       }
     },
     "summary": {
@@ -146,8 +149,18 @@
         "kind": { "const": "breakingChange" },
         "summary": { "type": "string", "minLength": 1 },
         "impacted": { "type": "boolean" },
+        "status": {
+          "enum": ["IMPACTED", "NOT_IMPACTED", "USAGE_NOT_FOUND", "COVERAGE_UNAVAILABLE", "NOT_ANALYZED"]
+        },
         "reasonCode": {
-          "enum": ["DEPENDENCY_NOT_USED", "EXACT_SYMBOL_USAGE_FOUND", "NO_EXACT_SYMBOL_USAGE_FOUND", "NO_MATCHABLE_SYMBOL_FOUND"]
+          "enum": [
+            "DEPENDENCY_NOT_USED", "EXACT_SYMBOL_USAGE_FOUND", "NO_EXACT_SYMBOL_USAGE_FOUND",
+            "NO_MATCHABLE_SYMBOL_FOUND", "USAGE_NOT_FOUND", "COVERAGE_UNAVAILABLE", "NOT_ANALYZED",
+            "VERSION_ANALYSIS_SKIPPED", "VERSION_ANALYSIS_FAILED", "COVERAGE_COMPLETE",
+            "ANALYZER_UNAVAILABLE", "ANALYZER_AMBIGUOUS", "SOURCE_SCAN_INCOMPLETE",
+            "SOURCE_PARSE_FAILED", "FILE_UNREADABLE", "ANALYZER_FAILED",
+            "MULTIPLE_ANALYSIS_FAILURES", "COVERAGE_METADATA_MISSING"
+          ]
         },
         "matchedSymbols": { "type": "array", "items": { "$ref": "#/$defs/matchedSymbol" } }
       }
@@ -162,8 +175,58 @@
         "packageId": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
         "impacted": { "type": "boolean" },
+        "status": {
+          "enum": ["IMPACTED", "NOT_IMPACTED", "USAGE_NOT_FOUND", "COVERAGE_UNAVAILABLE", "NOT_ANALYZED"]
+        },
+        "reasonCode": { "$ref": "#/$defs/impactReasonCode" },
+        "coverage": { "$ref": "#/$defs/usageCoverage" },
         "findings": { "type": "array", "items": { "$ref": "#/$defs/findingEvidence" } }
       }
+    },
+    "usageCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectId", "projectPath", "ecosystem", "status", "analyzer",
+        "scannedFileCount", "analyzedFileCount", "parseFailureCount",
+        "analyzerFailureCount", "unreadableFileCount", "scanFailureCount", "reasonCode"
+      ],
+      "properties": {
+        "projectId": { "type": "string", "minLength": 1 },
+        "projectPath": { "type": ["string", "null"] },
+        "ecosystem": { "type": ["string", "null"] },
+        "status": { "enum": ["complete", "partial", "unavailable", "failed"] },
+        "analyzer": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "version"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "version": { "type": "string", "minLength": 1 }
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "scannedFileCount": { "type": "integer", "minimum": 0 },
+        "analyzedFileCount": { "type": "integer", "minimum": 0 },
+        "parseFailureCount": { "type": "integer", "minimum": 0 },
+        "analyzerFailureCount": { "type": "integer", "minimum": 0 },
+        "unreadableFileCount": { "type": "integer", "minimum": 0 },
+        "scanFailureCount": { "type": "integer", "minimum": 0 },
+        "reasonCode": { "type": "string", "minLength": 1 }
+      }
+    },
+    "impactReasonCode": {
+      "enum": [
+        "EXACT_SYMBOL_USAGE_FOUND", "NO_EXACT_SYMBOL_USAGE_FOUND", "NO_MATCHABLE_SYMBOL_FOUND",
+        "USAGE_NOT_FOUND", "VERSION_ANALYSIS_SKIPPED", "VERSION_ANALYSIS_FAILED",
+        "COVERAGE_COMPLETE", "ANALYZER_UNAVAILABLE", "ANALYZER_AMBIGUOUS",
+        "SOURCE_SCAN_INCOMPLETE", "SOURCE_PARSE_FAILED", "FILE_UNREADABLE",
+        "ANALYZER_FAILED", "MULTIPLE_ANALYSIS_FAILURES", "COVERAGE_METADATA_MISSING"
+      ]
     }
   }
 }

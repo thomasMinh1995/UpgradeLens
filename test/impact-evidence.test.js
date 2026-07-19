@@ -111,6 +111,22 @@ function directArtifacts() {
       ]
     },
     usageIndex: {
+      analysis: {
+        coverage: [{
+          projectId: 'node:.',
+          projectPath: '.',
+          ecosystem: 'node',
+          status: 'complete',
+          analyzer: { id: 'javascript-typescript', version: '1.0.0' },
+          scannedFileCount: 5,
+          analyzedFileCount: 5,
+          parseFailureCount: 0,
+          analyzerFailureCount: 0,
+          unreadableFileCount: 0,
+          scanFailureCount: 0,
+          reasonCode: 'COVERAGE_COMPLETE'
+        }]
+      },
       dependencies: [
         {
           projectId: 'node:.',
@@ -180,15 +196,18 @@ test('preserves multiple symbols and every impacted and non-impacted finding', (
     usageRecordCount: 6,
     affectedFileCount: 4,
     reasonCounts: {
-      DEPENDENCY_NOT_USED: 1,
+      DEPENDENCY_NOT_USED: 0,
       EXACT_SYMBOL_USAGE_FOUND: 2,
       NO_EXACT_SYMBOL_USAGE_FOUND: 1,
-      NO_MATCHABLE_SYMBOL_FOUND: 1
+      NO_MATCHABLE_SYMBOL_FOUND: 1,
+      USAGE_NOT_FOUND: 1,
+      COVERAGE_UNAVAILABLE: 0,
+      NOT_ANALYZED: 0
     }
   });
 });
 
-test('uses deterministic reason codes for no exact match, unused dependency, and no matchable symbol', () => {
+test('uses deterministic reason codes for verified no match, missing usage, and no matchable symbol', () => {
   const evidence = generateRepositoryImpactEvidence({
     ...directArtifacts(),
     input: inputLineage()
@@ -198,7 +217,7 @@ test('uses deterministic reason codes for no exact match, unused dependency, and
   )));
 
   assert.equal(reasons.get('table-removed'), 'NO_EXACT_SYMBOL_USAGE_FOUND');
-  assert.equal(reasons.get('map-removed'), 'DEPENDENCY_NOT_USED');
+  assert.equal(reasons.get('map-removed'), 'USAGE_NOT_FOUND');
   assert.equal(reasons.get('export-changed'), 'NO_MATCHABLE_SYMBOL_FOUND');
 });
 

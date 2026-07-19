@@ -1,0 +1,51 @@
+[0.0s] RUN START stages=7
+[0.0s] STAGE START id=projectDiscovery label="Project Discovery"
+[0.0s] STAGE ACTIVITY id=projectDiscovery kind=DISCOVER_PROJECT_MANIFESTS detai…
+[0.0s] STAGE ACTIVITY id=projectDiscovery kind=WRITE_PROJECT_MANIFEST detail="W…
+[0.0s] STAGE COMPLETE id=projectDiscovery label="Project Discovery"
+[0.0s] STAGE START id=knowledgeResearch label="Knowledge Research"
+[0.0s] STAGE ACTIVITY id=knowledgeResearch kind=RESEARCH_DEPENDENCY_METADATA de…
+[0.0s] STAGE ACTIVITY id=knowledgeResearch kind=WRITE_KNOWLEDGE_ARTIFACTS detai…
+[0.0s] STAGE COMPLETE id=knowledgeResearch label="Knowledge Research"
+[0.0s] STAGE START id=versionAnalysis label="Version Analysis"
+[0.0s] STAGE ACTIVITY id=versionAnalysis kind=PREPARE_DEPENDENCY_ANALYSIS detai…
+[0.0s] STAGE COMPLETE id=versionAnalysis label="Version Analysis"
+[0.0s] STAGE START id=usageDiscovery label="Repository Usage Discovery"
+[0.0s] STAGE ACTIVITY id=usageDiscovery kind=SCAN_SUPPORTED_SOURCE detail="Scan…
+[0.0s] STAGE ACTIVITY id=usageDiscovery kind=WRITE_USAGE_INDEX detail="Writing …
+[0.0s] STAGE COMPLETE id=usageDiscovery label="Repository Usage Discovery"
+[0.0s] STAGE START id=impactAnalysis label="Repository Impact Analysis"
+[0.0s] STAGE ACTIVITY id=impactAnalysis kind=MATCH_REPOSITORY_IMPACT detail="Ma…
+[0.0s] STAGE ACTIVITY id=impactAnalysis kind=WRITE_REPOSITORY_IMPACT detail="Wr…
+[0.0s] STAGE COMPLETE id=impactAnalysis label="Repository Impact Analysis"
+[0.0s] STAGE START id=impactEvidence label="Repository Impact Evidence"
+[0.0s] STAGE ACTIVITY id=impactEvidence kind=VALIDATE_IMPACT_EVIDENCE detail="V…
+[0.0s] STAGE ACTIVITY id=impactEvidence kind=WRITE_IMPACT_EVIDENCE detail="Writ…
+[0.0s] STAGE COMPLETE id=impactEvidence label="Repository Impact Evidence"
+[0.0s] STAGE START id=markdownReport label="Markdown Report"
+[0.0s] STAGE ACTIVITY id=markdownReport kind=RENDER_MARKDOWN_REPORT detail="Ren…
+[0.0s] STAGE ACTIVITY id=markdownReport kind=WRITE_MARKDOWN_REPORT detail="Writ…
+[0.0s] STAGE COMPLETE id=markdownReport label="Markdown Report"
+[0.1s] RUN COMPLETE completed=7/7 failed=0 skipped=0
+Repository
+
+default-plain-tty
+
+Analysis status: COMPLETE
+
+Dependencies: 0
+Analyzed: 0
+Skipped: 0
+Failed: 0
+Requires human review: 0
+
+Impacted: 0
+Not impacted: 0
+Not analyzed: 0
+
+Breaking findings: 0
+Evidence records: 0
+
+Markdown Report
+
+.upgradelens/repository-impact.md

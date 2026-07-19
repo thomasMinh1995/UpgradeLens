@@ -18,8 +18,11 @@ import {
   QUALIFICATION_RECORD_FILENAME,
   DEFAULT_VERSION_ANALYSIS_PATH,
   DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH,
+  DEFAULT_UPGRADE_DECISION_PATH,
   DEFAULT_REPOSITORY_IMPACT_PATH,
   DEFAULT_REPOSITORY_IMPACT_REPORT_PATH,
+  DEFAULT_MIGRATION_CHECKLIST_PATH,
+  DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH,
   DEFAULT_USAGE_INDEX_PATH,
   PRODUCT_NAME,
   VERSION
@@ -88,7 +91,12 @@ import { runImpactEvidenceGeneration } from './impact-evidence/runtime.js';
 import { writeRepositoryImpactEvidence } from './impact-evidence/writer.js';
 import { runImpactAnalysis } from './impact/runtime.js';
 import { writeRepositoryImpact } from './impact/writer.js';
-import { PipelineStageError, runAnalysisPipeline } from './orchestration/pipeline.js';
+import {
+  PipelineCancellationError,
+  PipelineStageError,
+  createAnalysisStages,
+  runAnalysisPipeline
+} from './orchestration/pipeline.js';
 import { writeAnalysisFailureLog } from './orchestration/failure-log.js';
 import { createProgressReporter } from './orchestration/progress-reporter.js';
 import { writeTextArtifact } from './orchestration/text-writer.js';
@@ -101,6 +109,15 @@ import { buildImpactPresentationViewModel } from './renderers/impact-presentatio
 import { renderMarkdownReport } from './renderers/markdown.js';
 import { isPortableRelativePath } from './portable.js';
 import {
+  buildProductCompletion,
+  productCompletionExitCode
+} from './product-completion.js';
+import {
+  parseTargetSelector,
+  resolveTargetSelectors,
+  targetOccurrenceKey
+} from './target-selector.js';
+import {
   DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH,
   loadVersionAnalysisArtifacts
 } from './version-analysis-loader.js';
@@ -108,10 +125,14 @@ import { buildVersionAnalysisManifest } from './version-analysis-manifest.js';
 import { serializeVersionAnalysisManifest, writeVersionAnalysisManifest } from './version-analysis-writer.js';
 import { runUsageDiscovery } from './usage/runtime.js';
 import { writeUsageIndex } from './usage/writer.js';
+import { runMigrationChecklistStage } from './migration-checklist/runtime.js';
+import { runUpgradeDecisionStage } from './upgrade-decision/runtime.js';
+import { resolveMigrationQualification } from './migration-checklist/qualification-resolution.js';
 
 const HELP = `${PRODUCT_NAME} ${VERSION}
 
-Analyze a repository or run an individual UpgradeLens stage.
+Decide whether evaluated dependency targets should be kept, planned, or investigated.
+The default registry candidate is a fact, not an upgrade recommendation.
 
 Usage:
   ${CLI_NAME} analyze <repository> [options]
@@ -128,6 +149,27 @@ Usage:
 Analyze options:
       --offline         Use fresh research cache entries only; never request registries
       --max-depth <n>   Maximum directory depth for discovery and usage scanning
+      --target <selector>
+                        Select a caller-owned target. Repeatable.
+                        Required fields: package=<canonical-id>,target=<version>
+                        Optional occurrence fields: project,manifest,type,occurrence
+                        occurrence is a stable sha256 ID shown in ambiguity guidance
+                        Example: package=npm:react,target=20.0.0
+                        Scoped example: package=npm:@scope/pkg,target=3.0.0
+      --fail-on-incomplete
+                        Exit 2 for review-required or insufficient-data outcomes.
+                        Partial provider/output/runtime results always exit 2.
+      --stdout          Print only the machine-readable product completion summary
+      --experimental-migration-checklist
+                        Generate an evidence-grounded migration checklist.
+                        Experimental. Every migration action requires human review.
+      --migration-qualification <path>
+                        Migration Planning v2 qualification record relative to the
+                        repository (default: ${DEFAULT_MIGRATION_PLANNING_QUALIFICATION_PATH})
+      --progress <mode> Control analysis progress: auto, interactive, or plain
+                        auto uses interactive output on a TTY and stable plain
+                        lines otherwise. Heartbeats show real elapsed time;
+                        no percentage or ETA is inferred. (default: auto)
 
 Discover options:
   -o, --output <path>   Project Manifest path relative to the project root
@@ -147,6 +189,8 @@ Analyze-version options:
   -o, --output <path>   Version Analysis artifact path relative to the project root
                         (default: ${DEFAULT_VERSION_ANALYSIS_PATH})
       --package <id>    Analyze one exact canonical package ID (for example, pypi:langsmith)
+      --target <selector>
+                        Select explicit targets using the same analyze selector syntax
       --stdout          Print only the Version Analysis JSON
 
 Eval options:
@@ -229,7 +273,11 @@ export function parseArguments(argv) {
     pretty: true,
     stdout: false,
     failOnWarning: false,
-    offline: false
+    failOnIncomplete: false,
+    offline: false,
+    experimentalMigrationChecklist: false,
+    targets: [],
+    progress: 'auto'
   };
   let rootSet = false;
   for (let index = 0; index < args.length; index += 1) {
@@ -239,7 +287,21 @@ export function parseArguments(argv) {
     else if (argument === '--stdout') options.stdout = true;
     else if (argument === '--no-pretty') options.pretty = false;
     else if (argument === '--fail-on-warning') options.failOnWarning = true;
+    else if (argument === '--fail-on-incomplete') options.failOnIncomplete = true;
     else if (argument === '--offline') options.offline = true;
+    else if (argument === '--target') {
+      options.targets.push(parseTargetSelector(takeValue(args, index, argument)));
+      index += 1;
+    }
+    else if (argument === '--experimental-migration-checklist') {
+      options.experimentalMigrationChecklist = true;
+    } else if (argument === '--progress') {
+      options.progress = takeValue(args, index, argument);
+      index += 1;
+    } else if (argument === '--migration-qualification') {
+      options.migrationQualificationPath = takeValue(args, index, argument);
+      index += 1;
+    }
     else if (argument === '--output' || argument === '-o') {
       options.output = takeValue(args, index, argument);
       index += 1;
@@ -290,10 +352,33 @@ export function parseArguments(argv) {
   if (!['research', 'analyze'].includes(command) && options.offline) {
     throw new Error('--offline is only supported by research and analyze');
   }
+  if (command !== 'analyze' && options.experimentalMigrationChecklist) {
+    throw new Error('--experimental-migration-checklist is only supported by analyze');
+  }
+  if (options.migrationQualificationPath !== undefined) {
+    if (command !== 'analyze' || !options.experimentalMigrationChecklist) {
+      throw new Error('--migration-qualification requires analyze with --experimental-migration-checklist');
+    }
+    if (!isPortableRelativePath(options.migrationQualificationPath)) {
+      throw new Error('--migration-qualification must be a portable path relative to the repository root');
+    }
+  }
+  if (command !== 'analyze' && options.progress !== 'auto') {
+    throw new Error('--progress is only supported by analyze');
+  }
+  if (!['auto', 'interactive', 'plain'].includes(options.progress)) {
+    throw new Error('--progress must be auto, interactive, or plain');
+  }
   if (!['discover', 'analyze'].includes(command) && options.maxDepth !== undefined) {
     throw new Error('--max-depth is only supported by discover and analyze');
   }
   if (command !== 'discover' && options.failOnWarning) throw new Error('--fail-on-warning is only supported by discover');
+  if (command !== 'analyze' && options.failOnIncomplete) {
+    throw new Error('--fail-on-incomplete is only supported by analyze');
+  }
+  if (!['analyze', 'analyze-version'].includes(command) && options.targets.length > 0) {
+    throw new Error('--target is only supported by analyze and analyze-version');
+  }
   if (command !== 'discover' && !options.pretty) throw new Error('--no-pretty is only supported by discover');
   if (command !== 'eval' && options.dataset !== DEFAULT_EVALUATION_DATASET_PATH) throw new Error('--dataset is only supported by eval');
   if (command !== 'scorecard' && options.report !== DEFAULT_EVALUATION_REPORT_PATH) throw new Error('--report is only supported by scorecard');
@@ -398,6 +483,7 @@ async function executeResearch(options, io) {
     concurrency: io.concurrency ?? 4
   });
   const result = await orchestrator.run(plan);
+  if (io.signal?.aborted) throw new PipelineCancellationError(null, io.signal.reason);
   const manifest = (io.buildKnowledgeManifest ?? buildKnowledgeManifest)(result, {
     policy: {
       mode: options.offline ? 'offline' : 'online',
@@ -416,6 +502,7 @@ async function executeResearch(options, io) {
     generatedAt: manifest.generatedAt,
     enrichedEvidence: result.evidence
   });
+  if (io.signal?.aborted) throw new PipelineCancellationError(null, io.signal.reason);
   const target = await (io.writeKnowledgeManifest ?? writeKnowledgeManifest)(outputPath(root, options.output), manifest);
   const evidenceTarget = await (io.writeKnowledgeEvidenceBundle ?? writeKnowledgeEvidenceBundle)(
     outputPath(root, DEFAULT_KNOWLEDGE_EVIDENCE_BUNDLE_PATH),
@@ -474,6 +561,33 @@ function configuredAiTimeoutMs(env) {
   return timeoutMs;
 }
 
+function failureRecoveryGuidance(stage, error) {
+  const message = error?.message ?? '';
+  const code = error?.code ?? '';
+  if (/UPGRADELENS_AI_(?:ENDPOINT|MODEL)|AI runtime/i.test(message)) {
+    return [
+      `Stage: ${stage?.label ?? 'Version Analysis'}`,
+      'Required configuration: UPGRADELENS_AI_ENDPOINT and UPGRADELENS_AI_MODEL; authorization is optional.',
+      'Next action: configure one supported provider runtime and rerun. No credential value was printed.'
+    ];
+  }
+  if (/LINEAGE|lineage|digest mismatch|stale/i.test(`${code} ${message}`)) {
+    return [
+      `Stage: ${stage?.label ?? 'Artifact validation'}`,
+      'The input artifact chain is stale or mismatched.',
+      'Next action: rerun the upstream UpgradeLens workflow to regenerate the affected artifacts.'
+    ];
+  }
+  if (code === 'ENOENT' || /ENOENT|not found|missing artifact/i.test(message)) {
+    return [
+      `Stage: ${stage?.label ?? 'Artifact loading'}`,
+      'A required upstream artifact is missing.',
+      'Next action: run `upgradelens analyze <repository>` to regenerate the supported artifact chain.'
+    ];
+  }
+  return [];
+}
+
 async function executeAnalyzeVersion(options, io) {
   const root = path.resolve(options.root);
   const artifacts = await loadVersionAnalysisArtifacts({
@@ -496,17 +610,37 @@ async function executeAnalyzeVersion(options, io) {
       throw new Error(`Selected package ${options.packageId} matches ${inputs.length} dependency occurrences; one-dependency selection is ambiguous and no runtime call was made.`);
     }
   }
-  const contexts = inputs.map((input) => buildDependencyAiContext(artifacts, {
-    input,
-    target: { policy: 'registryLatest' }
-  }));
+  const selectedTargets = resolveTargetSelectors(inputs, options.targets ?? []);
+  const contexts = inputs.map((input) => {
+    const selected = selectedTargets.get(targetOccurrenceKey(input));
+    return buildDependencyAiContext(artifacts, {
+      input,
+      target: selected?.target ?? { policy: 'registryLatest' }
+    });
+  });
   const needsRuntime = contexts.some((context) => context.knowledge.evidence.length > 0
     && context.versions.analysisMode !== 'unsupportedBaseline'
     && context.versions.targetVersion !== null);
   const runtime = io.aiRuntime ?? (needsRuntime ? createDefaultAiRuntime(io) : null);
   const results = [];
-  for (const context of contexts) {
-    results.push(await analyzeDependencyAiContext(context, { runtime }));
+  for (let index = 0; index < contexts.length; index += 1) {
+    const context = contexts[index];
+    if (io.signal?.aborted) throw new PipelineCancellationError(null, io.signal.reason);
+    try {
+      io.onProgress?.({
+        activityKind: 'WAIT_FOR_ANALYSIS_RESPONSE',
+        subject: `Waiting for analysis response: ${context.dependency.declaredName}`,
+        completed: index,
+        total: contexts.length
+      });
+    } catch {
+      // Progress callbacks are presentation-only.
+    }
+    results.push(await analyzeDependencyAiContext(context, {
+      runtime,
+      signal: io.signal
+    }));
+    if (io.signal?.aborted) throw new PipelineCancellationError(null, io.signal.reason);
   }
   const manifest = (io.buildVersionAnalysisManifest ?? buildVersionAnalysisManifest)({
     input: artifacts.input,
@@ -692,27 +826,99 @@ function silentStream() {
   return Object.freeze({ write: () => true });
 }
 
+function migrationRuntimeMetadata(io) {
+  if (io.migrationRuntimeMetadata) return io.migrationRuntimeMetadata;
+  const env = io.env ?? process.env;
+  const provider = env.UPGRADELENS_AI_PROVIDER ?? 'unknown';
+  return {
+    provider,
+    model: env.UPGRADELENS_AI_MODEL ?? 'unknown',
+    adapter: provider === 'openai-compatible' ? 'openai-compatible' : provider
+  };
+}
+
+function migrationEventListener(options, io, progress) {
+  if (!options.experimentalMigrationChecklist) return undefined;
+  return (event) => {
+    try {
+      if (event.type === 'stage:start') {
+        progress?.({
+          activityKind: 'PREPARE_MIGRATION_CONTEXTS',
+          subject: 'Prepared eligible Migration Checklist contexts',
+          completed: 0,
+          total: event.total
+        });
+      } else if (event.type === 'migration:context-start') {
+        progress?.({
+          activityKind: 'WAIT_FOR_MIGRATION_RESPONSE',
+          subject: `Waiting for migration response: ${event.packageName}`,
+          completed: event.processed,
+          total: event.total
+        });
+      } else if ([
+        'migration:context-complete',
+        'migration:abstained',
+        'migration:trust-rejected',
+        'migration:fallback'
+      ].includes(event.type)) {
+        progress?.({
+          activityKind: 'SELECT_OFFICIAL_GUIDANCE',
+          subject: `Processed migration guidance: ${event.packageName}`,
+          completed: event.processed,
+          total: event.total
+        });
+      } else if (event.type === 'migration:artifact-written') {
+        progress?.({
+          activityKind: 'WRITE_MIGRATION_ARTIFACT',
+          subject: 'Validated and wrote Migration Checklist artifact'
+        });
+      }
+    } catch {
+      // Pipeline progress remains isolated from Migration Checklist semantics.
+    }
+    try {
+      if (typeof io.migrationProgressListener === 'function') io.migrationProgressListener(event);
+    } catch {
+      // External progress observation is presentation-only.
+    }
+  };
+}
+
 export function createCliAnalysisStageRunners(options, io) {
   const root = path.resolve(options.root);
   const quiet = silentStream();
   const clockOptions = io.clock ? { clock: io.clock } : {};
   return {
-    async projectDiscovery() {
-      const manifest = await discoverProject(root, { maxDepth: options.maxDepth });
+    async projectDiscovery({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      const manifest = await discoverProject(root, {
+        maxDepth: options.maxDepth,
+        signal
+      });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_PROJECT_MANIFEST',
+        subject: 'Writing Project Manifest'
+      });
       await writeProjectManifest(root, DEFAULT_MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
       return manifest;
     },
-    async knowledgeResearch() {
+    async knowledgeResearch({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       await runResearch({
         ...options,
         command: 'research',
         root,
         output: DEFAULT_KNOWLEDGE_MANIFEST_PATH,
         stdout: false
-      }, { ...io, stdout: quiet, stderr: quiet });
+      }, { ...io, stdout: quiet, stderr: quiet, signal });
+      progress?.({
+        activityKind: 'WRITE_KNOWLEDGE_ARTIFACTS',
+        subject: 'Validated Knowledge Research artifacts'
+      });
       return DEFAULT_KNOWLEDGE_MANIFEST_PATH;
     },
-    async versionAnalysis() {
+    async versionAnalysis({ progress, signal } = {}) {
       return executeAnalyzeVersion({
         ...options,
         command: 'analyze-version',
@@ -720,18 +926,26 @@ export function createCliAnalysisStageRunners(options, io) {
         output: DEFAULT_VERSION_ANALYSIS_PATH,
         stdout: false,
         packageId: undefined
-      }, { ...io, stdout: quiet, stderr: quiet });
+      }, { ...io, stdout: quiet, stderr: quiet, signal, onProgress: progress });
     },
-    async usageDiscovery() {
+    async usageDiscovery({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const usageIndex = await runUsageDiscovery({
         repositoryRoot: root,
         maxDepth: options.maxDepth,
+        signal,
         ...clockOptions
+      });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_USAGE_INDEX',
+        subject: 'Writing Repository Usage Index'
       });
       await writeUsageIndex(path.join(root, DEFAULT_USAGE_INDEX_PATH), usageIndex);
       return usageIndex;
     },
-    async impactAnalysis() {
+    async impactAnalysis({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const repositoryImpact = await runImpactAnalysis({
         sources: {
           projectManifest: path.join(root, DEFAULT_MANIFEST_PATH),
@@ -740,10 +954,16 @@ export function createCliAnalysisStageRunners(options, io) {
         },
         ...clockOptions
       });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_REPOSITORY_IMPACT',
+        subject: 'Writing Repository Impact artifact'
+      });
       await writeRepositoryImpact(path.join(root, DEFAULT_REPOSITORY_IMPACT_PATH), repositoryImpact);
       return repositoryImpact;
     },
-    async impactEvidence() {
+    async impactEvidence({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const impactEvidence = await runImpactEvidenceGeneration({
         sources: {
           projectManifest: path.join(root, DEFAULT_MANIFEST_PATH),
@@ -753,25 +973,97 @@ export function createCliAnalysisStageRunners(options, io) {
         },
         ...clockOptions
       });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_IMPACT_EVIDENCE',
+        subject: 'Writing Repository Impact Evidence artifact'
+      });
       await writeRepositoryImpactEvidence(
         path.join(root, DEFAULT_REPOSITORY_IMPACT_EVIDENCE_PATH),
         impactEvidence
       );
       return impactEvidence;
     },
-    async markdownReport({ artifacts }) {
+    async upgradeDecision({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      const decision = await (io.runUpgradeDecisionStage ?? runUpgradeDecisionStage)({
+        repositoryRoot: root,
+        artifactPath: DEFAULT_UPGRADE_DECISION_PATH
+      });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_UPGRADE_DECISION',
+        subject: 'Writing deterministic Upgrade Decision artifact'
+      });
+      return decision;
+    },
+    async migrationChecklist({ progress, signal } = {}) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      const onMigrationEvent = migrationEventListener(options, io, progress);
+      const runtimeMetadata = migrationRuntimeMetadata(io);
+      const resolver = io.resolveMigrationQualification ?? resolveMigrationQualification;
+      const qualificationOptions = {
+        repositoryRoot: root,
+        runtimeMetadata,
+        allowExperimental: true,
+        qualificationPath: options.migrationQualificationPath
+      };
+      if (Object.hasOwn(io, 'migrationQualification')) {
+        qualificationOptions.qualification = io.migrationQualification;
+      }
+      const qualificationDecision = await resolver(qualificationOptions);
+      return (io.runMigrationChecklistStage ?? runMigrationChecklistStage)({
+        repositoryRoot: root,
+        aiRuntime: io.migrationAiRuntime ?? io.aiRuntime ?? null,
+        createAiRuntime: () => createDefaultAiRuntime(io),
+        runtimeMetadata,
+        qualificationDecision,
+        allowExperimental: true,
+        generatedAt: io.clock ? io.clock() : new Date(),
+        artifactPath: DEFAULT_MIGRATION_CHECKLIST_PATH,
+        onEvent: onMigrationEvent,
+        signal
+      });
+    },
+    async markdownReport({ artifacts, progress, signal }) {
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
       const viewModel = buildImpactPresentationViewModel({
         projectManifest: artifacts.projectDiscovery,
         versionAnalysis: artifacts.versionAnalysis,
         repositoryImpact: artifacts.impactAnalysis,
         impactEvidence: artifacts.impactEvidence
       });
-      const contents = renderMarkdownReport({ viewModel });
+      const completion = buildProductCompletion({
+        upgradeDecision: artifacts.upgradeDecision,
+        versionAnalysis: artifacts.versionAnalysis,
+        migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel,
+        artifactPaths: {
+          report: options.output,
+          upgradeDecision: DEFAULT_UPGRADE_DECISION_PATH,
+          migrationChecklist: artifacts.migrationChecklist?.artifactPath ?? null
+        }
+      });
+      const contents = renderMarkdownReport({
+        viewModel,
+        upgradeDecision: artifacts.upgradeDecision,
+        migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel,
+        completion
+      });
+      if (signal?.aborted) throw new PipelineCancellationError(null, signal.reason);
+      progress?.({
+        activityKind: 'WRITE_MARKDOWN_REPORT',
+        subject: 'Writing Markdown report'
+      });
       const target = await (io.writeMarkdownReport ?? writeTextArtifact)(
         outputPath(root, options.output),
         contents
       );
-      return Object.freeze({ target, viewModel });
+      return Object.freeze({
+        target,
+        viewModel,
+        completion,
+        migrationChecklistViewModel: artifacts.migrationChecklist?.viewModel ?? null
+      });
     }
   };
 }
@@ -782,33 +1074,111 @@ export async function executeAnalyze(options, io) {
     ...createCliAnalysisStageRunners(options, io),
     ...io.analysisStageRunners
   };
-  const progressReporter = io.progressReporter ?? createProgressReporter(io.stderr);
+  const env = io.env ?? process.env;
+  const progressReporter = io.progressReporter ?? createProgressReporter(io.stderr, {
+    mode: options.progress,
+    noColor: Object.hasOwn(env, 'NO_COLOR')
+  });
+  const abortController = io.signal ? null : (io.abortController ?? new AbortController());
+  const signal = io.signal ?? abortController.signal;
+  const signalHost = io.signalHost ?? process;
+  const installSignalHandler = !io.signal && io.handleSignals !== false
+    && typeof signalHost?.once === 'function';
+  const onSigint = () => {
+    if (!abortController.signal.aborted) {
+      abortController.abort(new Error('User requested cancellation.'));
+    }
+  };
+  if (installSignalHandler) signalHost.once('SIGINT', onSigint);
+  const progressOptions = {};
+  if (io.progressMonotonicClock) progressOptions.monotonicClock = io.progressMonotonicClock;
+  if (io.progressWallClock) progressOptions.wallClock = io.progressWallClock;
+  if (io.progressScheduler) progressOptions.scheduler = io.progressScheduler;
+  if (io.heartbeatIntervalMs !== undefined) {
+    progressOptions.heartbeatIntervalMs = io.heartbeatIntervalMs;
+  }
   let result;
   try {
     result = await (io.runAnalysisPipeline ?? runAnalysisPipeline)({
       repositoryRoot: root,
       runners,
-      progressReporter
+      progressReporter,
+      progressListener: io.progressListener,
+      progressOptions,
+      signal,
+      stages: createAnalysisStages({
+        migrationChecklist: options.experimentalMigrationChecklist
+      })
     });
   } catch (error) {
+    if (error instanceof PipelineCancellationError || signal.aborted) {
+      io.stderr.write(
+        '\nUpgradeLens product outcome: CANCELLED\n'
+        + 'Next action: rerun when you are ready; no successful completion was published.\n'
+      );
+      return 130;
+    }
     if (!(error instanceof PipelineStageError)) throw error;
     let logTarget;
     try {
       logTarget = await (io.writeAnalysisFailureLog ?? writeAnalysisFailureLog)(root, error);
     } catch {
-      io.stderr.write(`\n${error.stage.label} failed.\n\nUnable to write analysis log.\n`);
+      io.stderr.write(
+        `\nUpgradeLens product outcome: FAILED\n${error.stage.label} failed.\n\n`
+        + 'Unable to write analysis log.\n'
+      );
       return 1;
     }
     const displayLog = path.relative(root, logTarget).split(path.sep).join('/');
-    io.stderr.write(`\n${error.stage.label} failed.\n\nSee:\n${displayLog || DEFAULT_ANALYSIS_LOG_PATH}\n`);
+    const decision = error.cause?.decision;
+    if (decision) {
+      const lines = [
+        '',
+        'UpgradeLens product outcome: FAILED',
+        `${error.stage.label} failed.`,
+        '',
+        `Qualification status: ${decision.status}`,
+        `Reason: ${decision.reasonCode}`,
+        `Qualification source: ${decision.sourceKind}`,
+        `Expected runtime: ${decision.runtimeIdentity.provider} / ${decision.runtimeIdentity.model} / ${decision.runtimeIdentity.adapter}`
+      ];
+      if (decision.sourcePath) lines.push(`Qualification path: ${decision.sourcePath}`);
+      if (decision.recordRuntimeIdentity) {
+        lines.push(
+          `Record runtime: ${decision.recordRuntimeIdentity.provider} / ${decision.recordRuntimeIdentity.model} / ${decision.recordRuntimeIdentity.adapter}`
+        );
+      }
+      lines.push(`Next action: ${decision.nextAction}`, '', 'See:', displayLog || DEFAULT_ANALYSIS_LOG_PATH);
+      io.stderr.write(`${lines.join('\n')}\n`);
+    } else {
+      const guidance = failureRecoveryGuidance(error.stage, error.cause);
+      const guidanceText = guidance.length > 0 ? `\n${guidance.join('\n')}\n` : '';
+      io.stderr.write(
+        `\nUpgradeLens product outcome: FAILED\n${error.stage.label} failed.\n`
+        + `${guidanceText}\nSee:\n`
+        + `${displayLog || DEFAULT_ANALYSIS_LOG_PATH}\n`
+      );
+    }
     return 1;
+  } finally {
+    if (installSignalHandler) signalHost.removeListener?.('SIGINT', onSigint);
   }
 
-  io.stdout.write(renderConsoleSummary({
-    viewModel: result.artifacts.markdownReport.viewModel,
-    reportPath: options.output
-  }));
-  return 0;
+  const completion = result.artifacts.markdownReport.completion;
+  if (options.stdout) {
+    io.stdout.write(`${JSON.stringify(completion, null, 2)}\n`);
+  } else {
+    io.stdout.write(renderConsoleSummary({
+      viewModel: result.artifacts.markdownReport.viewModel,
+      completion,
+      reportPath: options.output,
+      upgradeDecision: result.artifacts.upgradeDecision,
+      upgradeDecisionPath: DEFAULT_UPGRADE_DECISION_PATH,
+      migrationChecklistViewModel: result.artifacts.migrationChecklist?.viewModel,
+      migrationChecklistPath: result.artifacts.migrationChecklist?.artifactPath
+    }));
+  }
+  return productCompletionExitCode(completion, { strict: options.failOnIncomplete });
 }
 
 export async function runCli(argv, io = {}) {
@@ -847,7 +1217,11 @@ export async function runCli(argv, io = {}) {
     }
     return options.failOnWarning && manifest.warnings.length > 0 ? 2 : 0;
   } catch (error) {
-    stderr.write(`${CLI_NAME}: ${error.message}\n`);
+    const guidance = failureRecoveryGuidance(null, error);
+    stderr.write(
+      `${CLI_NAME}: ${error.message}\n`
+      + (guidance.length > 0 ? `${guidance.join('\n')}\n` : '')
+    );
     return 1;
   }
 }

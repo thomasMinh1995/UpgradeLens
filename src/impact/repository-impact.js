@@ -9,6 +9,13 @@ import {
   VERSION
 } from '../constants.js';
 import { compareText, isSorted } from '../portable.js';
+import { coverageForProject } from '../usage/coverage.js';
+import {
+  REPOSITORY_IMPACT_REASON_CODES,
+  REPOSITORY_IMPACT_STATUSES,
+  classifyDependencyImpact,
+  classifyFindingImpact
+} from './status.js';
 
 const schema = JSON.parse(await readFile(
   new URL('../../schemas/repository-impact.schema.json', import.meta.url),
@@ -33,25 +40,36 @@ function buildDependencies(versionAnalysis, usageIndex, matcher) {
   return versionAnalysis.results.map((result) => {
     const key = `${result.dependency.projectId}\0${result.dependency.packageId}`;
     const usage = usages.get(key) ?? null;
+    const coverage = coverageForProject(
+      usageIndex,
+      result.dependency.projectId,
+      result.dependency.ecosystem ?? null
+    );
+    const versionStatus = result.status ?? 'analyzed';
     const findings = result.findings
       .filter((finding) => finding.kind === 'breakingChange')
       .map((finding) => {
         const matches = matcher.match(finding, usage);
+        const state = classifyFindingImpact({ versionStatus, coverage, usage, matches });
         return {
           id: finding.id,
           kind: finding.kind,
           summary: finding.summary,
           impacted: matches.length > 0,
+          ...state,
           matches
         };
       })
       .sort(compareFindings);
+    const state = classifyDependencyImpact({ versionStatus, coverage, usage, findings });
     return {
       analysisResultId: result.id,
       projectId: result.dependency.projectId,
       packageId: result.dependency.packageId,
       name: result.dependency.declaredName,
       impacted: findings.some((finding) => finding.impacted),
+      ...state,
+      coverage: structuredClone(coverage),
       findings
     };
   }).sort(compareDependencies);
@@ -68,7 +86,11 @@ function buildSummary(dependencies) {
     findingCount: findings.length,
     impactedFindingCount: findings.filter((finding) => finding.impacted).length,
     matchCount: matches.length,
-    affectedFileCount: affectedFiles.size
+    affectedFileCount: affectedFiles.size,
+    notImpactedDependencyCount: dependencies.filter((item) => item.status === 'NOT_IMPACTED').length,
+    usageNotFoundDependencyCount: dependencies.filter((item) => item.status === 'USAGE_NOT_FOUND').length,
+    coverageUnavailableDependencyCount: dependencies.filter((item) => item.status === 'COVERAGE_UNAVAILABLE').length,
+    notAnalyzedDependencyCount: dependencies.filter((item) => item.status === 'NOT_ANALYZED').length
   };
 }
 
@@ -94,6 +116,20 @@ export function validateRepositoryImpactInvariants(impact) {
     if (dependency.impacted !== expectedDependencyImpact) {
       errors.push(`dependency ${dependency.analysisResultId} impacted is inconsistent.`);
     }
+    if (dependency.status !== undefined) {
+      if (!REPOSITORY_IMPACT_STATUSES.includes(dependency.status)) {
+        errors.push(`dependency ${dependency.analysisResultId} status is unsupported.`);
+      }
+      if (!REPOSITORY_IMPACT_REASON_CODES.includes(dependency.reasonCode)) {
+        errors.push(`dependency ${dependency.analysisResultId} reasonCode is unsupported.`);
+      }
+      if ((dependency.status === 'IMPACTED') !== dependency.impacted) {
+        errors.push(`dependency ${dependency.analysisResultId} status is inconsistent with impacted.`);
+      }
+      if (!dependency.coverage) {
+        errors.push(`dependency ${dependency.analysisResultId} status has no coverage.`);
+      }
+    }
     for (const finding of dependency.findings) {
       if (!isSorted(finding.matches, compareMatches)) errors.push(`matches for finding ${finding.id} must be sorted.`);
       if (new Set(finding.matches.map((match) => match.symbol)).size !== finding.matches.length) {
@@ -101,6 +137,17 @@ export function validateRepositoryImpactInvariants(impact) {
       }
       if (finding.impacted !== (finding.matches.length > 0)) {
         errors.push(`finding ${finding.id} impacted is inconsistent.`);
+      }
+      if (finding.status !== undefined) {
+        if (!REPOSITORY_IMPACT_STATUSES.includes(finding.status)) {
+          errors.push(`finding ${finding.id} status is unsupported.`);
+        }
+        if (!REPOSITORY_IMPACT_REASON_CODES.includes(finding.reasonCode)) {
+          errors.push(`finding ${finding.id} reasonCode is unsupported.`);
+        }
+        if ((finding.status === 'IMPACTED') !== finding.impacted) {
+          errors.push(`finding ${finding.id} status is inconsistent with impacted.`);
+        }
       }
       for (const match of finding.matches) {
         if (!isSorted(match.files, compareText)) errors.push(`files for match ${match.symbol} must be sorted.`);
@@ -110,7 +157,12 @@ export function validateRepositoryImpactInvariants(impact) {
   }
   const expected = buildSummary(impact.dependencies);
   for (const [field, value] of Object.entries(expected)) {
-    if (impact.summary[field] !== value) errors.push(`summary.${field} is inconsistent.`);
+    const statusAware = impact.dependencies.some((dependency) => dependency.status !== undefined);
+    if (statusAware && impact.summary[field] === undefined) {
+      errors.push(`summary.${field} is required for status-aware impact.`);
+    } else if (impact.summary[field] !== undefined && impact.summary[field] !== value) {
+      errors.push(`summary.${field} is inconsistent.`);
+    }
   }
   return errors.sort(compareText);
 }
